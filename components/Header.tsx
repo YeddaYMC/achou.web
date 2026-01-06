@@ -123,7 +123,7 @@ export default function Header() {
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => handleNavigation('home')} style={styles.logoButton}>
             <View style={styles.logoCircle}>
-              <Text style={styles.logoInitial}>A</Text>
+              <Image source={logoAchou} style={styles.logoImage} resizeMode="contain" />
             </View>
             <Text style={styles.logoText}>Achou!</Text>
           </TouchableOpacity>
@@ -217,10 +217,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logoInitial: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#0ea5e9',
+  logoImage: {
+    width: 44,
+    height: 44,
   },
   logoText: {
     color: '#fff',
