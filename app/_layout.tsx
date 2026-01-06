@@ -1,24 +1,27 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { useEffect } from 'react';
+import { AppProvider, useAppContext } from '../context/AppContext';
+import RootNavigator from '../navigation/RootNavigator';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+function AppLayout() {
+  const { currentScreen, navigateTo } = useAppContext();
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+  useEffect(() => {
+    // Redireciona para T1 após 10s se estiver na tela index
+    if (currentScreen === 'index') {
+      const timer = setTimeout(() => {
+        navigateTo('T1');
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentScreen, navigateTo]);
+
+  return <RootNavigator />;
+}
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <AppProvider>
+      <AppLayout />
+    </AppProvider>
   );
 }

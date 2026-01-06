@@ -1,0 +1,228 @@
+=================================================
+   ACHOU APP RN - LOG DE DESENVOLVIMENTO
+=================================================
+
+DATA INÍCIO: 06/01/2026
+
+=================================================
+ESTRUTURA BASE
+=================================================
+
+✓ Sistema de Design (styles/theme.ts)
+  - Cores light/dark
+  - Cores específicas de formulários (formBackground, formBorder, formTitle, etc)
+  - Espaçamentos (xs, sm, md, lg, xl, 2xl, 3xl)
+  - Tamanhos de fonte
+  - Pesos de fonte
+  - Raio de borda
+  - Opacidades
+  - Sombras
+
+✓ Hook de Tema (hooks/useTheme.ts)
+  - Detecta dark/light mode automaticamente
+  - Retorna cores e tokens do tema
+
+=================================================
+ORGANIZAÇÃO ARQUIVOS
+=================================================
+
+✓ Pasta screens/ criada
+  - Todos os arquivos com nomes em PT-BR
+  - tela-inicial.tsx (T1)
+  - cadastro.tsx (T2)
+  - login.tsx (T3)
+  - detalhes-negocio.tsx (T4)
+  - perfil.tsx (T5)
+  - criacao-edicao-negocio.tsx (T6)
+  - painel-gestao.tsx (T7)
+  - politicas-termos.tsx (T8)
+  - contato.tsx (T10)
+
+✓ Pasta navigation/ criada
+  - RootNavigator.tsx (sistema de navegação)
+
+=================================================
+COMPONENTES UI
+=================================================
+
+✓ Badge (components/ui/badge.tsx)
+  - Variantes: default, secondary, destructive, outline
+
+✓ Button (components/ui/button.tsx)
+  - Variantes: default, outline, destructive, secondary
+  - Estados: normal, disabled, pressed
+
+✓ Card (components/ui/card.tsx)
+  - Container com elevação e bordas
+
+✓ Label (components/ui/label.tsx)
+  - Labels para formulários
+
+✓ Select (components/ui/select.tsx)
+  - Select com modal
+  - SelectTrigger, SelectValue, SelectContent, SelectItem
+
+✓ Toast/Sonner (components/ui/sonner.tsx)
+  - Notificações usando Alert nativo
+
+✓ Input (components/ui/input.tsx)
+  - Input de texto com tema integrado
+
+✓ Checkbox (components/ui/checkbox.tsx)
+  - Checkbox com ícone Check do Lucide
+
+✓ Dialog (components/ui/dialog.tsx)
+  - Modal com Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
+
+✓ Separator (components/ui/separator.tsx)
+  - Linha separadora horizontal
+
+=================================================
+COMPONENTES AUXILIARES
+=================================================
+
+✓ GradientText (components/GradientText.tsx)
+  - Texto com gradiente usando LinearGradient
+
+✓ Layout-RN (components/Layout-RN.tsx)
+  - Layout padrão com SafeArea + ScrollView
+
+=================================================
+CONTEXTO GLOBAL
+=================================================
+
+✓ AppContext (context/AppContext.tsx)
+  - Estado global da aplicação
+  - Navegação com histórico (navigateTo, navigateBack)
+  - Favoritos
+  - Dark mode
+  - Negócio selecionado
+  - Sistema de autenticação (isLoggedIn, userProfile)
+  - Gerenciamento usuários (registeredUsers)
+  - Sistema de retorno pós-login (returnTo, setReturnTo)
+
+=================================================
+TELAS
+=================================================
+
+✓ TELA INDEX (app/index.tsx)
+  - Splash screen com logo
+  - Redirecionamento automático para T1 após 10 segundos
+screens/tela-inicial.tsx) - Listagem de Negócios
+  - Filtros por categoria
+  - Cards de negócios
+  - Favoritos
+  - Mock de 8 negócios
+
+✓ TELA T2 (screens/cadastro.tsx) - Cadastro
+  - Formulário completo com validações
+  - CPF, e-mail, senha, telefone, nome
+  - Checkbox termos LGPD
+  - Validação duplicados
+  - Integração com AppContext
+
+✓ TELA T3 (screens/login.tsx) - Login
+  - Formulário e-mail/senha
+  - Validação credenciais
+  - Redirecionamento pós-login (returnTo)
+  - Link para cadastro
+
+✓ TELA T4 (screens/t4-detalhes-negocio.tsx) - Detalhes do Negócio
+  - Imagem adaptativa do negócio
+  - Informações completas (categoria, localização, telefone)
+  - Cálculo de distância (caminhar, bicicleta, carro)
+  - Botões de ação (ligar, WhatsApp, traçar rota)
+  - Sistema de favoritos (requer login)
+  - Sistema de denúncia (requer login)
+  - Redes sociais (Instagram, Facebook, Pinterest)
+  - Proteção de rotas (redireciona para login)
+✓ TELA T5 (screens/t5-perfil.tsx) - Perfil do Usuário
+  - Avatar com iniciais do usuário
+  - Exibição de dados (nome, email, telefone, CPF, data de criação)
+  - Dialog de atualização de perfil (Input para editar dados)
+  - Sistema de exclusão de conta com LGPD (confirmação explícita)
+  - Logout com limpeza de dados (favoritos, reportBusiness, selectedBusiness)
+  - Sincronização com registeredUsers ao atualizar perfil
+✓ TELA T6 (screens/t6-criacao-edicao-negocio.tsx) - Criação/Edição de Anúncios
+  - Formulário completo de criação de anúncio
+  - 16 categorias pré-definidas
+  - Campos: nome, categoria, localização, CEP, rua, número
+  - Contatos: telefone, WhatsApp, email, site
+  - Redes sociais: Instagram, Facebook, Pinterest
+  - Controle de visibilidade por campo (checkboxes)
+  - Descrição com limite de 500 caracteres
+  - Normalização automática de URLs
+  - Estrutura preparada para Firebase Firestore
+  - Metadados: owner, ownerId, status, reportCount, timestamps
+✓ TELA T7 (screens/t7-painel-gestao.tsx) - Painel de Gestão de Anúncios
+  - Lista de anúncios do usuário (filtrado por email)
+  - Ações: editar, visualizar, excluir anúncio
+  - Modal de confirmação de exclusão
+  - Sistema Freemium (limite de 1 anúncio)
+  - Modal de upgrade para Premium
+  - Botão "Inserir Anúncio" e "Inserir outro anúncio"
+  - Seção "Configurações" com link para T5 (perfil)
+  - Navegação para T6 (criar/editar) e T4 (visualizar)
+✓ TELA T8 (screens/t8-politicas-termos.tsx) - Políticas de Privacidade
+  - 6 seções principais de políticas
+  - Coleta de dados (conformidade LGPD Lei 13.709/2018)
+  - Uso dos dados (4 finalidades específicas)
+  - Compartilhamento de dados e obrigações legais
+  - Direitos do usuário (5 direitos LGPD)
+  - Medidas de segurança
+  - Link para formulário de contato (T10)
+  - Data de última atualização
+  - Suporte completo a dark mode
+
+✓ TELA T9 (screens/t9-favoritos.tsx) - Favoritos [PLACEHOLDER]
+  - Placeholder para tela de favoritos
+  - Estrutura básica com dark mode
+
+✓ TELA T10 (screens/t10-contato.tsx) - Fale Conosco / Denúncias
+  - Formulário de contato com campo de mensagem
+  - Integração com sistema de denúncia (reportBusiness)
+  - Banner exibindo informações da denúncia
+  - Campo de mensagem com placeholder dinâmico
+  - Validação de mensagem vazia
+  - Limpeza de denúncia após envio
+  - Limpeza automática ao sair da tela
+  - Botão "Enviar Mensagem" (azul)
+  - Botão "Voltar para a Home" (outline)
+  - Suporte completo a dark mode
+
+✓ TELA T11 (screens/t11-termos-condicoes.tsx) - Termos e Condições [PLACEHOLDER]
+  - Placeholder para tela de termos e condições
+  - Estrutura básica com dark mode
+✓ TELA T10 (screens/contato.tsx) - Contato [PLACEHOLDER]
+
+=================================================
+NAVEGAÇÃO
+=================================================
+
+✓ RootNavigator (navigation/RootNavigator.tsx)
+  - Sistema de navegação baseado em AppContext
+  - Proteção de rotas (T5, T6, T7 requerem login)
+  - Redirecionamento automático para login
+  - Suporte a múltiplos aliases (T1/TelaInicial)
+  - Integração com AppContext
+
+=================================================
+PENDÊNCIAS
+=================================================
+
+[ ] Implementar telas placeholders (T4, T5, T6, T7, T10)
+[ ] Integrar RootNavigator no app/_layout.tsx ou index.tsx
+[ ] Assets/imagens (logoAchou, logoIFPR, imgAmigurumi)
+[ ] Dependências: lucide-react-native, expo-linear-gradient, react-native-safe-area-context
+[ ] Wrap app com AppProvider no _layout.tsx
+[ ] Ajustar imports nas telas após movimentação de arquivos
+
+=================================================
+OBSERVAÇÕES
+=================================================
+
+- Padrão: componentes em components/ e components/ui/
+- Estilos inline evitados, usar StyleSheet
+- Comentários breves em cada linha
+- Dark mode em todas as telas
+- TypeScript strict mode
