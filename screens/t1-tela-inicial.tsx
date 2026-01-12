@@ -41,8 +41,12 @@ export default function T1TelaInicial() {
   useEffect(() => {
     let results = mockBusinesses;
     if (selectedCategories.length > 0) {
-      results = results.filter(b => selectedCategories.includes(b.category)); // Filtra por categorias selecionadas
+      results = results.filter(b => 
+        b.categories.some(cat => selectedCategories.includes(cat)) // Verifica se alguma categoria do negócio está nos filtros
+      );
     }
+    console.log('Categorias selecionadas:', selectedCategories);
+    console.log('Resultados filtrados:', results.map(b => ({ name: b.name, categories: b.categories })));
     setFilteredBusinesses(results); // Atualiza lista
   }, [selectedCategories]);
 
@@ -141,20 +145,25 @@ export default function T1TelaInicial() {
                   resizeMode="cover"
                 />
                 <View style={styles.cardContent}>
-                  <Badge 
-                    variant="default" 
-                    style={[
-                      styles.categoryBadge,
-                      business.category === 'Imperdíveis' && styles.categoryBadgeImperdiveis
-                    ]}
-                  >
-                    <Text style={[
-                      styles.badgeText,
-                      business.category === 'Imperdíveis' && styles.badgeTextImperdiveis
-                    ]}>
-                      {business.category}
-                    </Text>
-                  </Badge>
+                  <View style={styles.badgesRow}>
+                    {business.categories.map((category, idx) => (
+                      <Badge 
+                        key={idx}
+                        variant="default" 
+                        style={[
+                          styles.categoryBadge,
+                          category === 'Imperdíveis' && styles.categoryBadgeImperdiveis
+                        ]}
+                      >
+                        <Text style={[
+                          styles.badgeText,
+                          category === 'Imperdíveis' && styles.badgeTextImperdiveis
+                        ]}>
+                          {category}
+                        </Text>
+                      </Badge>
+                    ))}
+                  </View>
                   <Text style={[styles.businessName, isDarkMode && styles.businessNameDark]}>{business.name}</Text>
                   <Text style={[styles.businessDesc, isDarkMode && styles.businessDescDark]} numberOfLines={2}>
                     {business.description}
@@ -300,7 +309,8 @@ const styles = StyleSheet.create({
     padding: 16, // Padding interno
   },
   categoryBadge: {
-    marginBottom: 8, // Espaço inferior
+    marginBottom: 4, // Espaço inferior
+    marginRight: 6, // Espaço à direita para múltiplos badges
   },
   categoryBadgeImperdiveis: {
     backgroundColor: '#fff', // Mantém fundo branco

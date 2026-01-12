@@ -1,11 +1,12 @@
-import React, { createContext, ReactNode, useContext, useState } from 'react';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
+import { getUserProfile, subscribeToAuthState } from '../src/services/authService';
 
 // Tipo para negócio
 interface Business {
   id: number;
   name: string;
-  category: string;
+  categories: string[]; // Array de categorias (múltiplas)
   location: string;
   cep: string;
   phone: string;
@@ -85,6 +86,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [showUpdateProfileDialog, setShowUpdateProfileDialog] = useState(false); // Dialog atualização perfil
   const [isDarkMode, setIsDarkMode] = useState(false); // Modo escuro
   const colorScheme = useColorScheme(); // Esquema de cores do dispositivo
+
+  // Sincroniza com Firebase Auth State
+  useEffect(() => {
+    const unsubscribe = subscribeToAuthState(async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const profile = await getUserProfile(firebaseUser.uid);
+          if (profile) {
+            setUserProfile(profile as UserProfile);
+            setIsLoggedIn(true);
+          }
+        } catch (error) {
+          console.error('Erro ao buscar perfil:', error);
+          setIsLoggedIn(false);
+          setUserProfile(null);
+        }
+      } else {
+        setIsLoggedIn(false);
+        setUserProfile(null);
+      }
+    });
+
+    return () => unsubscribe?.(); // Cleanup
+  }, []);
 
   // Função de navegação
   const navigateTo = (screen: string) => {

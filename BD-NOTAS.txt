@@ -1,0 +1,404 @@
+═══════════════════════════════════════════════════════════════
+          ACHOU APP - REGRAS E ESTRUTURA DO BANCO DE DADOS
+═══════════════════════════════════════════════════════════════
+
+ÚLTIMA ATUALIZAÇÃO: 06/01/2026
+
+═══════════════════════════════════════════════════════════════
+1. REGRAS DE NEGÓCIO - CATEGORIAS
+═══════════════════════════════════════════════════════════════
+
+REGRA #1: MÚLTIPLAS CATEGORIAS POR ANÚNCIO
+   • Um negócio/anúncio pode pertencer a MÚLTIPLAS categorias simultaneamente
+   • Exemplo: "Feira de Artesanato" pode ser "Eventos" E "Imperdíveis"
+   • Campo no BD deve ser ARRAY/LISTA de categorias
+   • Tipo: categories: string[] (não category: string)
+
+REGRA #2: CATEGORIA ESPECIAL "IMPERDÍVEIS"
+   • "Imperdíveis" é uma categoria de destaque
+   • Anúncios marcados como "Imperdíveis" recebem:
+     - Badge com borda verde neon (#39ff14)
+     - Sombra/brilho visual especial
+     - Maior visibilidade na interface
+   • Podem ter categoria "Imperdíveis" + outras categorias normais
+
+REGRA #3: FILTROS COMBINADOS
+   • Ao selecionar múltiplos filtros, mostrar negócios que tenham 
+     QUALQUER uma das categorias selecionadas (OR logic)
+   • Se usuário filtrar ["Eventos", "Imperdíveis"], mostrar todos 
+     os negócios que tenham "Eventos" OU "Imperdíveis" em suas categorias
+
+═══════════════════════════════════════════════════════════════
+2. ESTRUTURA DO BANCO DE DADOS
+═══════════════════════════════════════════════════════════════
+
+TABELA: businesses (negócios/anúncios)
+────────────────────────────────────────────────────────────────
+Campo                Tipo              Nullable  Descrição
+────────────────────────────────────────────────────────────────
+id                   INTEGER/SERIAL    NOT NULL  PK - ID único
+name                 VARCHAR(255)      NOT NULL  Nome do negócio
+categories           TEXT[]            NOT NULL  Array de categorias
+location             VARCHAR(255)      NOT NULL  Endereço/Bairro
+cep                  VARCHAR(10)       NOT NULL  CEP
+phone                VARCHAR(20)       NULL      Telefone
+whatsapp             VARCHAR(20)       NULL      WhatsApp (formato: 5541...)
+description          TEXT              NOT NULL  Descrição completa
+image                TEXT              NULL      URL da imagem
+lat                  DECIMAL(10,7)     NOT NULL  Latitude
+lon                  DECIMAL(10,7)     NOT NULL  Longitude
+instagram            VARCHAR(100)      NULL      Username Instagram
+facebook             VARCHAR(100)      NULL      URL Facebook
+pinterest            VARCHAR(100)      NULL      URL Pinterest
+contact_visibility   JSON              NULL      Visibilidade dos contatos
+owner_id             INTEGER           NOT NULL  FK -> users.id
+is_premium           BOOLEAN           DEFAULT FALSE
+created_at           TIMESTAMP         DEFAULT NOW()
+updated_at           TIMESTAMP         DEFAULT NOW()
+
+ÍNDICES RECOMENDADOS:
+  - idx_categories_gin: GIN index em categories (PostgreSQL)
+  - idx_location: B-tree em location
+  - idx_owner: B-tree em owner_id
+
+────────────────────────────────────────────────────────────────
+
+TABELA: users (usuários)
+────────────────────────────────────────────────────────────────
+Campo                Tipo              Nullable  Descrição
+────────────────────────────────────────────────────────────────
+id                   INTEGER/SERIAL    NOT NULL  PK - ID único
+name                 VARCHAR(255)      NOT NULL  Nome completo
+email                VARCHAR(255)      NOT NULL  E-mail (UNIQUE)
+password_hash        VARCHAR(255)      NOT NULL  Senha criptografada (bcrypt)
+phone                VARCHAR(20)       NULL      Telefone
+cpf                  VARCHAR(11)       NOT NULL  CPF (UNIQUE, somente dígitos)
+is_premium           BOOLEAN           DEFAULT FALSE
+created_at           TIMESTAMP         DEFAULT NOW()
+updated_at           TIMESTAMP         DEFAULT NOW()
+
+CONSTRAINTS:
+  - UNIQUE(email)
+  - UNIQUE(cpf)
+  - CHECK cpf length = 11
+
+────────────────────────────────────────────────────────────────
+
+TABELA: favorites (favoritos)
+────────────────────────────────────────────────────────────────
+Campo                Tipo              Nullable  Descrição
+────────────────────────────────────────────────────────────────
+id                   INTEGER/SERIAL    NOT NULL  PK
+user_id              INTEGER           NOT NULL  FK -> users.id
+business_id          INTEGER           NOT NULL  FK -> businesses.id
+created_at           TIMESTAMP         DEFAULT NOW()
+
+CONSTRAINTS:
+  - UNIQUE(user_id, business_id)
+  - ON DELETE CASCADE em ambas FKs
+
+────────────────────────────────────────────────────────────────
+
+TABELA: categories (lista de categorias disponíveis)
+────────────────────────────────────────────────────────────────
+Campo                Tipo              Nullable  Descrição
+────────────────────────────────────────────────────────────────
+id                   INTEGER/SERIAL    NOT NULL  PK
+name                 VARCHAR(100)      NOT NULL  Nome categoria (UNIQUE)
+slug                 VARCHAR(100)      NOT NULL  Slug URL-friendly (UNIQUE)
+is_featured          BOOLEAN           DEFAULT FALSE (para Imperdíveis)
+display_order        INTEGER           DEFAULT 999
+icon                 VARCHAR(50)       NULL      Nome do ícone
+created_at           TIMESTAMP         DEFAULT NOW()
+
+VALORES INICIAIS:
+  1. Imperdíveis (is_featured=true, display_order=1)
+  2. Alimentação & Restaurantes
+  3. Artesanato
+  4. Beleza & Estética
+  5. Cafés & Padarias
+  6. Casa & Construção
+  7. Educação & Cursos
+  8. Entretenimento & Lazer
+  9. Eventos
+  10. Limpeza & Manutenção
+  11. Moda & Vestuário
+  12. Pet Shop & Veterinária
+  13. Presentes & Joias
+  14. Saúde & Fitness
+  15. Serviços Automotivos
+  16. Tecnologia & Informática
+
+═══════════════════════════════════════════════════════════════
+3. QUERIES IMPORTANTES
+═══════════════════════════════════════════════════════════════
+
+BUSCAR NEGÓCIOS POR MÚLTIPLAS CATEGORIAS (PostgreSQL):
+────────────────────────────────────────────────────────────────
+SELECT * FROM businesses 
+WHERE categories && ARRAY['Eventos', 'Imperdíveis']::text[]
+ORDER BY created_at DESC;
+
+-- Operador && verifica se há interseção entre arrays
+
+
+BUSCAR NEGÓCIOS POR CATEGORIA ESPECÍFICA:
+────────────────────────────────────────────────────────────────
+SELECT * FROM businesses 
+WHERE 'Imperdíveis' = ANY(categories);
+
+
+INSERIR NEGÓCIO COM MÚLTIPLAS CATEGORIAS:
+────────────────────────────────────────────────────────────────
+INSERT INTO businesses (
+  name, categories, location, cep, phone, whatsapp, 
+  description, image, lat, lon, owner_id
+) VALUES (
+  'Feira Municipal de Artesanato',
+  ARRAY['Imperdíveis', 'Eventos'],
+  'Centro - Pinhais',
+  '83320-100',
+  '(41) 98888-0000',
+  '5541988880000',
+  'Evento especial de artesanato...',
+  'https://...',
+  -25.4185,
+  -49.2130,
+  1
+);
+
+
+ATUALIZAR CATEGORIAS DE UM NEGÓCIO:
+────────────────────────────────────────────────────────────────
+UPDATE businesses 
+SET categories = ARRAY['Imperdíveis', 'Eventos', 'Artesanato'],
+    updated_at = NOW()
+WHERE id = 18;
+
+
+═══════════════════════════════════════════════════════════════
+4. VALIDAÇÕES E SEGURANÇA
+═══════════════════════════════════════════════════════════════
+
+CADASTRO DE USUÁRIO:
+  ✓ E-mail único no sistema
+  ✓ CPF único (11 dígitos, somente números)
+  ✓ Senha mínima 6 caracteres (hash bcrypt)
+  ✓ Aceitação de termos LGPD obrigatória
+
+LOGIN:
+  ✓ Se e-mail não existe → Oferecer cadastro
+  ✓ Se e-mail existe mas senha errada → Erro genérico
+  ✓ Após cadastro → Redirecionar para login
+  ✓ Após login → Redirecionar para tela original (returnTo)
+
+ANÚNCIOS:
+  ✓ Mínimo 1 categoria obrigatória
+  ✓ Máximo de categorias: ilimitado (recomendado 3-4)
+  ✓ Coordenadas lat/lon obrigatórias
+  ✓ Imagem obrigatória (URL ou upload)
+
+═══════════════════════════════════════════════════════════════
+5. MIGRAÇÃO DE DADOS
+═══════════════════════════════════════════════════════════════
+
+CONVERSÃO category → categories:
+────────────────────────────────────────────────────────────────
+-- Se você tinha campo 'category' singular, migrar para array:
+
+ALTER TABLE businesses 
+ADD COLUMN categories TEXT[];
+
+UPDATE businesses 
+SET categories = ARRAY[category]
+WHERE category IS NOT NULL;
+
+ALTER TABLE businesses 
+DROP COLUMN category;
+
+ALTER TABLE businesses 
+ALTER COLUMN categories SET NOT NULL;
+
+
+═══════════════════════════════════════════════════════════════
+6. API ENDPOINTS (Planejamento Futuro)
+═══════════════════════════════════════════════════════════════
+
+GET /api/businesses
+  Query params: 
+    - categories[]: array de categorias
+    - location: filtro por localização
+    - limit, offset: paginação
+
+GET /api/businesses/:id
+  Retorna detalhes completos do negócio
+
+POST /api/businesses (autenticado)
+  Criar novo anúncio
+  Body: { name, categories[], location, ... }
+
+PUT /api/businesses/:id (autenticado, owner only)
+  Atualizar anúncio existente
+
+DELETE /api/businesses/:id (autenticado, owner only)
+  Remover anúncio
+
+GET /api/categories
+  Lista todas as categorias disponíveis
+
+POST /api/auth/register
+  Criar nova conta de usuário
+
+POST /api/auth/login
+  Login e geração de JWT token
+
+POST /api/favorites/:businessId (autenticado)
+  Adicionar aos favoritos
+
+DELETE /api/favorites/:businessId (autenticado)
+  Remover dos favoritos
+
+═══════════════════════════════════════════════════════════════
+7. INTEGRAÇÃO FIREBASE (IMPLANTADO)
+═══════════════════════════════════════════════════════════════
+
+PROJETO FIREBASE:
+  • Nome: achou-android
+  • URL Console: https://console.firebase.google.com
+  • Autenticação: Email/Password + Google Sign-In (habilitado)
+  • Banco de Dados: Firestore (modo produção)
+
+CONFIGURAÇÃO:
+  • firebaseConfig.js: Inicializa Firebase na raiz do projeto
+  • authService.ts (src/services/): Service layer com funções de auth
+  • google-services.json: Configuração Android com SHA-1 registrado
+
+AUTENTICAÇÃO (IMPLEMENTADO):
+  • registerWithEmail(email, password, userData)
+    - Cria usuário no Firebase Auth
+    - Salva perfil em Firestore (collection: users)
+    - Retorna { success: true/false, userData?, error? }
+  
+  • loginWithEmail(email, password)
+    - Autentica via Firebase Auth
+    - Retorna dados do perfil (Firestore)
+    - Retorna { success: true/false, userData?, error? }
+  
+  • logout()
+    - Faz sign out no Firebase
+  
+  • subscribeToAuthState(callback)
+    - Listener para mudanças de autenticação
+    - Chamado no AppContext para sincronizar estado
+  
+  • getUserProfile(uid)
+    - Busca dados do usuário em Firestore
+  
+  • updateUserProfile(uid, data)
+    - Atualiza perfil do usuário em Firestore
+
+ESTRUTURA FIRESTORE:
+
+Collection: users/{uid}
+  - name: string
+  - email: string
+  - phone: string
+  - cpf: string
+  - isPremium: boolean
+  - createdAt: timestamp
+  - [future fields for profile settings]
+
+Collection: businesses/{businessId}
+  - name: string
+  - categories: string[] (múltiplas categorias)
+  - location: string
+  - cep: string
+  - phone: string
+  - whatsapp: string
+  - description: string
+  - image: string (URL ou base64)
+  - lat: number
+  - lon: number
+  - instagram: string
+  - facebook: string
+  - pinterest: string
+  - createdBy: string (UID do usuário que criou)
+  - createdAt: timestamp
+  - updatedAt: timestamp
+
+Collection: users/{uid}/favorites/{businessId}
+  - businessId: string
+  - addedAt: timestamp
+  - [future: notes, rating]
+
+Collection: reports/{reportId}
+  - businessId: string
+  - reportedBy: string (UID)
+  - reason: string
+  - description: string
+  - status: string ("pending" | "reviewed" | "resolved")
+  - createdAt: timestamp
+
+REGRAS DE SEGURANÇA FIRESTORE (PRODUÇÃO):
+  • Apenas usuários autenticados podem ler/escrever
+  • Usuários só podem editar seus próprios dados
+  • Negócios podem ser editados pelo criador
+  • Favoritos privados por usuário
+
+═══════════════════════════════════════════════════════════════
+8. TELAS ATUALIZADAS PARA FIREBASE
+═══════════════════════════════════════════════════════════════
+
+✅ t3-login.tsx (COMPLETO)
+   • Usa loginWithEmail() do authService
+   • Loading indicator durante autenticação
+   • Erro com opção de redirecionamento para cadastro
+   • Atualiza AppContext com setIsLoggedIn e setUserProfile
+
+✅ t2-cadastro.tsx (COMPLETO)
+   • Usa registerWithEmail() do authService
+   • Validações: nome, email, senha (min 6), CPF (11 dígitos)
+   • Loading indicator durante registro
+   • Aceitar termos é obrigatório
+   • Sucesso redireciona para T1 (home)
+
+✅ AppContext.tsx (SINCRONIZADO COM FIREBASE)
+   • useEffect com subscribeToAuthState() sincroniza automaticamente
+   • Quando usuário faz login, perfil é carregado de Firestore
+   • Logout limpa estado de autenticação
+   • Estado persiste entre recarregamentos do app
+
+═══════════════════════════════════════════════════════════════
+9. PRÓXIMOS PASSOS
+═══════════════════════════════════════════════════════════════
+
+PENDENTE:
+  □ Implementar Google Sign-In em t3-login.tsx
+  □ Migrar dados de businesses de mockData para Firestore
+  □ Implementar upload de imagens para Firebase Storage
+  □ Tela de edição de perfil (t5-perfil.tsx) com updateUserProfile
+  □ Tela de criação de negócio com salvar em Firestore
+  □ Sistema de favoritos integrado com Firestore
+  □ Sistema de reportes de negócios
+  □ Busca e filtros via Firestore queries
+
+═══════════════════════════════════════════════════════════════
+ANTIGA: TECNOLOGIAS RECOMENDADAS (Backup)
+═══════════════════════════════════════════════════════════════
+
+BACKEND:
+  • Node.js + Express ou NestJS
+  • PostgreSQL (suporte nativo a arrays)
+  • TypeORM ou Prisma (ORM)
+  • JWT para autenticação
+  • bcrypt para hash de senhas
+  • multer para upload de imagens
+
+HOSPEDAGEM:
+  • Backend: Railway, Render, Heroku
+  • Banco de dados: Supabase, Railway PostgreSQL
+  • Imagens: Cloudinary, AWS S3
+
+═══════════════════════════════════════════════════════════════
+FIM DAS NOTAS
+═══════════════════════════════════════════════════════════════

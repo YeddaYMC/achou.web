@@ -1,6 +1,8 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { Heart, MapPin, Menu, Moon, Sun, X } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import logoAchou from '../assets/images/LOGO-ACHOU.png';
 import { useAppContext } from '../context/AppContext';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
@@ -119,7 +121,12 @@ export default function Header() {
 
   return (
     <>
-      <View style={[styles.header, isDarkMode && styles.headerDark]}>
+      <LinearGradient
+        colors={isDarkMode ? ['#0f172a', '#1e3a8a'] : ['#0ea5e9', '#22c55e']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.header}
+      >
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => handleNavigation('home')} style={styles.logoButton}>
             <View style={styles.logoCircle}>
@@ -179,14 +186,13 @@ export default function Header() {
           </View>
         )}
         <LocationDialog open={locationDialogOpen} onOpenChange={setLocationDialogOpen} />
-      </View>
+      </LinearGradient>
     </>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
-    backgroundColor: '#0ea5e9',
     paddingVertical: 12,
     paddingHorizontal: 16,
     shadowColor: '#000',
@@ -195,9 +201,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
     flexShrink: 0,
-  },
-  headerDark: {
-    backgroundColor: '#1e40af',
   },
   headerContent: {
     flexDirection: 'row',

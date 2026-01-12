@@ -1,6 +1,6 @@
 import { useTheme } from '@/hooks/useTheme';
 import React, { ReactNode, createContext, useContext, useState } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 
 // Contexto do Select
 interface SelectContextType {
@@ -88,8 +88,10 @@ export function SelectContent({ children }: SelectContentProps) {
   return (
     <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
       <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setIsOpen(false)}>
-        <View style={[styles.modalContent, { backgroundColor: colors.popover, borderColor: colors.border }]}>
-          {children}
+        <View style={[styles.modalContent, { borderColor: colors.border }]}>
+          <ScrollView showsVerticalScrollIndicator={true}>
+            {children}
+          </ScrollView>
         </View>
       </TouchableOpacity>
     </Modal>
@@ -153,10 +155,12 @@ const styles = StyleSheet.create({
     borderRadius: 12, // Borda arredondada
     borderWidth: 1, // Borda
     paddingVertical: 8, // Padding vertical
+    backgroundColor: '#FFFFFF', // Fundo branco sólido sempre
   },
   item: {
     paddingHorizontal: 16, // Padding horizontal
     paddingVertical: 12, // Padding vertical
+    backgroundColor: '#FFFFFF', // Fundo branco para todos os itens
   },
   itemImperdiveis: {
     backgroundColor: '#fff', // Mantém fundo branco

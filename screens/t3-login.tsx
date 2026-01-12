@@ -1,36 +1,52 @@
 import { useTheme } from '@/hooks/useTheme';
 import { ChevronLeft } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { useAppContext } from '../context/AppContext';
+import { loginWithEmail } from '../src/services/authService';
 
 // Tela de login
 export default function Login() {
-  const { navigateTo, navigateBack, setIsLoggedIn, setUserProfile, registeredUsers, returnTo } = useAppContext();
-  const { colors, spacing, fontSize, borderRadius } = useTheme(); // Tema
-  const [formData, setFormData] = useState({ email: '', password: '' }); // Dados formulário
+  const { navigateTo, navigateBack, setIsLoggedIn, setUserProfile } = useAppContext();
+  const { colors, spacing, fontSize, borderRadius } = useTheme();
+  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [loading, setLoading] = useState(false);
 
   // Submete login
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.email || !formData.password) {
-      Alert.alert('Erro', 'E-mail e senha são obrigatórios'); // Valida campos
+      Alert.alert('Erro', 'E-mail e senha são obrigatórios');
       return;
     }
 
-    const user = registeredUsers.find((u) => u.email === formData.email && u.password === formData.password); // Busca usuário
-    if (!user) {
-      Alert.alert('Erro', 'E-mail ou senha incorretos'); // Credenciais inválidas
+    setLoading(true);
+    const result = await loginWithEmail(formData.email, formData.password);
+    setLoading(false);
+
+    if (!result.success) {
+      Alert.alert(
+        'Erro ao fazer login',
+        result.error || 'E-mail ou senha incorretos. Deseja criar uma conta?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Ir para cadastro',
+            onPress: () => navigateTo('T2'),
+          },
+        ]
+      );
       return;
     }
 
-    setUserProfile(user); // Define perfil
-    setIsLoggedIn(true); // Define como logado
-    Alert.alert('Sucesso', `Bem-vindo(a), ${user.name}!`); // Notifica sucesso
-    navigateTo(returnTo || 'T1'); // Redireciona para tela desejada ou T1
+    // Login bem-sucedido
+    setUserProfile(result.userData || null);
+    setIsLoggedIn(true);
+    Alert.alert('Sucesso', 'Login realizado com sucesso!');
+    navigateTo('T1');
   };
 
   return (
@@ -70,6 +86,7 @@ export default function Login() {
                 placeholder="seu@email.com"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                editable={!loading}
                 style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
               />
             </View>
@@ -82,6 +99,7 @@ export default function Login() {
                 onChangeText={(text) => setFormData({ ...formData, password: text })}
                 placeholder="Digite sua senha"
                 secureTextEntry
+                editable={!loading}
                 style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
               />
             </View>
@@ -89,18 +107,27 @@ export default function Login() {
             {/* Botão login */}
             <Button
               onPress={handleSubmit}
+              disabled={loading}
               style={{
                 backgroundColor: colors.success,
                 height: 48,
                 borderRadius: borderRadius.md,
+                opacity: loading ? 0.6 : 1,
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
               }}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: fontSize.base, fontWeight: '600' }}>ENTRAR</Text>
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={{ color: '#FFFFFF', fontSize: fontSize.base, fontWeight: '600' }}>ENTRAR</Text>
+              )}
             </Button>
 
             {/* Link cadastro */}
             <View style={styles.footer}>
-              <TouchableOpacity onPress={() => navigateTo('T2')}>
+              <TouchableOpacity onPress={() => navigateTo('T2')} disabled={loading}>
                 <Text style={{ color: colors.formLink, fontSize: fontSize.sm, textDecorationLine: 'underline' }}>
                   Não tenho conta. Criar agora
                 </Text>

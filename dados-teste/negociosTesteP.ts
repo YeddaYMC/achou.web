@@ -1,9 +1,22 @@
 // Dados de teste - Serão substituídos por dados do BD
 export const mockBusinesses = [
   { 
+    id: 18,
+    name: 'Feira Municipal de Artesanato',
+    categories: ['Imperdíveis', 'Eventos'], // Múltiplas categorias
+    location: 'Centro - Pinhais',
+    cep: '83320-100',
+    phone: '(41) 98888-0000',
+    whatsapp: '5541988880000',
+    description: 'Evento especial de artesanato com expositores locais e oficinas ao vivo.',
+    image: 'https://images.unsplash.com/photo-1501004318641-b39e6451bec6?w=400',
+    lat: -25.4185,
+    lon: -49.2130
+  },
+  { 
     id: 15, 
     name: 'IV WIPEX - IFPR Pinhais', 
-    category: 'Eventos', 
+    categories: ['Eventos'], 
     location: 'Jardim Amélia - Pinhais', 
     cep: '83330-200', 
     phone: '(41) 3912-1200', 
@@ -16,7 +29,7 @@ export const mockBusinesses = [
   { 
     id: 14, 
     name: 'Academia Vida Ativa', 
-    category: 'Saúde & Fitness', 
+    categories: ['Saúde & Fitness'], 
     location: 'Emiliano Perneta - Pinhais', 
     cep: '83330-000', 
     phone: '(41) 97654-3210', 
@@ -29,7 +42,7 @@ export const mockBusinesses = [
   { 
     id: 12, 
     name: 'Pizzaria Bella Napoli', 
-    category: 'Alimentação & Restaurantes', 
+    categories: ['Alimentação & Restaurantes'], 
     location: 'Emiliano Perneta - Pinhais', 
     cep: '83330-000', 
     phone: '(41) 97766-5544', 
@@ -42,7 +55,7 @@ export const mockBusinesses = [
   { 
     id: 3, 
     name: 'Salão Beleza Pura', 
-    category: 'Beleza & Estética', 
+    categories: ['Beleza & Estética'], 
     location: 'Jardim Amélia - Pinhais', 
     cep: '83325-000', 
     phone: '(41) 99876-5432', 
@@ -55,7 +68,7 @@ export const mockBusinesses = [
   { 
     id: 1, 
     name: 'IFPR Pinhais', 
-    category: 'Educação & Cursos', 
+    categories: ['Educação & Cursos'], 
     location: 'Jardim Amélia - Pinhais', 
     cep: '83330-200', 
     phone: '(41) 3912-1200', 
@@ -68,7 +81,7 @@ export const mockBusinesses = [
   { 
     id: 2, 
     name: 'Café da Praça Pinhais', 
-    category: 'Cafés & Padarias', 
+    categories: ['Cafés & Padarias'], 
     location: 'Centro - Pinhais', 
     cep: '83320-000', 
     phone: '(41) 91234-5678', 
@@ -81,7 +94,7 @@ export const mockBusinesses = [
   { 
     id: 4, 
     name: 'Ateliê Festas & Lembranças', 
-    category: 'Artesanato', 
+    categories: ['Artesanato'], 
     location: 'Weissópolis - Pinhais', 
     cep: '83340-000', 
     phone: '(41) 99887-7665', 
@@ -94,7 +107,7 @@ export const mockBusinesses = [
   { 
     id: 17, 
     name: 'Art - Amigurumi', 
-    category: 'Artesanato', 
+    categories: ['Artesanato'], 
     location: 'Jardim Amélia - Pinhais', 
     cep: '83325-000', 
     phone: '(41) 99234-5678', 
