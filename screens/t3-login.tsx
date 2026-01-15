@@ -15,43 +15,45 @@ export default function Login() {
   const { colors, spacing, fontSize, borderRadius } = useTheme();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Submete login
   const handleSubmit = async () => {
+    setErrorMessage(''); // Limpa erro anterior
+    
     if (!formData.email || !formData.password) {
-      Alert.alert('Erro', 'E-mail e senha são obrigatórios');
+      setErrorMessage('E-mail e senha são obrigatórios');
       return;
     }
 
     setLoading(true);
-    const result = await loginWithEmail(formData.email, formData.password);
-    setLoading(false);
+    try {
+      const result = await loginWithEmail(formData.email, formData.password);
+      setLoading(false);
 
-    if (!result.success) {
-      Alert.alert(
-        'Erro ao fazer login',
-        result.error || 'E-mail ou senha incorretos. Deseja criar uma conta?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Ir para cadastro',
-            onPress: () => navigateTo('T2'),
-          },
-        ]
-      );
-      return;
+      console.log('Resultado do login:', result);
+
+      if (!result.success) {
+        // Mostra erro visível na tela
+        setErrorMessage(result.error || 'E-mail ou senha incorretos');
+        return;
+      }
+
+      // Login bem-sucedido
+      setUserProfile(result.userData || null);
+      setIsLoggedIn(true);
+      Alert.alert('Sucesso', 'Login realizado com sucesso!');
+      navigateTo('T1');
+    } catch (error) {
+      setLoading(false);
+      console.error('Erro no login:', error);
+      setErrorMessage('Não foi possível fazer login. Tente novamente.');
     }
-
-    // Login bem-sucedido
-    setUserProfile(result.userData || null);
-    setIsLoggedIn(true);
-    Alert.alert('Sucesso', 'Login realizado com sucesso!');
-    navigateTo('T1');
   };
 
   return (
     <LayoutRN>
-      <View style={[styles.container, { padding: spacing.md, maxWidth: 448 }]}>
+      <View style={[styles.container, { padding: spacing.md, maxWidth: 448, backgroundColor: colors.background }]}>
         {/* Botão voltar */}
         <TouchableOpacity onPress={navigateBack} style={{ marginBottom: spacing.lg }}>
           <View style={styles.backButton}>
@@ -75,6 +77,34 @@ export default function Login() {
           <Text style={[styles.title, { color: colors.formTitle, fontSize: fontSize['2xl'], marginBottom: spacing.lg }]}>
             Entrar na Minha Conta
           </Text>
+
+          {/* Mensagem de erro visível */}
+          {errorMessage ? (
+            <View
+              style={{
+                backgroundColor: '#FEE2E2',
+                borderColor: '#EF4444',
+                borderWidth: 1,
+                borderRadius: borderRadius.md,
+                padding: spacing.md,
+                marginBottom: spacing.md,
+              }}
+            >
+              <Text style={{ color: '#DC2626', fontSize: fontSize.sm, textAlign: 'center' }}>
+                ⚠️ {errorMessage}
+              </Text>
+              {errorMessage.includes('não encontrado') || errorMessage.includes('incorretos') ? (
+                <TouchableOpacity
+                  onPress={() => navigateTo('T2')}
+                  style={{ marginTop: spacing.sm, alignItems: 'center' }}
+                >
+                  <Text style={{ color: '#DC2626', fontSize: fontSize.sm, fontWeight: '600', textDecorationLine: 'underline' }}>
+                    Criar conta agora →
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
 
           <View style={{ gap: 20 }}>
             {/* E-mail */}
@@ -123,6 +153,36 @@ export default function Login() {
               ) : (
                 <Text style={{ color: '#FFFFFF', fontSize: fontSize.base, fontWeight: '600' }}>ENTRAR</Text>
               )}
+            </Button>
+
+            {/* Separador OU */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.formBorder }} />
+              <Text style={{ color: colors.formLabel, fontSize: fontSize.sm }}>OU</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.formBorder }} />
+            </View>
+
+            {/* Botão Google (desabilitado temporariamente) */}
+            <Button
+              onPress={() => setErrorMessage('Login com Google será implementado em breve')}
+              disabled={loading}
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderWidth: 1,
+                borderColor: colors.formBorder,
+                height: 48,
+                borderRadius: borderRadius.md,
+                opacity: loading ? 0.6 : 1,
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: spacing.sm,
+              }}
+            >
+              <Text style={{ fontSize: 20 }}>🔐</Text>
+              <Text style={{ color: colors.formLabel, fontSize: fontSize.base, fontWeight: '600' }}>
+                Entrar com Google
+              </Text>
             </Button>
 
             {/* Link cadastro */}

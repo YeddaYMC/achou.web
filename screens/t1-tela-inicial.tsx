@@ -1,4 +1,4 @@
-import { Heart, X } from 'lucide-react-native';
+import { Heart, Truck, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
@@ -21,6 +21,7 @@ const CATEGORIES = [
   'Casa & Construção',
   'Educação & Cursos',
   'Entretenimento & Lazer',
+  'Entrega Rápida na Região',
   'Eventos',
   'Limpeza & Manutenção',
   'Moda & Vestuário',
@@ -41,12 +42,24 @@ export default function T1TelaInicial() {
   useEffect(() => {
     let results = mockBusinesses;
     if (selectedCategories.length > 0) {
-      results = results.filter(b => 
-        b.categories.some(cat => selectedCategories.includes(cat)) // Verifica se alguma categoria do negócio está nos filtros
-      );
+      results = results.filter(b => {
+        // Se filtro de Entrega Rápida está selecionado
+        if (selectedCategories.includes('Entrega Rápida na Região')) {
+          const hasDelivery = b.entregaRapida === true;
+          const hasOtherCategory = b.categories.some(cat => selectedCategories.filter(c => c !== 'Entrega Rápida na Região').includes(cat));
+          // Se há outros filtros além de Entrega Rápida, deve ter entrega E uma das categorias
+          if (selectedCategories.length > 1) {
+            return hasDelivery && hasOtherCategory;
+          }
+          // Se só tem filtro de Entrega Rápida, retorna apenas os que têm entrega
+          return hasDelivery;
+        }
+        // Filtro normal de categorias
+        return b.categories.some(cat => selectedCategories.includes(cat));
+      });
     }
     console.log('Categorias selecionadas:', selectedCategories);
-    console.log('Resultados filtrados:', results.map(b => ({ name: b.name, categories: b.categories })));
+    console.log('Resultados filtrados:', results.map(b => ({ name: b.name, categories: b.categories, entregaRapida: b.entregaRapida })));
     setFilteredBusinesses(results); // Atualiza lista
   }, [selectedCategories]);
 
@@ -90,7 +103,14 @@ export default function T1TelaInicial() {
               <SelectContent>
                 {CATEGORIES.map((category) => (
                   <SelectItem key={category} value={category}>
-                    {category}
+                    {category === 'Entrega Rápida na Região' ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Truck size={16} color="#10b981" />
+                        <Text>{category}</Text>
+                      </View>
+                    ) : (
+                      category
+                    )}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -163,6 +183,11 @@ export default function T1TelaInicial() {
                         </Text>
                       </Badge>
                     ))}
+                    {business.entregaRapida && (
+                      <Badge variant="default" style={styles.entregaBadge}>
+                        <Text style={styles.entregaBadgeText}>🚀 Entrega Rápida</Text>
+                      </Badge>
+                    )}
                   </View>
                   <Text style={[styles.businessName, isDarkMode && styles.businessNameDark]}>{business.name}</Text>
                   <Text style={[styles.businessDesc, isDarkMode && styles.businessDescDark]} numberOfLines={2}>
@@ -330,6 +355,15 @@ const styles = StyleSheet.create({
   badgeTextImperdiveis: {
     color: '#1e3a8a', // Azul escuro
     fontWeight: '700', // Peso extra bold
+  },
+  entregaBadge: {
+    backgroundColor: '#10b981', // Verde
+    borderWidth: 0,
+  },
+  entregaBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#fff',
   },
   businessName: {
     fontSize: 16, // Tamanho fonte

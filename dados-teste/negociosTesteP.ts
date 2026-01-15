@@ -11,7 +11,8 @@ export const mockBusinesses = [
     description: 'Evento especial de artesanato com expositores locais e oficinas ao vivo.',
     image: 'https://images.unsplash.com/photo-1501004318641-b39e6451bec6?w=400',
     lat: -25.4185,
-    lon: -49.2130
+    lon: -49.2130,
+    entregaRapida: true
   },
   { 
     id: 15, 
@@ -24,7 +25,8 @@ export const mockBusinesses = [
     description: 'Evento de extensão do curso de GTI...', 
     image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=400', 
     lat: -25.4320, 
-    lon: -49.2030 
+    lon: -49.2030,
+    entregaRapida: false
   },
   { 
     id: 14, 
@@ -37,7 +39,8 @@ export const mockBusinesses = [
     description: 'Treinamento personalizado e aulas em grupo em Pinhais.', 
     image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=400', 
     lat: -25.4100, 
-    lon: -49.2000 
+    lon: -49.2000,
+    entregaRapida: false
   },
   { 
     id: 12, 
@@ -50,7 +53,8 @@ export const mockBusinesses = [
     description: 'As melhores pizzas de Pinhais com receitas tradicionais italianas.', 
     image: 'https://images.unsplash.com/photo-1566843972142-a7fcb70de55a?w=400', 
     lat: -25.4110, 
-    lon: -49.2010 
+    lon: -49.2010,
+    entregaRapida: true
   },
   { 
     id: 3, 
@@ -63,7 +67,8 @@ export const mockBusinesses = [
     description: 'Serviços completos de beleza e bem-estar no Jardim Amélia.', 
     image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400', 
     lat: -25.4300, 
-    lon: -49.2050 
+    lon: -49.2050,
+    entregaRapida: false
   },
   { 
     id: 1, 
@@ -76,7 +81,8 @@ export const mockBusinesses = [
     description: 'Instituto Federal do Paraná - Campus Pinhais.', 
     image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=400', 
     lat: -25.4320, 
-    lon: -49.2030 
+    lon: -49.2030,
+    entregaRapida: false
   },
   { 
     id: 2, 
@@ -89,7 +95,8 @@ export const mockBusinesses = [
     description: 'Café artesanal e pães frescos todos os dias no coração de Pinhais.', 
     image: 'https://images.unsplash.com/photo-1445116572660-236099ec97a0?w=400', 
     lat: -25.4190, 
-    lon: -49.2140 
+    lon: -49.2140,
+    entregaRapida: true
   },
   { 
     id: 4, 
@@ -102,7 +109,8 @@ export const mockBusinesses = [
     description: 'Decoração de festas, lembrancinhas personalizadas e artesanato sob medida...', 
     image: 'https://images.unsplash.com/photo-1761564373124-16387e6f7f6c?w=400', 
     lat: -25.4010, 
-    lon: -49.2310 
+    lon: -49.2310,
+    entregaRapida: false
   },
   { 
     id: 17, 
@@ -115,6 +123,7 @@ export const mockBusinesses = [
     description: 'Bonecos de crochê amigurumi feitos à mão com muito carinho.', 
     image: 'https://images.unsplash.com/photo-1601807046050-a82a696a0b20?w=400', 
     lat: -25.4305, 
-    lon: -49.2045 
+    lon: -49.2045,
+    entregaRapida: false
   },
 ];

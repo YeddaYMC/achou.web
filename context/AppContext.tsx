@@ -1,6 +1,9 @@
+import { getAuth } from 'firebase/auth';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
-import { getUserProfile, subscribeToAuthState } from '../src/services/authService';
+import app from '../firebaseConfig';
+import { mockBusinesses } from '../mockData/mockBusinesses';
+import { addFavorite, getFavorites, getUserProfile, removeFavorite, subscribeToAuthState } from '../src/services/authService';
 
 // Tipo para negócio
 interface Business {
@@ -18,6 +21,7 @@ interface Business {
   instagram?: string;
   facebook?: string;
   pinterest?: string;
+  entregaRapida?: boolean; // Tag para entrega rápida na região
   contactVisibility?: {
     instagram?: boolean;
     facebook?: boolean;
@@ -92,23 +96,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const unsubscribe = subscribeToAuthState(async (firebaseUser) => {
       if (firebaseUser) {
         try {
+          // Buscar perfil do usuário
           const profile = await getUserProfile(firebaseUser.uid);
           if (profile) {
             setUserProfile(profile as UserProfile);
             setIsLoggedIn(true);
           }
+          
+          // Buscar favoritos do usuário
+          const userFavorites = await getFavorites(firebaseUser.uid);
+          setFavorites(userFavorites);
         } catch (error) {
-          console.error('Erro ao buscar perfil:', error);
+          console.error('Erro ao buscar dados do usuário:', error);
           setIsLoggedIn(false);
           setUserProfile(null);
         }
       } else {
         setIsLoggedIn(false);
         setUserProfile(null);
+        setFavorites([]);
       }
     });
 
     return () => unsubscribe?.(); // Cleanup
+  }, []);
+
+  // Carrega negócios ao iniciar
+  useEffect(() => {
+    if (businesses.length === 0) {
+      setBusinesses(mockBusinesses);
+    }
   }, []);
 
   // Função de navegação
@@ -126,11 +143,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Toggle de favorito
+  // Toggle de favorito (sincroniza com Firebase)
   const toggleFavorite = (id: number) => {
-    setFavorites((prev) =>
-      prev.includes(id) ? prev.filter((fav) => fav !== id) : [...prev, id] // Adiciona ou remove
-    );
+    console.log('=== TOGGLE FAVORITO START ===');
+    console.log('ID:', id);
+    console.log('isLoggedIn:', isLoggedIn);
+    console.log('userProfile:', userProfile?.name);
+    
+    const isFavorite = (favorites || []).includes(id);
+    console.log('isFavorite (antes):', isFavorite);
+    
+    // Atualizar estado local PRIMEIRO
+    const newFavorites = isFavorite
+      ? (favorites || []).filter((fav) => fav !== id)
+      : [...(favorites || []), id];
+    
+    console.log('newFavorites:', newFavorites);
+    setFavorites(newFavorites);
+
+    // Sincronizar com Firebase se logado
+    if (isLoggedIn) {
+      console.log('Iniciando sincronização com Firebase...');
+      const syncFavorite = async () => {
+        try {
+          const auth = getAuth(app);
+          const currentUser = auth.currentUser;
+          
+          console.log('currentUser.uid:', currentUser?.uid);
+          
+          if (currentUser?.uid) {
+            console.log('Acionando', isFavorite ? 'removeFavorite' : 'addFavorite', 'para ID:', id);
+            
+            if (isFavorite) {
+              const result = await removeFavorite(currentUser.uid, id);
+              console.log('removeFavorite resultado:', result);
+            } else {
+              const result = await addFavorite(currentUser.uid, id);
+              console.log('addFavorite resultado:', result);
+            }
+            console.log('Sincronização concluída com sucesso!');
+          } else {
+            console.warn('⚠️ currentUser.uid não encontrado!');
+          }
+        } catch (error) {
+          console.error('❌ Erro ao sincronizar favorito:', error);
+        }
+        console.log('=== TOGGLE FAVORITO END ===');
+      };
+      
+      // Executar imediatamente sem delay
+      syncFavorite();
+    } else {
+      console.warn('⚠️ Usuário não está logado!');
+      console.log('=== TOGGLE FAVORITO END ===');
+    }
   };
 
   // Valida credenciais de login

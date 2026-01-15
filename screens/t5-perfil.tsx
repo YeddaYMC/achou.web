@@ -1,4 +1,5 @@
-import { ChevronLeft, Edit, Trash2 } from 'lucide-react-native';
+import { getAuth } from 'firebase/auth';
+import { ChevronLeft, Edit, LogOut, Trash2 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
@@ -7,12 +8,15 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { useAppContext } from '../context/AppContext';
+import app from '../firebaseConfig';
+import { logout, updateUserProfile } from '../src/services/authService';
 
 export default function T5Perfil() {
   const { userProfile, setUserProfile, navigateTo, setIsLoggedIn, showUpdateProfileDialog, setShowUpdateProfileDialog, setFavorites, isDarkMode, registeredUsers, setRegisteredUsers, setReturnTo, setReportBusiness, setSelectedBusiness } = useAppContext();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formData, setFormData] = useState({ 
     name: userProfile?.name || '', 
+    nickname: userProfile?.nickname || '',
     email: userProfile?.email || '', 
     password: userProfile?.password || '', 
     phone: userProfile?.phone || '', 
@@ -20,6 +24,22 @@ export default function T5Perfil() {
     isPremium: userProfile?.isPremium || false, 
     createdAt: userProfile?.createdAt || '' 
   });
+
+  // Sincroniza formData quando userProfile mudar
+  React.useEffect(() => {
+    if (userProfile) {
+      setFormData({
+        name: userProfile.name || '',
+        nickname: userProfile.nickname || '',
+        email: userProfile.email || '',
+        password: userProfile.password || '',
+        phone: userProfile.phone || '',
+        cpf: userProfile.cpf || '',
+        isPremium: userProfile.isPremium || false,
+        createdAt: userProfile.createdAt || ''
+      });
+    }
+  }, [userProfile]);
 
   const initials = useMemo(() => {
     const name = userProfile?.name || '';
@@ -44,22 +64,49 @@ export default function T5Perfil() {
     navigateTo('T1');
   };
 
-  const handleUpdateProfile = () => {
+  const handleUpdateProfile = async () => {
     setUserProfile(formData);
+    
     // Sincroniza também com registeredUsers
     try {
       if (Array.isArray(registeredUsers) && setRegisteredUsers) {
         const updated = registeredUsers.map((u: any) =>
-          u.email === userProfile?.email ? { ...u, name: formData.name, phone: formData.phone, cpf: formData.cpf } : u
+          u.email === userProfile?.email ? { ...u, name: formData.name, nickname: formData.nickname, phone: formData.phone, cpf: formData.cpf } : u
         );
         setRegisteredUsers(updated);
       }
     } catch (_) {}
+    
+    // Sincroniza com Firebase
+    try {
+      const auth = getAuth(app);
+      if (auth.currentUser?.uid) {
+        await updateUserProfile(auth.currentUser.uid, {
+          name: formData.name,
+          nickname: formData.nickname,
+          phone: formData.phone,
+          cpf: formData.cpf,
+          email: formData.email,
+          isPremium: formData.isPremium,
+          createdAt: formData.createdAt
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar perfil no Firebase:', error);
+    }
+    
     setShowUpdateProfileDialog(false);
     Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      // Chamar logout do Firebase para sincronizar
+      await logout();
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+    }
+    
     try { setIsLoggedIn(false); } catch {}
     try { setReturnTo(null); } catch {}
     try { setReportBusiness(null); } catch {}
@@ -97,23 +144,23 @@ export default function T5Perfil() {
           </View>
 
           <View style={styles.infoList}>
-            <View style={styles.infoItem}>
+            <View style={[styles.infoItem, isDarkMode && { backgroundColor: '#374151', borderColor: '#60A5FA' }]}>
               <Text style={infoLabelStyle}>Nome Completo</Text>
               <Text style={infoTextStyle}>{userProfile?.name || 'Não informado'}</Text>
             </View>
-            <View style={styles.infoItem}>
+            <View style={[styles.infoItem, isDarkMode && { backgroundColor: '#374151', borderColor: '#60A5FA' }]}>
               <Text style={infoLabelStyle}>E-mail</Text>
               <Text style={infoTextStyle}>{userProfile?.email || 'Não informado'}</Text>
             </View>
-            <View style={styles.infoItem}>
+            <View style={[styles.infoItem, isDarkMode && { backgroundColor: '#374151', borderColor: '#60A5FA' }]}>
               <Text style={infoLabelStyle}>Telefone</Text>
               <Text style={infoTextStyle}>{userProfile?.phone || 'Não informado'}</Text>
             </View>
-            <View style={styles.infoItem}>
+            <View style={[styles.infoItem, isDarkMode && { backgroundColor: '#374151', borderColor: '#60A5FA' }]}>
               <Text style={infoLabelStyle}>CPF</Text>
               <Text style={infoTextStyle}>{userProfile?.cpf || 'Não informado'}</Text>
             </View>
-            <View style={styles.infoItem}>
+            <View style={[styles.infoItem, isDarkMode && { backgroundColor: '#374151', borderColor: '#60A5FA' }]}>
               <Text style={infoLabelStyle}>Data de Criação da Conta</Text>
               <Text style={infoTextStyle}>{formatDate(userProfile?.createdAt || '')}</Text>
             </View>
@@ -136,7 +183,8 @@ export default function T5Perfil() {
 
             <Button onPress={handleLogout} variant="outline" style={styles.actionOutlined}>
               <View style={styles.buttonContent}>
-                <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Sair (Logout)</Text>
+                <LogOut width={20} height={20} color={isDarkMode ? '#60A5FA' : '#1e3a8a'} />
+                <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>LOGOUT</Text>
               </View>
             </Button>
           </View>
@@ -151,19 +199,48 @@ export default function T5Perfil() {
             <View style={styles.form}>
               <View style={styles.inputGroup}>
                 <Label>Nome Completo</Label>
-                <Input value={formData.name} onChangeText={(v: string) => setFormData({ ...formData, name: v })} style={styles.input} />
+                <Input 
+                  value={formData.name} 
+                  onChangeText={(v: string) => setFormData({ ...formData, name: v })} 
+                  style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]} 
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <Label>Como você quer ser chamado? (opcional)</Label>
+                <Input 
+                  value={formData.nickname} 
+                  onChangeText={(v: string) => setFormData({ ...formData, nickname: v })} 
+                  placeholder="Apelido" 
+                  style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]} 
+                />
               </View>
               <View style={styles.inputGroup}>
                 <Label>E-mail</Label>
-                <Input value={formData.email} onChangeText={(v: string) => setFormData({ ...formData, email: v })} keyboardType="email-address" autoCapitalize="none" style={styles.input} />
+                <Input 
+                  value={formData.email} 
+                  onChangeText={(v: string) => setFormData({ ...formData, email: v })} 
+                  keyboardType="email-address" 
+                  autoCapitalize="none" 
+                  style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]} 
+                />
               </View>
               <View style={styles.inputGroup}>
                 <Label>Telefone</Label>
-                <Input value={formData.phone} onChangeText={(v: string) => setFormData({ ...formData, phone: v })} keyboardType="phone-pad" style={styles.input} />
+                <Input 
+                  value={formData.phone} 
+                  onChangeText={(v: string) => setFormData({ ...formData, phone: v })} 
+                  keyboardType="phone-pad" 
+                  style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]} 
+                />
               </View>
               <View style={styles.inputGroup}>
                 <Label>CPF</Label>
-                <Input value={formData.cpf} onChangeText={(v: string) => setFormData({ ...formData, cpf: v })} keyboardType="numeric" style={styles.input} />
+                <Input 
+                  value={formData.cpf} 
+                  onChangeText={(v: string) => setFormData({ ...formData, cpf: v })} 
+                  keyboardType="numeric" 
+                  style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]} 
+                />
               </View>
               <View style={styles.formActions}>
                 <Button variant="outline" onPress={() => setShowUpdateProfileDialog(false)} style={styles.formButtonOutline}>
@@ -341,8 +418,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#1F2937',
-    backgroundColor: '#FFFFFF',
+    color: '#000000',
+    backgroundColor: '#F3F4F6',
   },
   formActions: {
     flexDirection: 'row',

@@ -44,6 +44,7 @@ export default function T6CriacaoEdicao() {
     pinterest: '',
     whatsapp: '',
     description: '',
+    entregaRapida: false,
   });
 
   const [contactVisibility, setContactVisibility] = useState({
@@ -86,6 +87,7 @@ export default function T6CriacaoEdicao() {
       id: businesses.length + 1,
       image: 'https://images.unsplash.com/photo-1556740749-887f6717d7e4?w=400',
       contactVisibility,
+      entregaRapida: formData.entregaRapida,
       owner: userProfile?.email || null,
       ownerId: userProfile?.email || null, // Para consultas futuras
       createdAt: new Date().toISOString(),
@@ -354,6 +356,18 @@ export default function T6CriacaoEdicao() {
                   onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, pinterest: Boolean(v) })}
                 />
                 <Text style={checkboxTextStyle}>Mostrar Pinterest no anúncio</Text>
+              </View>
+            </View>
+
+            {/* Tag Entrega Rápida */}
+            <View style={styles.inputGroup}>
+              <Label style={labelStyle}>Entrega Rápida na Região</Label>
+              <View style={styles.checkboxRow}>
+                <Checkbox
+                  checked={formData.entregaRapida}
+                  onCheckedChange={(v) => setFormData({ ...formData, entregaRapida: Boolean(v) })}
+                />
+                <Text style={checkboxTextStyle}>Meu negócio oferece entrega rápida na região</Text>
               </View>
             </View>
 

@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, MapPin, Menu, Moon, Sun, X } from 'lucide-react-native';
+import { Heart, MapPin, Menu, Moon, Sun, User, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import logoAchou from '../assets/images/LOGO-ACHOU.png';
@@ -140,6 +140,18 @@ export default function Header() {
             </TouchableOpacity>
             <TouchableOpacity onPress={() => handleNavigation('favoritos')} style={styles.iconButton}>
               <Heart size={20} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => {
+                if (isLoggedIn) {
+                  navigateTo('T5');
+                } else {
+                  navigateTo('T3');
+                }
+              }} 
+              style={styles.iconButton}
+            >
+              <User size={20} color="#fff" />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setLocationDialogOpen(true)} style={styles.iconButton}>
               <MapPin size={20} color="#fff" />

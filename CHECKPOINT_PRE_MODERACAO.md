@@ -172,3 +172,42 @@ Se precisar voltar a este estado:
 Se algo der errado, volte para este arquivo e restaure o estado original.
 
 **Data do Backup**: 12/01/2026 - Antes do Sistema de Moderação
+
+---
+
+## 📝 Informações do Commit
+
+**Commit ID**: `36a7219`
+
+**Mensagem**: 
+```
+feat: integrar Firebase Auth + documentação padrão indústria + checkpoint pré-moderação
+```
+
+**Estatísticas**:
+- 24 arquivos modificados
+- 4.604 linhas adicionadas (+)
+- 96 linhas removidas (-)
+
+**Branch**: main
+
+**Arquivos Novos**:
+- API.md
+- ARCHITECTURE.md
+- BD-NOTAS.txt
+- CHECKPOINT_PRE_MODERACAO.md
+- CONTRIBUTING.md (renomeado para PADROES_DESENVOLVIMENTO.md)
+- PADROES_DESENVOLVIMENTO.md
+- TESTE_FIREBASE.md
+- assets.d.ts
+- eas.json
+- firebaseConfig.js
+- google-services.json
+- src/services/authService.ts
+
+**Como Restaurar**:
+```bash
+git checkout 36a7219
+```
+
+**Data do Commit**: 12/01/2026
