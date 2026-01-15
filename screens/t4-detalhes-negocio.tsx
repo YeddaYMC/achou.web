@@ -28,7 +28,7 @@ export default function T4Detalhes() {
   const [reported, setReported] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const { width, height } = useWindowDimensions();
-  const imageHeight = Math.max(180, Math.floor(height * 0.5));
+  const imageHeight = Math.max(280, Math.floor(height * 0.55)); // Aumentado para 280px mínimo e 55% da altura
 
   const isFavorite = useMemo(() => favorites?.includes(selectedBusiness?.id ?? 0) ?? false, [favorites, selectedBusiness]);
 
@@ -148,7 +148,7 @@ export default function T4Detalhes() {
               <Image
                 source={typeof selectedBusiness.image === 'string' ? { uri: selectedBusiness.image } : selectedBusiness.image}
                 style={styles.image}
-                resizeMode={(selectedBusiness.id === 1 || selectedBusiness.id === 15 || selectedBusiness.id === 17) ? 'contain' : 'cover'}
+                resizeMode="contain"
               />
             ) : (
               <View style={styles.imagePlaceholder}>
@@ -282,10 +282,14 @@ const styles = StyleSheet.create({
   },
   imageWrapper: {
     backgroundColor: '#f5f5f5',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   image: {
     width: '100%',
     height: '100%',
+    resizeMode: 'contain',
   },
   imagePlaceholder: {
     width: '100%',

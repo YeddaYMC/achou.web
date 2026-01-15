@@ -3,6 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import T1TelaInicial from '../screens/t1-tela-inicial';
 import T10Contato from '../screens/t10-contato';
 import T11Termo from '../screens/t11-termos-condicoes';
+import T12Planos from '../screens/t12-planos';
 import T2Cadastro from '../screens/t2-cadastro';
 import T3Login from '../screens/t3-login';
 import T4DetalhesNegocio from '../screens/t4-detalhes-negocio';

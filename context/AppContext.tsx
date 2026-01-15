@@ -3,6 +3,7 @@ import React, { createContext, ReactNode, useContext, useEffect, useState } from
 import { useColorScheme } from 'react-native';
 import app from '../firebaseConfig';
 import { mockBusinesses } from '../mockData/mockBusinesses';
+import { getAllActiveAnuncios } from '../src/services/anuncioService';
 import { addFavorite, getFavorites, getUserProfile, removeFavorite, subscribeToAuthState } from '../src/services/authService';
 
 // Tipo para negócio
@@ -122,10 +123,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe?.(); // Cleanup
   }, []);
 
-  // Carrega negócios ao iniciar
+  // Carrega anúncios do Firestore ao iniciar
   useEffect(() => {
+    const carregarAnuncios = async () => {
+      try {
+        console.log('📡 Buscando anúncios do Firestore...');
+        const anuncios = await getAllActiveAnuncios();
+        
+        if (anuncios.length > 0) {
+          console.log(`✅ ${anuncios.length} anúncio(s) encontrado(s)`);
+          // Converter anúncios para formato de Business
+          const businesses = anuncios.map(anuncio => ({
+            id: parseInt(anuncio.id?.substring(0, 10) || Math.random().toString()) || Math.random(),
+            name: anuncio.name,
+            categories: [anuncio.category],
+            location: anuncio.location,
+            cep: anuncio.cep,
+            phone: anuncio.phone,
+            whatsapp: anuncio.whatsapp,
+            description: anuncio.description,
+            image: anuncio.fotos?.[0] || null,
+            lat: 0,
+            lon: 0,
+            instagram: anuncio.instagram,
+            facebook: anuncio.facebook,
+            pinterest: anuncio.pinterest,
+            entregaRapida: anuncio.entregaRapida,
+            contactVisibility: anuncio.contactVisibility,
+          }));
+          setBusinesses(businesses);
+        } else {
+          console.log('⚠️ Nenhum anúncio encontrado, usando dados de teste');
+          setBusinesses(mockBusinesses);
+        }
+      } catch (error) {
+        console.error('❌ Erro ao buscar anúncios:', error);
+        console.log('📚 Usando dados de teste como fallback');
+        setBusinesses(mockBusinesses);
+      }
+    };
+
     if (businesses.length === 0) {
-      setBusinesses(mockBusinesses);
+      carregarAnuncios();
     }
   }, []);
 

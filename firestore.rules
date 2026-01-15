@@ -41,6 +41,23 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // ANÚNCIOS (nova coleção) - Validação por Nível de Plano
+    // ============================================================
+    match /anuncios/{anuncioId} {
+      // Leitura: qualquer pessoa pode ver anúncios publicados
+      allow read: if true;
+      
+      // Deleção: apenas o proprietário do anúncio pode deletar
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+
+      // Criação e Atualização: apenas o proprietário pode criar/atualizar
+      // Validação: checa o nível de plano do usuário e suas permissões
+      allow create, update: if request.auth != null 
+                            && request.resource.data.userId == request.auth.uid
+                            && validateContent(getLevel());
+    }
+
+    // ============================================================
     // VALIDAÇÃO DE CONTEÚDO POR NÍVEL DE PLANO
     // ============================================================
     // Esta função valida se o usuário pode enviar o conteúdo que está tentando salvar

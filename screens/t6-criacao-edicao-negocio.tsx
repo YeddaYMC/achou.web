@@ -1,12 +1,19 @@
+import * as ImagePicker from 'expo-image-picker';
+import { getAuth } from 'firebase/auth';
 import { Check, ChevronLeft } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
 import { Button } from '../components/ui/button';
 import { Checkbox } from '../components/ui/checkbox';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { useAppContext } from '../context/AppContext';
+import app from '../firebaseConfig';
+import { createAnuncio } from '../src/services/anuncioService';
+import { uploadMultipleImages } from '../src/services/cloudinaryService';
+
+const auth = getAuth(app);
 
 const CATEGORIES = [
   'Alimentação & Restaurantes',
@@ -46,19 +53,24 @@ export default function T6CriacaoEdicao() {
     description: '',
     entregaRapida: false,
     isImperdivel: false,
+    fotos: [] as string[], // URLs do Cloudinary
   });
 
   const [contactVisibility, setContactVisibility] = useState({
-    phone: true,
-    whatsapp: true,
-    email: true,
-    site: true,
-    instagram: true,
-    facebook: true,
-    pinterest: true,
+    phone: false,
+    whatsapp: true,  // WhatsApp é obrigatório e marcado por padrão
+    email: false,
+    site: false,
+    instagram: false,
+    facebook: false,
+    pinterest: false,
   });
 
   const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [errosValidacao, setErrosValidacao] = useState<string[]>([]);
+
 
   const ChevronLeftIcon: any = ChevronLeft;
   const CheckIcon: any = Check;
@@ -82,38 +94,201 @@ export default function T6CriacaoEdicao() {
     return u.startsWith('http://') || u.startsWith('https://') ? u : 'https://' + u;
   };
 
-  const handleSubmit = () => {
-    if (!formData.name || !formData.category || !formData.cep || !formData.phone || !formData.whatsapp || !formData.description) {
-      Alert.alert('Atenção', 'Preencha todos os campos obrigatórios (Nome, Categoria, CEP, Telefone, WhatsApp, Descrição)');
+  // Função de validação dos campos obrigatórios
+  const validarFormulario = () => {
+    const camposObrigatorios = [
+      { campo: 'name', label: 'Nome do Negócio', valor: formData.name },
+      { campo: 'category', label: 'Categoria', valor: formData.category },
+      { campo: 'cep', label: 'CEP', valor: formData.cep },
+      { campo: 'phone', label: 'Telefone', valor: formData.phone },
+      { campo: 'whatsapp', label: 'WhatsApp', valor: formData.whatsapp },
+      { campo: 'description', label: 'Descrição', valor: formData.description },
+    ];
+
+    const camposFaltando = camposObrigatorios.filter(c => !c.valor || c.valor.trim() === '');
+    
+    if (camposFaltando.length > 0) {
+      const listaFaltas = camposFaltando.map(c => c.label);
+      setErrosValidacao(listaFaltas);
+      console.log('❌ Campos faltando:', listaFaltas.join(', '));
+      console.log('📋 Dados do formulário:', formData);
+      
+      Alert.alert(
+        '⚠️ Campos Obrigatórios Faltando',
+        `Por favor, preencha os seguintes campos:\n\n${listaFaltas.map(c => `• ${c}`).join('\n')}`,
+        [{ text: 'OK, vou preencher' }]
+      );
+      return false;
+    }
+
+    if (selectedImages.length === 0) {
+      setErrosValidacao(['Selecione pelo menos 1 imagem']);
+      console.log('❌ Nenhuma imagem selecionada');
+
+      Alert.alert(
+        '⚠️ Imagem Obrigatória',
+        'Você precisa selecionar pelo menos uma imagem para o anúncio',
+        [{ text: 'OK, vou selecionar' }]
+      );
+      return false;
+    }
+
+    setErrosValidacao([]);
+    return true;
+  };
+
+  // Selecionar imagens da galeria
+  const handleSelectImages = async () => {
+    const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (!permissao.granted) {
+      Alert.alert('Permissão Necessária', 'Você precisa permitir acesso à galeria');
       return;
     }
 
-    const normalizedForm = {
-      ...formData,
-      site: normalizeUrl(formData.site),
-      instagram: normalizeUrl(formData.instagram),
-      facebook: normalizeUrl(formData.facebook),
-      pinterest: normalizeUrl(formData.pinterest),
-    };
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultiple: true,
+      quality: 0.8,
+    });
 
-    // Estrutura para Firebase Firestore
-    const newBusiness: any = {
-      ...normalizedForm,
-      id: businesses.length + 1,
-      image: 'https://images.unsplash.com/photo-1556740749-887f6717d7e4?w=400',
-      contactVisibility,
-      entregaRapida: formData.entregaRapida,
-      owner: userProfile?.email || null,
-      ownerId: userProfile?.email || null, // Para consultas futuras
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      status: 'active', // Para gerenciamento (active, inactive, reported, deleted)
-      reportCount: 0,
-    };
+    if (!result.canceled) {
+      const uris = result.assets.map((asset) => asset.uri);
+      
+      // Validar limite de fotos por nível
+      const maxFotos = permissoes.maxFotos;
+      if (uris.length > maxFotos) {
+        Alert.alert(
+          'Limite de Fotos',
+          `Você pode selecionar no máximo ${maxFotos} foto(s) no Nível ${userProfile?.anuncianteLevel || 1}`
+        );
+        return;
+      }
 
-    setBusinesses([...businesses, newBusiness]);
-    Alert.alert('Sucesso', 'Anúncio criado com sucesso!');
-    navigateTo('T7');
+      setSelectedImages(uris);
+      Alert.alert('Sucesso', `${uris.length} imagem(ns) selecionada(s)`);
+    }
+  };
+
+  // Upload e Salvamento
+  const handleSubmit = async () => {
+    console.log('🚀 Iniciando publicação do anúncio...');
+    
+    // Validar campos obrigatórios
+    if (!validarFormulario()) {
+      console.log('⚠️ Validação falhou - campos obrigatórios faltando');
+      return;
+    }
+
+    console.log('✓ Validação OK - iniciando upload...');
+    setIsLoading(true);
+
+    try {
+      // Upload das imagens para o Cloudinary
+      console.log(`📸 Fazendo upload de ${selectedImages.length} imagem(ns)...`);
+      const fotosUrls = await uploadMultipleImages(
+        selectedImages,
+        formData.name,
+        `${userProfile?.email}_${Date.now()}` // Usar email + timestamp como ID único
+      );
+      console.log('✓ Upload completo! URLs:', fotosUrls);
+
+      const normalizedForm = {
+        ...formData,
+        site: normalizeUrl(formData.site),
+        instagram: normalizeUrl(formData.instagram),
+        facebook: normalizeUrl(formData.facebook),
+        pinterest: normalizeUrl(formData.pinterest),
+        fotos: fotosUrls,
+      };
+
+      // Salvar no Firestore - coleção "anuncios"
+      console.log('💾 Salvando anúncio no Firestore...');
+      
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('Usuário não autenticado');
+      }
+      
+      const anuncioId = await createAnuncio({
+        businessId: `${userProfile?.email}_${Date.now()}`, // Link ao negócio
+        userId: currentUser.uid, // UID do Firebase Auth (não email!)
+        userEmail: userProfile?.email || '',
+        name: normalizedForm.name,
+        category: normalizedForm.category,
+        location: normalizedForm.location,
+        cep: normalizedForm.cep,
+        street: normalizedForm.street,
+        number: normalizedForm.number,
+        phone: normalizedForm.phone,
+        whatsapp: normalizedForm.whatsapp,
+        email: normalizedForm.email,
+        site: normalizedForm.site,
+        instagram: normalizedForm.instagram,
+        facebook: normalizedForm.facebook,
+        pinterest: normalizedForm.pinterest,
+        description: normalizedForm.description,
+        fotos: fotosUrls,
+        entregaRapida: normalizedForm.entregaRapida,
+        isImperdivel: normalizedForm.isImperdivel,
+        contactVisibility,
+        status: 'active',
+        reportCount: 0,
+        anuncianteLevel: userProfile?.anuncianteLevel || 1,
+      });
+
+      // Também manter no estado local (para compatibilidade com código antigo)
+      const newBusiness: any = {
+        ...normalizedForm,
+        id: anuncioId,
+        fotos: fotosUrls,
+        contactVisibility,
+        owner: userProfile?.email || null,
+        ownerId: userProfile?.email || null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'active',
+        reportCount: 0,
+      };
+
+      setBusinesses([...businesses, newBusiness]);
+      setIsLoading(false);
+      setErrosValidacao([]); // Limpa erros de validação
+      
+      console.log('✅ Anúncio criado com sucesso! ID:', anuncioId);
+      
+      // Mostrar alerta de sucesso e navegar para painel após 2 segundos
+      Alert.alert(
+        '✅ Anúncio Publicado com Sucesso!', 
+        `Seu anúncio "${normalizedForm.name}" foi criado e está ativo!\n\nVocê será redirecionado para o Painel de Gestão em 2 segundos...`,
+        [
+          { 
+            text: 'Ver Agora', 
+            onPress: () => {
+              console.log('Navegando para Painel de Gestão...');
+              navigateTo('T7');
+            }
+          }
+        ],
+        { cancelable: false }
+      );
+      
+      // Redirecionar automaticamente após 2 segundos
+      setTimeout(() => {
+        console.log('Redirecionando automaticamente para T7...');
+        navigateTo('T7');
+      }, 2000);
+    } catch (error) {
+      setIsLoading(false);
+      console.error('❌ Erro ao criar anúncio:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      
+      Alert.alert(
+        '❌ Erro ao Publicar', 
+        `Não foi possível publicar seu anúncio.\n\nDetalhes: ${errorMessage}\n\nTente novamente.`,
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const containerStyle = isDarkMode ? { ...styles.container, ...styles.containerDark } : styles.container;
@@ -256,7 +431,7 @@ export default function T6CriacaoEdicao() {
                 </View>
               </View>
               <View style={styles.halfInput}>
-                <Label style={labelStyle}>WhatsApp *</Label>
+                <Label style={labelStyle}>WhatsApp * (Obrigatório)</Label>
                 <Input
                   value={formData.whatsapp}
                   onChangeText={(text) => setFormData({ ...formData, whatsapp: text })}
@@ -267,10 +442,10 @@ export default function T6CriacaoEdicao() {
                 />
                 <View style={styles.checkboxRow}>
                   <Checkbox
-                    checked={contactVisibility.whatsapp}
-                    onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, whatsapp: Boolean(v) })}
+                    checked={true}
+                    disabled={true}
                   />
-                  <Text style={checkboxTextStyle}>Mostrar no anúncio</Text>
+                  <Text style={checkboxTextStyle}>Sempre mostrado no anúncio (obrigatório)</Text>
                 </View>
               </View>
             </View>
@@ -300,22 +475,23 @@ export default function T6CriacaoEdicao() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Label style={labelStyle}>Site</Label>
                   {!permissoes.linksEnabled && (
-                    <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '600' }}>
-                      ⓘ Nível 2+
-                    </Text>
+                    <TouchableOpacity onPress={() => navigateTo('planos')}>
+                      <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '600' }}>
+                        ⓘ Nível 2+ - Fazer Upgrade
+                      </Text>
+                    </TouchableOpacity>
                   )}
                 </View>
                 <Input
                   value={formData.site}
-                  onChangeText={(text) => {
+                  onChangeText={(text) => setFormData({ ...formData, site: text })}
+                  onFocus={() => {
                     if (!permissoes.linksEnabled) {
                       Alert.alert(
                         'Recurso Premium',
                         'Links adicionais estão disponíveis a partir do Nível 2 (R$ 19,99).\n\nFaça upgrade para adicionar seu site!'
                       );
-                      return;
                     }
-                    setFormData({ ...formData, site: text });
                   }}
                   style={[inputStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}
                   placeholder="seudominio.com"
@@ -358,22 +534,23 @@ export default function T6CriacaoEdicao() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Label style={labelStyle}>Facebook</Label>
                 {!permissoes.linksEnabled && (
-                  <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '600' }}>
-                    ⓘ Nível 2+
-                  </Text>
+                  <TouchableOpacity onPress={() => navigateTo('planos')}>
+                    <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '600' }}>
+                      ⓘ Nível 2+ - Fazer Upgrade
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </View>
               <Input
                 value={formData.facebook}
-                onChangeText={(text) => {
+                onChangeText={(text) => setFormData({ ...formData, facebook: text })}
+                onFocus={() => {
                   if (!permissoes.linksEnabled) {
                     Alert.alert(
                       'Recurso Premium',
                       'Links adicionais estão disponíveis a partir do Nível 2 (R$ 19,99).'
                     );
-                    return;
                   }
-                  setFormData({ ...formData, facebook: text });
                 }}
                 style={[inputStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}
                 placeholder="facebook.com/sua_pagina"
@@ -395,22 +572,23 @@ export default function T6CriacaoEdicao() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Label style={labelStyle}>Pinterest</Label>
                 {!permissoes.linksEnabled && (
-                  <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '600' }}>
-                    ⓘ Nível 2+
-                  </Text>
+                  <TouchableOpacity onPress={() => navigateTo('planos')}>
+                    <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '600' }}>
+                      ⓘ Nível 2+ - Fazer Upgrade
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </View>
               <Input
                 value={formData.pinterest}
-                onChangeText={(text) => {
+                onChangeText={(text) => setFormData({ ...formData, pinterest: text })}
+                onFocus={() => {
                   if (!permissoes.linksEnabled) {
                     Alert.alert(
                       'Recurso Premium',
                       'Links adicionais estão disponíveis a partir do Nível 2 (R$ 19,99).'
                     );
-                    return;
                   }
-                  setFormData({ ...formData, pinterest: text });
                 }}
                 style={[inputStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}
                 placeholder="pinterest.com/seu_perfil"
@@ -426,6 +604,47 @@ export default function T6CriacaoEdicao() {
                 />
                 <Text style={[checkboxTextStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}>Mostrar Pinterest no anúncio</Text>
               </View>
+            </View>
+
+            {/* Seleção de Imagens */}
+            <View style={styles.inputGroup}>
+              <Label style={labelStyle}>Fotos do Anúncio *</Label>
+              <Text style={{ fontSize: 12, color: '#6B7280', marginBottom: 8 }}>
+                Máximo de {permissoes.maxFotos} foto(s) permitida(s) para seu nível
+              </Text>
+              
+              <TouchableOpacity
+                onPress={handleSelectImages}
+                disabled={isLoading}
+                style={[
+                  styles.imageButton,
+                  {
+                    backgroundColor: isDarkMode ? '#374151' : '#E5E7EB',
+                    opacity: isLoading ? 0.6 : 1,
+                  }
+                ]}
+              >
+                <Text style={{ fontSize: 24, marginBottom: 8 }}>📷</Text>
+                <Text style={[labelStyle, { textAlign: 'center' }]}>
+                  {selectedImages.length > 0 ? `${selectedImages.length} imagem(ns) selecionada(s)` : 'Toque para selecionar imagens'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Preview das imagens selecionadas */}
+              {selectedImages.length > 0 && (
+                <View style={styles.imagePreviewContainer}>
+                  {selectedImages.map((uri, index) => (
+                    <View key={index} style={styles.imagePreview}>
+                      <Image 
+                        source={{ uri }} 
+                        style={{ width: 80, height: 80, borderRadius: 8 }} 
+                        resizeMode="cover"
+                      />
+                      <Text style={{ fontSize: 10, color: '#6B7280', marginTop: 4 }}>Foto {index + 1}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
 
             {/* Tag Entrega Rápida */}
@@ -445,9 +664,11 @@ export default function T6CriacaoEdicao() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Label style={labelStyle}>Destaque "Imperdível"</Label>
                 {!permissoes.isImperdivelEnabled && (
-                  <Text style={{ fontSize: 11, color: '#f59e0b', fontWeight: '600' }}>
-                    ⓘ Disponível a partir do Nível 3
-                  </Text>
+                  <TouchableOpacity onPress={() => navigateTo('planos')}>
+                    <Text style={{ fontSize: 11, color: '#f59e0b', fontWeight: '600' }}>
+                      ⓘ Nível 3+ - Fazer Upgrade
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </View>
               <View style={styles.checkboxRow}>
@@ -492,11 +713,41 @@ export default function T6CriacaoEdicao() {
               </Text>
             </View>
 
+            {/* Caixa de Erros de Validação */}
+            {errosValidacao.length > 0 && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorTitle}>⚠️ Atenção!</Text>
+                <Text style={styles.errorSubtitle}>
+                  Preencha os campos obrigatórios antes de publicar:
+                </Text>
+                {errosValidacao.map((erro, index) => (
+                  <Text key={index} style={styles.errorItem}>
+                    • {erro}
+                  </Text>
+                ))}
+              </View>
+            )}
+
             {/* Botão Salvar */}
-            <Button onPress={handleSubmit} style={styles.submitButton}>
+            <Button 
+              onPress={handleSubmit} 
+              style={[styles.submitButton, { opacity: isLoading ? 0.6 : 1 }]}
+              disabled={isLoading}
+            >
               <View style={styles.buttonContent}>
-                <CheckIcon size={20} color="#fff" />
-                <Text style={styles.submitButtonText}>Salvar e Publicar</Text>
+                {isLoading ? (
+                  <>
+                    <ActivityIndicator color="#fff" size="small" />
+                    <Text style={[styles.submitButtonText, { marginLeft: 8 }]}>
+                      Publicando...
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <CheckIcon size={20} color="#fff" />
+                    <Text style={styles.submitButtonText}>Salvar e Publicar</Text>
+                  </>
+                )}
               </View>
             </Button>
           </View>
@@ -689,5 +940,56 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  imageButton: {
+    borderWidth: 2,
+    borderColor: '#9CA3AF',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePreviewContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  imagePreview: {
+    width: '30%',
+    aspectRatio: 1,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  errorBox: {
+    backgroundColor: '#FEE2E2',
+    borderWidth: 2,
+    borderColor: '#DC2626',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#991B1B',
+    marginBottom: 8,
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    color: '#7F1D1D',
+    marginBottom: 12,
+    fontWeight: '600',
+  },
+  errorItem: {
+    fontSize: 14,
+    color: '#991B1B',
+    marginBottom: 4,
+    paddingLeft: 8,
   },
 });

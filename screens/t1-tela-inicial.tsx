@@ -1,6 +1,6 @@
 import { Heart, Truck, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -9,7 +9,6 @@ import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from '../components/ui/sonner';
 import { useAppContext } from '../context/AppContext';
-import { mockBusinesses } from '../dados-teste/negociosTesteP';
 
 // Categorias disponíveis
 const CATEGORIES = [
@@ -34,13 +33,20 @@ const CATEGORIES = [
 
 // Tela principal de listagem
 export default function T1TelaInicial() {
-  const { navigateTo, setSelectedBusiness, favorites, isDarkMode } = useAppContext();
+  const { navigateTo, setSelectedBusiness, favorites, isDarkMode, businesses } = useAppContext();
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]); // Categorias selecionadas (múltiplas)
-  const [filteredBusinesses, setFilteredBusinesses] = useState(mockBusinesses); // Negócios filtrados
+  const [filteredBusinesses, setFilteredBusinesses] = useState<any[]>([]); // Negócios filtrados
+  
+  // Layout responsivo
+  const { width } = useWindowDimensions();
+  const numColumns = width > 1024 ? 3 : width > 768 ? 2 : 1;
+  const cardWidth = width > 768 
+    ? `${(100 - (1.6 * (numColumns - 1))) / numColumns}%` // 1.6% gap entre cards
+    : '100%';
   
   // Aplica filtros quando categorias mudam
   useEffect(() => {
-    let results = mockBusinesses;
+    let results = businesses;
     if (selectedCategories.length > 0) {
       results = results.filter(b => {
         // Se filtro de Entrega Rápida está selecionado
@@ -61,7 +67,7 @@ export default function T1TelaInicial() {
     console.log('Categorias selecionadas:', selectedCategories);
     console.log('Resultados filtrados:', results.map(b => ({ name: b.name, categories: b.categories, entregaRapida: b.entregaRapida })));
     setFilteredBusinesses(results); // Atualiza lista
-  }, [selectedCategories]);
+  }, [selectedCategories, businesses]);
 
   // Adiciona ou remove categoria
   const toggleCategory = (category: string) => {
@@ -157,13 +163,19 @@ export default function T1TelaInicial() {
         </Text>
         <View style={styles.cardGrid}>
           {filteredBusinesses.map((business) => (
-            <TouchableOpacity key={business.id} onPress={() => handleCardClick(business)} style={styles.cardWrapper}>
+            <TouchableOpacity 
+              key={business.id} 
+              onPress={() => handleCardClick(business)} 
+              style={[styles.cardWrapper, { width: cardWidth as any }]}
+            >
               <Card style={[styles.businessCard, isDarkMode && styles.businessCardDark]}>
-                <Image
-                  source={typeof business.image === 'string' ? { uri: business.image } : business.image}
-                  style={styles.cardImage}
-                  resizeMode="cover"
-                />
+                <View style={styles.imageContainer}>
+                  <Image
+                    source={typeof business.image === 'string' ? { uri: business.image } : business.image}
+                    style={styles.cardImage}
+                    resizeMode="contain"
+                  />
+                </View>
                 <View style={styles.cardContent}>
                   <View style={styles.badgesRow}>
                     {business.categories.map((category, idx) => (
@@ -313,10 +325,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row', // Direção horizontal
     flexWrap: 'wrap', // Quebra linha
     gap: 16, // Espaço entre cards
+    justifyContent: 'flex-start',
   },
   cardWrapper: {
-    width: '100%', // Largura total
+    width: '100%', // Mobile: 1 por linha
+    minWidth: 280, // Largura mínima
+    maxWidth: 400, // Largura máxima para manter padrão
     marginBottom: 8, // Espaço inferior
+    // Em telas maiores (tablet/desktop), mostra múltiplos por linha
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: '100%',
   },
   businessCard: {
     overflow: 'hidden', // Corta conteúdo
@@ -326,9 +345,17 @@ const styles = StyleSheet.create({
   businessCardDark: {
     borderColor: '#0ea5e9', // Cor borda dark
   },
+  imageContainer: {
+    width: '100%',
+    height: 150,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
   cardImage: {
     width: '100%', // Largura total
-    height: 200, // Altura fixa
+    height: '100%', // Altura preenchida
   },
   cardContent: {
     padding: 16, // Padding interno

@@ -1,8 +1,15 @@
+import { getAuth } from 'firebase/auth';
+import { doc, getFirestore, updateDoc } from 'firebase/firestore';
 import { ChevronLeft } from 'lucide-react-native';
-import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
+import { Checkbox } from '../components/ui/checkbox';
 import { useAppContext } from '../context/AppContext';
+import app from '../firebaseConfig';
+
+const db = getFirestore(app);
+const auth = getAuth(app);
 
 const PLANOS = [
   {
@@ -74,10 +81,13 @@ const PLANOS = [
 export default function T12Planos() {
   const { navigateTo, userProfile, setUserProfile, isDarkMode } = useAppContext();
   const nivelAtual = userProfile?.anuncianteLevel || 1;
+  const [isLoading, setIsLoading] = useState(false);
+  const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [nivelEmUpgrade, setNivelEmUpgrade] = useState<number | null>(null);
 
   const ChevronLeftIcon: any = ChevronLeft;
 
-  const handleUpgrade = (nivel: number) => {
+  const handleUpgrade = async (nivel: number) => {
     if (nivel === nivelAtual) {
       Alert.alert('Plano Atual', 'Você já está neste plano!');
       return;
@@ -95,26 +105,58 @@ export default function T12Planos() {
     const plano = PLANOS.find((p) => p.nivel === nivel);
     if (!plano) return;
 
-    Alert.alert(
-      'Upgrade de Plano',
-      `Deseja fazer upgrade para o plano ${plano.nome} (${plano.preco})?\n\nEsta é uma demonstração. Em produção, aqui seria integrado um gateway de pagamento.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Confirmar (DEMO)',
-          onPress: () => {
-            // DEMO: Atualiza o nível localmente
-            if (userProfile) {
-              setUserProfile({ ...userProfile, anuncianteLevel: nivel as 1 | 2 | 3 | 4 });
-              Alert.alert('Sucesso!', `Plano atualizado para ${plano.nome}! (Demonstração)`, [
-                { text: 'OK', onPress: () => navigateTo('perfil') },
-              ]);
-            }
-          },
-        },
-      ]
-    );
+    // Mostrar modal de termos antes de upgrade
+    setNivelEmUpgrade(nivel);
+    setAceitouTermos(false);
   };
+
+  const handleConfirmUpgrade = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser?.uid) {
+      Alert.alert('Erro', 'Usuário não identificado');
+      return;
+    }
+
+    if (!aceitouTermos) {
+      Alert.alert('Aviso', 'Você precisa aceitar os termos e condições');
+      return;
+    }
+
+    if (!nivelEmUpgrade) {
+      Alert.alert('Erro', 'Nível de upgrade não definido');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, {
+        anuncianteLevel: nivelEmUpgrade,
+        updatedAt: new Date().toISOString(),
+      });
+
+      setUserProfile({
+        ...userProfile,
+        anuncianteLevel: nivelEmUpgrade as 1 | 2 | 3 | 4,
+      } as any);
+
+      Alert.alert('Sucesso', 'Upgrade realizado com sucesso!');
+      setNivelEmUpgrade(null);
+      setAceitouTermos(false);
+    } catch (error) {
+      console.error('Erro ao fazer upgrade:', error);
+      Alert.alert('Erro', 'Erro ao processar seu upgrade. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancelUpgrade = () => {
+    setNivelEmUpgrade(null);
+    setAceitouTermos(false);
+  };
+
+  const planoUpgrade = PLANOS.find(p => p.nivel === nivelEmUpgrade);
 
   const cardBgColor = isDarkMode ? '#1F2937' : '#FFFFFF';
   const textColor = isDarkMode ? '#F9FAFB' : '#111827';
@@ -189,19 +231,86 @@ export default function T12Planos() {
               </View>
             );
           })}
-
-          {/* Informação adicional */}
-          <View style={[styles.infoBox, { backgroundColor: cardBgColor }]}>
-            <Text style={[styles.infoTitle, { color: textColor }]}>💡 Informações</Text>
-            <Text style={[styles.infoText, { color: subtextColor }]}>
-              • Todos os planos permitem 1 anúncio ativo{'\n'}
-              • Você pode fazer upgrade a qualquer momento{'\n'}
-              • Para downgrade, entre em contato com o suporte{'\n'}
-              • Pagamento mensal recorrente{'\n'}
-              • Cancele quando quiser, sem multas
-            </Text>
-          </View>
         </ScrollView>
+
+        {/* Modal de Termos e Condições */}
+        <Modal
+          visible={nivelEmUpgrade !== null}
+          animationType="fade"
+          transparent={true}
+          onRequestClose={handleCancelUpgrade}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: cardBgColor }]}>
+              <Text style={[styles.modalTitle, { color: textColor }]}>
+                Confirmar {planoUpgrade?.nome}
+              </Text>
+              
+              <View style={styles.modalBody}>
+                <Text style={[styles.modalText, { color: subtextColor }]}>
+                  Você está prestes a fazer upgrade para o plano{' '}
+                  <Text style={{ fontWeight: '600', color: textColor }}>
+                    {planoUpgrade?.nome}
+                  </Text>
+                  {' '}por{' '}
+                  <Text style={{ fontWeight: '600', color: planoUpgrade?.cor }}>
+                    {planoUpgrade?.preco}
+                  </Text>
+                  .
+                </Text>
+
+                {/* Checkbox de Termos */}
+                <View style={styles.termsContainer}>
+                  <View style={styles.checkboxContainer}>
+                    <Checkbox
+                      checked={aceitouTermos}
+                      onCheckedChange={setAceitouTermos}
+                    />
+                    <Text style={[styles.termsText, { color: subtextColor }]}>
+                      Li e aceito os{' '}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      handleCancelUpgrade();
+                      navigateTo('T11');
+                    }}
+                  >
+                    <Text style={[styles.termsLink, { color: planoUpgrade?.cor }]}>
+                      Termos e Condições
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Botões de ação */}
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  onPress={handleCancelUpgrade}
+                  style={[styles.modalButton, styles.cancelButton, { borderColor: subtextColor }]}
+                >
+                  <Text style={[styles.cancelButtonText, { color: textColor }]}>Cancelar</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  onPress={handleConfirmUpgrade}
+                  disabled={!aceitouTermos || isLoading}
+                  style={[
+                    styles.modalButton,
+                    styles.confirmButton,
+                    {
+                      backgroundColor: aceitouTermos && !isLoading ? planoUpgrade?.cor : '#D1D5DB',
+                    },
+                  ]}
+                >
+                  <Text style={styles.confirmButtonText}>
+                    {isLoading ? 'Processando...' : 'Confirmar'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </LayoutRN>
   );
@@ -307,13 +416,82 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 20,
   },
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
+  // Estilos do Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
   },
-  infoText: {
+  modalContent: {
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  modalBody: {
+    marginBottom: 24,
+  },
+  modalText: {
     fontSize: 14,
-    lineHeight: 22,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  termsContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    marginTop: 16,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  termsText: {
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  termsLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    borderWidth: 1,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  confirmButton: {
+    backgroundColor: '#3B82F6',
+  },
+  confirmButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
