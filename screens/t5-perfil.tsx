@@ -21,7 +21,7 @@ export default function T5Perfil() {
     password: userProfile?.password || '', 
     phone: userProfile?.phone || '', 
     cpf: userProfile?.cpf || '', 
-    isPremium: userProfile?.isPremium || false, 
+    anuncianteLevel: userProfile?.anuncianteLevel || 1, 
     createdAt: userProfile?.createdAt || '' 
   });
 
@@ -35,7 +35,7 @@ export default function T5Perfil() {
         password: userProfile.password || '',
         phone: userProfile.phone || '',
         cpf: userProfile.cpf || '',
-        isPremium: userProfile.isPremium || false,
+        anuncianteLevel: userProfile.anuncianteLevel || 1,
         createdAt: userProfile.createdAt || ''
       });
     }
@@ -58,7 +58,7 @@ export default function T5Perfil() {
   const performDeleteAccount = () => {
     setShowDeleteConfirm(false);
     try { setIsLoggedIn(false); } catch {}
-    try { setUserProfile({ name: '', email: '', phone: '', cpf: '', isPremium: false, createdAt: '' }); } catch {}
+    try { setUserProfile({ name: '', email: '', phone: '', cpf: '', anuncianteLevel: 1, createdAt: '' }); } catch {}
     try { if (setFavorites) setFavorites([]); } catch {}
     Alert.alert('Sucesso', 'Sua conta e dados foram excluídos permanentemente');
     navigateTo('T1');
@@ -87,7 +87,7 @@ export default function T5Perfil() {
           phone: formData.phone,
           cpf: formData.cpf,
           email: formData.email,
-          isPremium: formData.isPremium,
+          anuncianteLevel: formData.anuncianteLevel,
           createdAt: formData.createdAt
         });
       }
@@ -161,6 +161,16 @@ export default function T5Perfil() {
               <Text style={infoTextStyle}>{userProfile?.cpf || 'Não informado'}</Text>
             </View>
             <View style={[styles.infoItem, isDarkMode && { backgroundColor: '#374151', borderColor: '#60A5FA' }]}>
+              <Text style={infoLabelStyle}>Plano Atual</Text>
+              <Text style={infoTextStyle}>
+                Nível {userProfile?.anuncianteLevel || 1} 
+                {userProfile?.anuncianteLevel === 1 && ' (Gratuito)'}
+                {userProfile?.anuncianteLevel === 2 && ' (R$ 19,99)'}
+                {userProfile?.anuncianteLevel === 3 && ' (R$ 29,99)'}
+                {userProfile?.anuncianteLevel === 4 && ' (R$ 39,99)'}
+              </Text>
+            </View>
+            <View style={[styles.infoItem, isDarkMode && { backgroundColor: '#374151', borderColor: '#60A5FA' }]}>
               <Text style={infoLabelStyle}>Data de Criação da Conta</Text>
               <Text style={infoTextStyle}>{formatDate(userProfile?.createdAt || '')}</Text>
             </View>
@@ -171,6 +181,12 @@ export default function T5Perfil() {
               <View style={styles.buttonContent}>
                 <Edit width={20} height={20} color={isDarkMode ? '#60A5FA' : '#1e3a8a'} />
                 <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Atualizar Perfil</Text>
+              </View>
+            </Button>
+
+            <Button onPress={() => navigateTo('planos')} style={[styles.actionOutlined, { borderColor: '#F59E0B', backgroundColor: isDarkMode ? '#78350F' : '#FEF3C7' }]}>
+              <View style={styles.buttonContent}>
+                <Text style={[styles.buttonText, { color: '#F59E0B' }]}>⭐ Ver Planos e Fazer Upgrade</Text>
               </View>
             </Button>
 

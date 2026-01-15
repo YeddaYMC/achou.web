@@ -51,7 +51,7 @@ export default function T2Cadastro() {
         nickname: formData.nickname || undefined,
         phone: formData.phone,
         cpf: onlyDigitsCpf,
-        isPremium: false,
+        anuncianteLevel: 1,
       });
       setLoading(false);
 
@@ -69,7 +69,7 @@ export default function T2Cadastro() {
         email: formData.email,
         phone: formData.phone,
         cpf: onlyDigitsCpf, 
-        isPremium: false, 
+        anuncianteLevel: 1, 
         createdAt: new Date().toISOString() 
       });
       setIsLoggedIn(true);

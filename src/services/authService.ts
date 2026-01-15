@@ -20,7 +20,7 @@ export interface UserProfile {
   email: string;
   phone: string;
   cpf: string;
-  isPremium: boolean;
+  anuncianteLevel: 1 | 2 | 3 | 4;
   createdAt: string;
 }
 
@@ -38,6 +38,7 @@ export async function registerWithEmail(
     await setDoc(doc(db, 'users', user.uid), {
       ...userData,
       email,
+      anuncianteLevel: 1, // Novo usuário sempre começa no nível 1
       createdAt: new Date().toISOString(),
       favorites: [],
     });

@@ -139,7 +139,7 @@ export default function T7PainelGestao() {
                     <View style={styles.buttonContainer}>
                       <Button
                         onPress={() => {
-                          if (!userProfile?.isPremium && myBusinesses.length >= 1) {
+                          if (myBusinesses.length >= 1) {
                             setLimitModalVisible(true);
                           } else {
                             navigateTo('T6');
@@ -266,10 +266,10 @@ export default function T7PainelGestao() {
       >
         <View style={styles.modalOverlay}>
           <View style={modalContentStyle}>
-            <Text style={modalTitleStyle}>Limite do plano Freemium</Text>
+            <Text style={modalTitleStyle}>Limite de anúncios atingido</Text>
             <Text style={modalTextStyle}>
-              Seu plano atual permite apenas 1 anúncio por CPF. Para publicar mais anúncios,
-              faça upgrade para o plano Premium.
+              Todos os planos permitem 1 anúncio ativo por CPF. Para publicar um novo anúncio,
+              exclua um anúncio existente ou entre em contato para mais opções.
             </Text>
             <View style={styles.modalActions}>
               <TouchableOpacity

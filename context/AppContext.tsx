@@ -32,11 +32,12 @@ interface Business {
 // Tipo para usuário
 interface UserProfile {
   name: string;
+  nickname?: string;
   email: string;
   password?: string;
   phone: string;
   cpf: string;
-  isPremium: boolean;
+  anuncianteLevel: 1 | 2 | 3 | 4;
   createdAt: string;
 }
 

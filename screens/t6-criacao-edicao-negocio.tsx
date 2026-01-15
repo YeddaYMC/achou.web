@@ -45,6 +45,7 @@ export default function T6CriacaoEdicao() {
     whatsapp: '',
     description: '',
     entregaRapida: false,
+    isImperdivel: false,
   });
 
   const [contactVisibility, setContactVisibility] = useState({
@@ -61,6 +62,20 @@ export default function T6CriacaoEdicao() {
 
   const ChevronLeftIcon: any = ChevronLeft;
   const CheckIcon: any = Check;
+
+  // Função auxiliar para verificar permissões por nível
+  const getNivelPermissoes = () => {
+    const nivel = userProfile?.anuncianteLevel || 1;
+    return {
+      maxFotos: [1, 1, 3, 5][nivel - 1],
+      isImperdivelEnabled: nivel >= 3,
+      linksEnabled: nivel >= 2,
+      maxCategorias: nivel === 1 ? 1 : Infinity,
+      relatoriosEnabled: nivel === 4
+    };
+  };
+
+  const permissoes = getNivelPermissoes();
 
   const normalizeUrl = (u: string) => {
     if (!u) return '';
@@ -282,21 +297,39 @@ export default function T6CriacaoEdicao() {
                 </View>
               </View>
               <View style={styles.halfInput}>
-                <Label style={labelStyle}>Site</Label>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Label style={labelStyle}>Site</Label>
+                  {!permissoes.linksEnabled && (
+                    <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '600' }}>
+                      ⓘ Nível 2+
+                    </Text>
+                  )}
+                </View>
                 <Input
                   value={formData.site}
-                  onChangeText={(text) => setFormData({ ...formData, site: text })}
-                  style={inputStyle}
+                  onChangeText={(text) => {
+                    if (!permissoes.linksEnabled) {
+                      Alert.alert(
+                        'Recurso Premium',
+                        'Links adicionais estão disponíveis a partir do Nível 2 (R$ 19,99).\n\nFaça upgrade para adicionar seu site!'
+                      );
+                      return;
+                    }
+                    setFormData({ ...formData, site: text });
+                  }}
+                  style={[inputStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}
                   placeholder="seudominio.com"
                   placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
                   autoCapitalize="none"
+                  editable={permissoes.linksEnabled}
                 />
                 <View style={styles.checkboxRow}>
                   <Checkbox
                     checked={contactVisibility.site}
                     onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, site: Boolean(v) })}
+                    disabled={!permissoes.linksEnabled}
                   />
-                  <Text style={checkboxTextStyle}>Mostrar no anúncio</Text>
+                  <Text style={[checkboxTextStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}>Mostrar no anúncio</Text>
                 </View>
               </View>
             </View>
@@ -322,40 +355,76 @@ export default function T6CriacaoEdicao() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Label style={labelStyle}>Facebook</Label>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Label style={labelStyle}>Facebook</Label>
+                {!permissoes.linksEnabled && (
+                  <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '600' }}>
+                    ⓘ Nível 2+
+                  </Text>
+                )}
+              </View>
               <Input
                 value={formData.facebook}
-                onChangeText={(text) => setFormData({ ...formData, facebook: text })}
-                style={inputStyle}
+                onChangeText={(text) => {
+                  if (!permissoes.linksEnabled) {
+                    Alert.alert(
+                      'Recurso Premium',
+                      'Links adicionais estão disponíveis a partir do Nível 2 (R$ 19,99).'
+                    );
+                    return;
+                  }
+                  setFormData({ ...formData, facebook: text });
+                }}
+                style={[inputStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}
                 placeholder="facebook.com/sua_pagina"
                 placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
                 autoCapitalize="none"
+                editable={permissoes.linksEnabled}
               />
               <View style={styles.checkboxRow}>
                 <Checkbox
                   checked={contactVisibility.facebook}
                   onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, facebook: Boolean(v) })}
+                  disabled={!permissoes.linksEnabled}
                 />
-                <Text style={checkboxTextStyle}>Mostrar Facebook no anúncio</Text>
+                <Text style={[checkboxTextStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}>Mostrar Facebook no anúncio</Text>
               </View>
             </View>
 
             <View style={styles.inputGroup}>
-              <Label style={labelStyle}>Pinterest</Label>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Label style={labelStyle}>Pinterest</Label>
+                {!permissoes.linksEnabled && (
+                  <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '600' }}>
+                    ⓘ Nível 2+
+                  </Text>
+                )}
+              </View>
               <Input
                 value={formData.pinterest}
-                onChangeText={(text) => setFormData({ ...formData, pinterest: text })}
-                style={inputStyle}
+                onChangeText={(text) => {
+                  if (!permissoes.linksEnabled) {
+                    Alert.alert(
+                      'Recurso Premium',
+                      'Links adicionais estão disponíveis a partir do Nível 2 (R$ 19,99).'
+                    );
+                    return;
+                  }
+                  setFormData({ ...formData, pinterest: text });
+                }}
+                style={[inputStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}
                 placeholder="pinterest.com/seu_perfil"
                 placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
                 autoCapitalize="none"
+                editable={permissoes.linksEnabled}
               />
               <View style={styles.checkboxRow}>
                 <Checkbox
                   checked={contactVisibility.pinterest}
                   onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, pinterest: Boolean(v) })}
+                  disabled={!permissoes.linksEnabled}
                 />
-                <Text style={checkboxTextStyle}>Mostrar Pinterest no anúncio</Text>
+                <Text style={[checkboxTextStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}>Mostrar Pinterest no anúncio</Text>
               </View>
             </View>
 
@@ -368,6 +437,39 @@ export default function T6CriacaoEdicao() {
                   onCheckedChange={(v) => setFormData({ ...formData, entregaRapida: Boolean(v) })}
                 />
                 <Text style={checkboxTextStyle}>Meu negócio oferece entrega rápida na região</Text>
+              </View>
+            </View>
+
+            {/* Tag Imperdível (somente níveis 3 e 4) */}
+            <View style={styles.inputGroup}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Label style={labelStyle}>Destaque "Imperdível"</Label>
+                {!permissoes.isImperdivelEnabled && (
+                  <Text style={{ fontSize: 11, color: '#f59e0b', fontWeight: '600' }}>
+                    ⓘ Disponível a partir do Nível 3
+                  </Text>
+                )}
+              </View>
+              <View style={styles.checkboxRow}>
+                <Checkbox
+                  checked={formData.isImperdivel}
+                  onCheckedChange={(v) => {
+                    if (!permissoes.isImperdivelEnabled) {
+                      Alert.alert(
+                        'Recurso Premium',
+                        'O destaque "Imperdível" está disponível a partir do Nível 3 (R$ 29,99).\n\nFaça upgrade para destacar seu negócio!',
+                        [{ text: 'OK' }]
+                      );
+                      return;
+                    }
+                    setFormData({ ...formData, isImperdivel: Boolean(v) });
+                  }}
+                  disabled={!permissoes.isImperdivelEnabled}
+                  style={{ opacity: permissoes.isImperdivelEnabled ? 1 : 0.4 }}
+                />
+                <Text style={[checkboxTextStyle, { opacity: permissoes.isImperdivelEnabled ? 1 : 0.4 }]}>
+                  Marcar como "Imperdível" (maior visibilidade)
+                </Text>
               </View>
             </View>
 

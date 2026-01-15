@@ -42,14 +42,14 @@ export default function T9Favoritos() {
   return (
     <LayoutRN>
       <ScrollView style={[styles.container, { backgroundColor: colors.background, paddingHorizontal: spacing.md }]}>
-        <Text style={[styles.title, { color: colors.text, fontSize: fontSize['2xl'], marginBottom: spacing.lg, marginTop: spacing.lg }]}>
+        <Text style={[styles.title, { color: colors.foreground, fontSize: fontSize['2xl'], marginBottom: spacing.lg, marginTop: spacing.lg }]}>
           ❤️ Meus Favoritos
         </Text>
 
         {favoriteBusinesses.length === 0 ? (
           <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
             <Text style={{ fontSize: 48, marginBottom: spacing.lg }}>😔</Text>
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>Nenhum favorito ainda</Text>
+            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Nenhum favorito ainda</Text>
             <Text style={[styles.emptySubtitle, { color: colors.muted }]}>Adicione seus negócios favoritos ao clicar no ❤️</Text>
             <Button
               onPress={() => navigateTo('T1')}
@@ -96,7 +96,7 @@ export default function T9Favoritos() {
                 <View style={{ padding: spacing.md }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.businessName, { color: colors.text }]}>{business.name}</Text>
+                      <Text style={[styles.businessName, { color: colors.foreground }]}>{business.name}</Text>
                       {business.categories && business.categories.length > 0 && (
                         <Text style={[styles.businessCategory, { color: colors.muted }]}>
                           {business.categories.join(', ')}
@@ -127,7 +127,7 @@ export default function T9Favoritos() {
                   {/* Descrição */}
                   {business.description && (
                     <Text
-                      style={[styles.businessDescription, { color: colors.text, marginTop: spacing.sm }]}
+                      style={[styles.businessDescription, { color: colors.foreground, marginTop: spacing.sm }]}
                       numberOfLines={2}
                     >
                       {business.description}

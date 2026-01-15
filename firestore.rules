@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Função para buscar o nível do usuário
+    function getLevel() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.anuncianteLevel;
+    }
+
+    // ============================================================
+    // USUÁRIOS - Autenticação e Validação de Nível
+    // ============================================================
+    match /users/{userId} {
+      // Leitura: qualquer usuário autenticado pode ler seu próprio perfil
+      allow read: if request.auth != null;
+      
+      // Criação e Atualização: apenas o proprietário pode criar/atualizar
+      // Validação: anuncianteLevel deve estar entre 1 e 4
+      allow create, update: if request.auth != null && request.auth.uid == userId
+                            && request.resource.data.anuncianteLevel in [1, 2, 3, 4];
+      
+      // Deleção: apenas o proprietário pode deletar sua conta
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // ============================================================
+    // NEGÓCIOS/ANÚNCIOS - Validação por Nível de Plano
+    // ============================================================
+    match /businesses/{businessId} {
+      // Leitura: qualquer pessoa pode ver anúncios publicados
+      allow read: if true;
+      
+      // Deleção: apenas o proprietário do anúncio pode deletar
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+
+      // Criação e Atualização: apenas o proprietário pode criar/atualizar
+      // Validação: checa o nível de plano do usuário e suas permissões
+      allow create, update: if request.auth != null 
+                            && request.resource.data.userId == request.auth.uid
+                            && validateContent(getLevel());
+    }
+
+    // ============================================================
+    // VALIDAÇÃO DE CONTEÚDO POR NÍVEL DE PLANO
+    // ============================================================
+    // Esta função valida se o usuário pode enviar o conteúdo que está tentando salvar
+    // baseado no seu nível de plano (1, 2, 3 ou 4)
+    function validateContent(level) {
+      let data = request.resource.data;
+      
+      // .get('campo', padrão) evita erro se o campo não for enviado
+      let fotosCount = data.get('fotos', []).size();
+      let hasImperdivel = data.get('isImperdivel', false);
+      
+      // NÍVEL 1 (GRATUITO)
+      // - Máx 1 foto
+      // - NÃO permite "Imperdível"
+      // - Sem links adicionais (validado no app)
+      let checkNivel1 = (level == 1 && fotosCount <= 1 && hasImperdivel == false);
+      
+      // NÍVEL 2 (BÁSICO - R$ 19,99)
+      // - Máx 1 foto
+      // - NÃO permite "Imperdível"
+      // - COM links adicionais (validado no app)
+      let checkNivel2 = (level == 2 && fotosCount <= 1 && hasImperdivel == false);
+      
+      // NÍVEL 3 (PROFISSIONAL - R$ 29,99)
+      // - Máx 3 fotos
+      // - PERMITE "Imperdível"
+      // - COM links adicionais
+      let checkNivel3 = (level == 3 && fotosCount <= 3);
+      
+      // NÍVEL 4 (PREMIUM - R$ 39,99)
+      // - Máx 5 fotos
+      // - PERMITE "Imperdível"
+      // - COM links adicionais
+      // - COM relatórios de visualizações
+      let checkNivel4 = (level == 4 && fotosCount <= 5);
+
+      // Retorna true se o usuário está em conformidade com seu nível
+      return checkNivel1 || checkNivel2 || checkNivel3 || checkNivel4;
+    }
+  }
+}
+
+// ============================================================
+// NOTAS IMPORTANTES
+// ============================================================
+// 
+// 1. CAMPOS OBRIGATÓRIOS NO DOCUMENTO "businesses":
+//    - userId: string (proprietário do anúncio)
+//    - fotos: array (pode estar vazio [])
+//    - isImperdivel: boolean (true/false)
+//    - name, category, description, etc (validado no app)
+//
+// 2. CAMPOS OBRIGATÓRIOS NO DOCUMENTO "users":
+//    - anuncianteLevel: number (1, 2, 3 ou 4)
+//    - email, name, etc
+//
+// 3. TRATAMENTO DE CAMPOS AUSENTES:
+//    - .get('fotos', []) retorna [] se o campo não existir
+//    - .get('isImperdivel', false) retorna false se não existir
+//    - Isso evita erros de permissão ao validar
+//
+// 4. FLUXO DE VALIDAÇÃO:
+//    a. Usuário tenta criar/atualizar um anúncio
+//    b. Firestore chama validateContent(getLevel())
+//    c. getLevel() busca o anuncianteLevel do usuário
+//    d. validateContent() valida se o conteúdo está OK para esse nível
+//    e. Se passar, salva; se falhar, retorna erro de permissão
+//
+// 5. TESTES RECOMENDADOS:
+//    - Nível 1: tentar salvar com isImperdivel=true (deve falhar)
+//    - Nível 1: tentar salvar com 2+ fotos (deve falhar)
+//    - Nível 3: salvar com 3 fotos e isImperdivel=true (deve passar)
+//    - Nível 4: salvar com 5 fotos e isImperdivel=true (deve passar)
+//
+// ============================================================

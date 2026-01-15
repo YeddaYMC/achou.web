@@ -48,6 +48,10 @@ export default function RootNavigator() {
       return <T10Contato />;
     case 'T11':
       return <T11Termo />;
+    case 'T12':
+      return isLoggedIn ? <T12Planos /> : redirectToLogin('T12');
+    case 'planos':
+      return isLoggedIn ? <T12Planos /> : redirectToLogin('T12');
     default:
       return <T1TelaInicial />;
   }
