@@ -1,0 +1,803 @@
+═══════════════════════════════════════════════════════════════════════════════
+    SISTEMA ACHOU! - DOCUMENTAÇÃO COMPLETA DO PROJETO
+    VERSÃO 2.0 - FEVEREIRO DE 2026
+═══════════════════════════════════════════════════════════════════════════════
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ CONTROLE DE VERSÃO                                                        │
+├───────────────────────────────────────────────────────────────────────────┤
+│ Versão:           2.0                                                     │
+│ Data:             24 de Fevereiro de 2026                                 │
+│ Versão Anterior:  1.0 (Novembro 2025)                                     │
+│ Responsável:      Equipe de Desenvolvimento                               │
+│ Status:           ATIVO                                                   │
+└───────────────────────────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────────────────┐
+│ PRINCIPAIS MUDANÇAS DA VERSÃO 2.0                                         │
+├───────────────────────────────────────────────────────────────────────────┤
+│ ✓ Adicionado Ator: Administrador (moderação de conteúdo)                 │
+│ ✓ Sistema de 4 Níveis de Planos (Gratuito → R$ 39,99)                    │
+│ ✓ Sistema de Favoritos completo                                          │
+│ ✓ Sistema de Denúncia de conteúdo                                        │
+│ ✓ Sistema de Moderação (pendente/aprovado/rejeitado)                     │
+│ ✓ Painel de Gestão para Empreendedores                                   │
+│ ✓ Badge "Imperdível" para planos premium                                 │
+│ ✓ Múltiplas fotos por anúncio (1, 3 ou 5)                                │
+│ ✓ Links sociais (Site, Facebook, Pinterest)                              │
+│ ✓ Sistema de notificações (toasts)                                       │
+│ ✓ Modo claro/escuro                                                      │
+│ ✓ Validações avançadas (CPF, telefone)                                   │
+│ ✓ Sincronização Firebase em tempo real                                   │
+│ ✓ Expansão de RF01-RF04 para RF01-RF21                                   │
+│ ✓ Expansão de RNF01-RNF03 para RNF01-RNF09                               │
+│ ✓ Expansão de CU01-CU07 para CU01-CU13                                   │
+│ ✓ Expansão de T1-T8 para T1-T12                                          │
+└───────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+1. INTRODUÇÃO
+═══════════════════════════════════════════════════════════════════════════════
+
+O projeto se refere à criação de uma plataforma digital móvel georreferenciada 
+voltada à economia de proximidade.
+
+O cenário urbano contemporâneo tem sido redefinido por modelos de planejamento 
+que visam maior sustentabilidade, qualidade de vida e eficiência logística, 
+destacando o conceito de Cidades de 15 Minutos. Novos hábitos de vida e de 
+consumo têm colocado em evidência a economia de conveniência, permitindo que 
+empreendedores tirem proveito do conceito hiperlocal, concentrando-se na 
+proximidade para gerar tickets recorrentes e fortalecer a conexão 
+cliente-comerciante.
+
+Esse é o contexto que norteia a ideação do projeto: uma plataforma digital 
+móvel georreferenciada pensada para o ecossistema hiperlocal. O ACHOU! será 
+um motor de conexão entre o consumidor e o comércio local, aplicando o Design 
+Centrado no Usuário (DCU) para garantir que sua interface e seus fluxos de 
+interação sejam intuitivos e amigáveis. Tecnicamente, ele utiliza o 
+georreferenciamento para mapear e apresentar negócios disponíveis em um raio 
+de proximidade.
+
+O grande diferencial do ACHOU! é a conversão simples: ele não é um marketplace 
+transacional, mas um facilitador que direciona o cliente interessado para o 
+ambiente de comunicação e vendas/prestação de serviços que o empreendedor já 
+domina. Essa abordagem visa remover a necessidade de o empreendedor dominar 
+plataformas complexas de e-commerce.
+
+1.1 NOVIDADES DA VERSÃO 2.0
+
+Na versão 2.0, o ACHOU! evolui com recursos premium através de um modelo 
+freemium de 4 níveis, sistema de moderação de conteúdo para garantir 
+qualidade, e ferramentas avançadas de gestão para empreendedores. O sistema 
+agora suporta múltiplas fotos, links sociais, favoritos, denúncias e um 
+painel administrativo completo.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+2. REQUISITOS FUNCIONAIS (RF)
+═══════════════════════════════════════════════════════════════════════════════
+
+┌──────┬────────────────────────────────────────────────────────────────────────────────────────┬──────────┐
+│  ID  │ DESCRIÇÃO DO REQUISITO                                                                 │  STATUS  │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF01 │ O sistema deve permitir que o empreendedor cadastre seu perfil com nome, CPF,         │    ✅    │
+│      │ telefone e foto.                                                                       │          │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF02 │ O sistema deve capturar o endereço/geolocalização do comércio para exibição           │    ⏳    │
+│      │ hiperlocal.                                                                            │          │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF03 │ O sistema deve permitir a inclusão de um número de WhatsApp validado para contato.    │    ✅    │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF04 │ O sistema deve permitir que o cliente busque serviços por proximidade geográfica.     │    ⏳    │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF05 │ O sistema deve listar resultados baseados no raio de 15 minutos (a pé ou bicicleta).  │    ⏳    │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF06 │ O sistema deve exibir o perfil do empreendedor com foto, descrição e distância.       │    ✅    │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF07 │ O sistema deve disponibilizar um botão de destaque para iniciar conversa no WhatsApp. │    ✅    │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF08 │ O sistema deve permitir que o cliente marque e visualize negócios favoritos.          │    ✅    │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF09 │ O sistema deve permitir ao empreendedor visualizar e contratar planos (Gratuito,      │    ✅    │
+│      │ R$ 19,99, R$ 29,99, R$ 39,99).                                                         │          │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF10 │ O sistema deve exibir badge 'Imperdível' para anúncios premium (Nível 3+).            │    ✅    │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF11 │ O sistema deve permitir ao empreendedor criar e editar anúncios com validação por     │    ✅    │
+│      │ nível de plano.                                                                        │          │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF12 │ O sistema deve permitir múltiplas fotos por anúncio (1, 3 ou 5 dependendo do nível).  │    ✅    │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF13 │ O sistema deve permitir adicionar links sociais (Site, Facebook, Pinterest) a partir  │    ✅    │
+│      │ do Nível 2.                                                                            │          │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF14 │ O sistema deve exibir painel de gestão com lista de anúncios criados pelo             │    ✅    │
+│      │ empreendedor.                                                                          │          │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF15 │ O sistema deve sincronizar dados em tempo real com Firebase (anúncios, favoritos,     │    ✅    │
+│      │ perfil).                                                                               │          │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF16 │ O sistema deve permitir que usuários autenticados denunciem anúncios inadequados.     │    ✅    │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF17 │ O sistema deve implementar moderação de anúncios com status (pendente, aprovado,      │    ⏳    │
+│      │ rejeitado).                                                                            │          │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF18 │ O sistema deve exibir apenas anúncios aprovados na listagem pública.                  │    ⏳    │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF19 │ O sistema deve fornecer feedback visual imediato via toasts/notificações.             │    ✅    │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF20 │ O sistema deve validar CPF e telefone no cadastro de empreendedor.                    │    ✅    │
+├──────┼────────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RF21 │ O sistema deve permitir alternar entre modo claro e escuro (tema).                    │    ✅    │
+└──────┴────────────────────────────────────────────────────────────────────────────────────────┴──────────┘
+
+Legenda: ✅ Implementado | ⏳ Planejado
+
+
+═══════════════════════════════════════════════════════════════════════════════
+3. REQUISITOS NÃO FUNCIONAIS (RNF)
+═══════════════════════════════════════════════════════════════════════════════
+
+┌───────┬──────────────────────────────────────────────────────────────────────────────────────┬──────────┐
+│  ID   │ DESCRIÇÃO DO REQUISITO                                                               │  STATUS  │
+├───────┼──────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RNF01 │ Usabilidade: O cadastro deve ser concluído em menos de 5 minutos e no máximo 3      │    ✅    │
+│       │ passos.                                                                              │          │
+├───────┼──────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RNF02 │ Eficiência: A conexão entre cliente e WhatsApp deve ocorrer em no máximo 3 cliques. │    ✅    │
+├───────┼──────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RNF03 │ Portabilidade: O aplicativo deve ser cross-platform (iOS e Android) usando React    │    ✅    │
+│       │ Native.                                                                              │          │
+├───────┼──────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RNF04 │ Confiabilidade: O armazenamento dos dados deve ser feito de forma escalável via     │    ✅    │
+│       │ Firebase.                                                                            │          │
+├───────┼──────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RNF05 │ Acessibilidade: A interface deve possuir fontes de alta legibilidade e botões       │    ✅    │
+│       │ grandes (CTA).                                                                       │          │
+├───────┼──────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RNF06 │ Performance: O tempo de carregamento da Tela Inicial (T1) com a lista de negócios   │    ✅    │
+│       │ georreferenciados deve ser inferior a 3 segundos em redes móveis 3G ou superiores.  │          │
+├───────┼──────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RNF07 │ Performance: A busca por categoria e proximidade deve retornar resultados           │    ✅    │
+│       │ relevantes em menos de 1 segundo.                                                    │          │
+├───────┼──────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RNF08 │ Escalabilidade: O sistema deve suportar um volume de, no mínimo, 1.000 usuários     │    ✅    │
+│       │ ativos simultaneamente em picos de uso.                                              │          │
+├───────┼──────────────────────────────────────────────────────────────────────────────────────┼──────────┤
+│ RNF09 │ Segurança: Após 3 tentativas falhas de login, a conta deve ser bloqueada            │    ⏳    │
+│       │ temporariamente.                                                                     │          │
+└───────┴──────────────────────────────────────────────────────────────────────────────────────┴──────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+4. ATORES DO SISTEMA
+═══════════════════════════════════════════════════════════════════════════════
+
+┌──────────────────────────────┬──────────────┬────────────────────────────────────────────────────────┐
+│ ATOR                         │ TIPO         │ DESCRIÇÃO                                              │
+├──────────────────────────────┼──────────────┼────────────────────────────────────────────────────────┤
+│ Usuário Geral                │ Primário     │ Usuário não autenticado que realiza cadastro/login.   │
+├──────────────────────────────┼──────────────┼────────────────────────────────────────────────────────┤
+│ Consumidor                   │ Primário     │ Usuário autenticado que busca e visualiza negócios.   │
+├──────────────────────────────┼──────────────┼────────────────────────────────────────────────────────┤
+│ Empreendedor                 │ Primário     │ Usuário que gerencia a divulgação do seu negócio.     │
+├──────────────────────────────┼──────────────┼────────────────────────────────────────────────────────┤
+│ Administrador [NOVO v2.0]    │ Primário     │ Usuário com permissões para moderação e gestão do     │
+│                              │              │ sistema. Aprova/rejeita anúncios e gerencia planos.   │
+├──────────────────────────────┼──────────────┼────────────────────────────────────────────────────────┤
+│ Sistema Geolocalização       │ Secundário   │ Sistema externo para obtenção de coordenadas (GPS).   │
+├──────────────────────────────┼──────────────┼────────────────────────────────────────────────────────┤
+│ WhatsApp                     │ Secundário   │ Sistema externo para comunicação/conversão.            │
+└──────────────────────────────┴──────────────┴────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+5. CASOS DE USO (CU)
+═══════════════════════════════════════════════════════════════════════════════
+
+┌───────┬────────────────────────────────────────┬──────────────────┬─────────────┬──────────────────────┐
+│  ID   │ NOME DO CASO DE USO                    │ ATOR PRINCIPAL   │   STATUS    │ TELAS                │
+├───────┼────────────────────────────────────────┼──────────────────┼─────────────┼──────────────────────┤
+│ CU01  │ Cadastrar Usuário                      │ Usuário Geral    │ Implementado│ T2 (t2-cadastro)     │
+├───────┼────────────────────────────────────────┼──────────────────┼─────────────┼──────────────────────┤
+│ CU02  │ Autenticar (Login)                     │ Usuário Geral    │ Implementado│ T3 (t3-login)        │
+├───────┼────────────────────────────────────────┼──────────────────┼─────────────┼──────────────────────┤
+│ CU03  │ Gerenciar Perfil Pessoal               │ Usuário Geral    │ Implementado│ T5 (t5-perfil)       │
+├───────┼────────────────────────────────────────┼──────────────────┼─────────────┼──────────────────────┤
+│ CU04  │ Buscar Comércio Local                  │ Consumidor       │ Parcial*    │ T1 (t1-tela-inicial) │
+│       │                                        │ Sist. Geolocal.  │             │                      │
+├───────┼────────────────────────────────────────┼──────────────────┼─────────────┼──────────────────────┤
+│ CU05  │ Acessar Detalhes do Negócio            │ Consumidor       │ Implementado│ T4 (t4-detalhes)     │
+├───────┼────────────────────────────────────────┼──────────────────┼─────────────┼──────────────────────┤
+│ CU06  │ Iniciar Contato                        │ Consumidor       │ Implementado│ T4 (t4-detalhes)     │
+│       │                                        │ WhatsApp         │             │                      │
+├───────┼────────────────────────────────────────┼──────────────────┼─────────────┼──────────────────────┤
+│ CU07  │ Gerenciar Publicação do Negócio        │ Empreendedor     │ Implementado│ T6 (t6-criacao), T7  │
+├───────┼────────────────────────────────────────┼──────────────────┼─────────────┼──────────────────────┤
+│ CU08  │ Gerenciar Favoritos [NOVO v2.0]        │ Consumidor       │ Implementado│ T1, T4, T9           │
+├───────┼────────────────────────────────────────┼──────────────────┼─────────────┼──────────────────────┤
+│ CU09  │ Visualizar e Contratar Planos          │ Empreendedor     │ Implementado│ T12 (t12-planos)     │
+│       │ [NOVO v2.0]                            │                  │             │                      │
+├───────┼────────────────────────────────────────┼──────────────────┼─────────────┼──────────────────────┤
+│ CU10  │ Visualizar Painel de Gestão            │ Empreendedor     │ Implementado│ T7 (t7-painel-gestao)│
+│       │ [NOVO v2.0]                            │                  │             │                      │
+├───────┼────────────────────────────────────────┼──────────────────┼─────────────┼──────────────────────┤
+│ CU11  │ Denunciar Conteúdo [NOVO v2.0]         │ Consumidor       │ Implementado│ T4, T10 (t10-contato)│
+├───────┼────────────────────────────────────────┼──────────────────┼─────────────┼──────────────────────┤
+│ CU12  │ Moderar Conteúdo [NOVO v2.0]           │ Administrador    │ Planejado   │ Admin Panel (futuro) │
+├───────┼────────────────────────────────────────┼──────────────────┼─────────────┼──────────────────────┤
+│ CU13  │ Administrar Planos do Sistema          │ Administrador    │ Planejado   │ Admin Panel (futuro) │
+│       │ [NOVO v2.0]                            │                  │             │                      │
+├───────┼────────────────────────────────────────┼──────────────────┼─────────────┼──────────────────────┤
+│ CUExt │ Publicar Oferta/Destaque               │ Empreendedor     │ Implementado│ T6 (t6-criacao)      │
+│       │ (extend de CU07)                       │                  │             │                      │
+└───────┴────────────────────────────────────────┴──────────────────┴─────────────┴──────────────────────┘
+
+* CU04 Parcial: Implementado filtro por categoria. Falta geolocalização e raio de 15 minutos.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+6. ESPECIFICAÇÕES DETALHADAS DOS NOVOS CASOS DE USO (v2.0)
+═══════════════════════════════════════════════════════════════════════════════
+
+───────────────────────────────────────────────────────────────────────────────
+CU08: GERENCIAR FAVORITOS
+───────────────────────────────────────────────────────────────────────────────
+
+Tópico              Descrição
+────────────────────────────────────────────────────────────────────────────
+Nome                Gerenciar Favoritos
+Atores              Consumidor
+Descrição Elaborada Permite ao Consumidor marcar/desmarcar negócios como favoritos
+                    e visualizar lista completa de favoritos.
+Pré-Condição        O Consumidor deve estar logado (CU02).
+Pós-Condição        A lista de favoritos é atualizada no Firebase em tempo real.
+Requisitos Especiais Sincronização: Deve atualizar instantaneamente.
+Requisitos          RF08, RF15
+Relacionados
+
+FLUXO BÁSICO (Favoritar com Sucesso)
+────────────────────────────────────────────────────────────────────────────
+Passo  Ação do Ator                        Resposta do Sistema
+────────────────────────────────────────────────────────────────────────────
+1      O Consumidor clica no ícone de      1.1. O Sistema atualiza o estado visual
+       coração em um negócio (T1 ou T4).        do ícone (preenchido).
+                                            1.2. O Sistema salva no Firebase.
+                                            1.3. O Sistema exibe toast "Adicionado 
+                                                 aos favoritos".
+
+2      O Consumidor acessa T9 (Favoritos). 2.1. O Sistema exibe lista completa de
+                                                 negócios favoritados.
+
+FLUXOS ALTERNATIVOS
+────────────────────────────────────────────────────────────────────────────
+Passo  Descrição
+────────────────────────────────────────────────────────────────────────────
+A.1.1  Desfavoritar: O Consumidor clica novamente no coração. O Sistema 
+       remove o favorito e exibe toast "Removido dos favoritos".
+
+───────────────────────────────────────────────────────────────────────────────
+CU09: VISUALIZAR E CONTRATAR PLANOS
+───────────────────────────────────────────────────────────────────────────────
+
+Tópico              Descrição
+────────────────────────────────────────────────────────────────────────────
+Nome                Visualizar e Contratar Planos
+Atores              Empreendedor
+Descrição Elaborada Permite ao Empreendedor visualizar os 4 níveis de planos
+                    disponíveis e suas características (fotos, badge, links).
+Pré-Condição        O Empreendedor deve estar logado (CU02).
+Pós-Condição        O Empreendedor visualiza os planos e pode iniciar contratação.
+Requisitos Especiais Clareza: Deve exibir comparativo visual dos recursos.
+Requisitos          RF09
+Relacionados
+
+FLUXO BÁSICO (Visualização com Sucesso)
+────────────────────────────────────────────────────────────────────────────
+Passo  Ação do Ator                        Resposta do Sistema
+────────────────────────────────────────────────────────────────────────────
+1      O Empreendedor acessa T12 (Planos). 1.1. O Sistema exibe tabela comparativa:
+                                                 - Nível 1: Gratuito (1 foto)
+                                                 - Nível 2: R$ 19,99 (1 foto + links)
+                                                 - Nível 3: R$ 29,99 (3 fotos + badge)
+                                                 - Nível 4: R$ 39,99 (5 fotos + todos)
+
+2      O Empreendedor seleciona um plano.  2.1. O Sistema exibe detalhes e botão
+                                                 "Contratar" (integração futura).
+
+───────────────────────────────────────────────────────────────────────────────
+CU10: VISUALIZAR PAINEL DE GESTÃO
+───────────────────────────────────────────────────────────────────────────────
+
+Tópico              Descrição
+────────────────────────────────────────────────────────────────────────────
+Nome                Visualizar Painel de Gestão
+Atores              Empreendedor
+Descrição Elaborada Exibe lista de todos os anúncios criados pelo Empreendedor
+                    com opções de editar, visualizar e excluir.
+Pré-Condição        O Empreendedor deve estar logado (CU02) e ter criado ao
+                    menos um anúncio.
+Pós-Condição        O Empreendedor visualiza e gerencia seus anúncios.
+Requisitos Especiais Filtro: Deve mostrar apenas anúncios do usuário logado.
+Requisitos          RF14
+Relacionados
+
+FLUXO BÁSICO (Acesso com Sucesso)
+────────────────────────────────────────────────────────────────────────────
+Passo  Ação do Ator                        Resposta do Sistema
+────────────────────────────────────────────────────────────────────────────
+1      O Empreendedor acessa T7            1.1. O Sistema busca anúncios por email
+       (Painel de Gestão).                      do usuário logado.
+                                            1.2. O Sistema exibe lista em cards com
+                                                 nome, categoria e ações.
+
+2      O Empreendedor clica em "Editar".   2.1. O Sistema navega para T6 com dados
+                                                 pré-preenchidos.
+
+───────────────────────────────────────────────────────────────────────────────
+CU11: DENUNCIAR CONTEÚDO
+───────────────────────────────────────────────────────────────────────────────
+
+Tópico              Descrição
+────────────────────────────────────────────────────────────────────────────
+Nome                Denunciar Conteúdo
+Atores              Consumidor
+Descrição Elaborada Permite ao Consumidor denunciar anúncios inadequados.
+Pré-Condição        O Consumidor deve estar logado (CU02).
+Pós-Condição        A denúncia é registrada e enviada para análise futura.
+Requisitos Especiais Segurança: Apenas usuários autenticados podem denunciar.
+Requisitos          RF16
+Relacionados
+
+FLUXO BÁSICO (Denúncia com Sucesso)
+────────────────────────────────────────────────────────────────────────────
+Passo  Ação do Ator                        Resposta do Sistema
+────────────────────────────────────────────────────────────────────────────
+1      O Consumidor clica em "Denunciar"   1.1. O Sistema salva ID e nome do negócio
+       em T4 (Detalhes do Negócio).             no contexto.
+                                            1.2. O Sistema navega para T10 (Contato).
+
+2      O Consumidor preenche descrição     2.1. O Sistema valida que há mensagem.
+       do problema e clica "Enviar".       2.2. O Sistema registra denúncia.
+                                            2.3. O Sistema exibe "Denúncia enviada!".
+
+FLUXOS ALTERNATIVOS
+────────────────────────────────────────────────────────────────────────────
+Passo  Descrição
+────────────────────────────────────────────────────────────────────────────
+A.1.1  Não logado: O Sistema exibe toast "Você precisa fazer login para 
+       reportar" e não permite prosseguir.
+
+───────────────────────────────────────────────────────────────────────────────
+CU12: MODERAR CONTEÚDO [PLANEJADO]
+───────────────────────────────────────────────────────────────────────────────
+
+Tópico              Descrição
+────────────────────────────────────────────────────────────────────────────
+Nome                Moderar Conteúdo
+Atores              Administrador
+Descrição Elaborada Permite ao Administrador revisar anúncios pendentes e
+                    aprová-los ou rejeitá-los.
+Pré-Condição        O Administrador deve estar logado com role=admin.
+                    Deve haver anúncios com status=pendente.
+Pós-Condição        O status do anúncio é atualizado para "aprovado" ou 
+                    "rejeitado".
+Requisitos Especiais Segurança: Apenas admins podem acessar painel de moderação.
+Requisitos          RF17, RF18
+Relacionados
+
+FLUXO BÁSICO (Aprovação com Sucesso)
+────────────────────────────────────────────────────────────────────────────
+Passo  Ação do Ator                        Resposta do Sistema
+────────────────────────────────────────────────────────────────────────────
+1      O Admin acessa Painel de Moderação. 1.1. O Sistema exibe lista de anúncios
+                                                 com status=pendente.
+
+2      O Admin clica em "Aprovar".         2.1. O Sistema atualiza status para
+                                                 "aprovado".
+                                            2.2. O anúncio passa a aparecer em T1.
+                                            2.3. O Sistema exibe toast "Anúncio 
+                                                 aprovado!".
+
+FLUXOS ALTERNATIVOS
+────────────────────────────────────────────────────────────────────────────
+Passo  Descrição
+────────────────────────────────────────────────────────────────────────────
+A.2.1  Rejeitar: O Admin clica em "Rejeitar". O Sistema atualiza status 
+       para "rejeitado" e o anúncio não aparece na listagem pública.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+7. MATRIZ DE RASTREABILIDADE: RF → CU
+═══════════════════════════════════════════════════════════════════════════════
+
+RF01 → CU01 (Cadastrar Usuário), CU03 (Gerenciar Perfil Pessoal)
+RF02 → CU02 (Gerenciar Localização do Negócio) [PLANEJADO]
+RF03 → CU03 (Configurar Canal de Atendimento), CU07 (Gerenciar Publicação do Negócio)
+RF04 → CU04 (Buscar Comércio Local)
+RF05 → CU04 (Buscar Comércio Local)
+RF06 → CU05 (Acessar Detalhes do Negócio)
+RF07 → CU06 (Iniciar Contato)
+RF08 → CU08 (Gerenciar Favoritos) [NOVO v2.0]
+RF09 → CU09 (Visualizar e Contratar Planos) [NOVO v2.0]
+RF10 → CU05 (Acessar Detalhes do Negócio), CUExt (Publicar Oferta/Destaque)
+RF11 → CU07 (Gerenciar Publicação do Negócio)
+RF12 → CU07 (Gerenciar Publicação do Negócio)
+RF13 → CU07 (Gerenciar Publicação do Negócio)
+RF14 → CU10 (Visualizar Painel de Gestão) [NOVO v2.0]
+RF15 → CU03 (Gerenciar Perfil Pessoal), CU07 (Gerenciar Publicação do Negócio)
+RF16 → CU11 (Denunciar Conteúdo) [NOVO v2.0]
+RF17 → CU12 (Moderar Conteúdo) [NOVO v2.0]
+RF18 → CU12 (Moderar Conteúdo) [NOVO v2.0]
+RF19 → Todos os CU (Interface)
+RF20 → CU01 (Cadastrar Usuário), CU03 (Gerenciar Perfil Pessoal)
+RF21 → CU03 (Gerenciar Perfil Pessoal) [NOVO v2.0]
+
+
+═══════════════════════════════════════════════════════════════════════════════
+8. MATRIZ DE RASTREABILIDADE: RNF → CU → TELAS
+═══════════════════════════════════════════════════════════════════════════════
+
+┌───────┬────────────────────────────────────────────────────────────┬─────────────────────────────────────────┐
+│  RNF  │ CASO DE USO RELACIONADO                                    │ TELAS                                   │
+├───────┼────────────────────────────────────────────────────────────┼─────────────────────────────────────────┤
+│ RNF01 │ CU01: Cadastrar Usuário                                    │ T2 (t2-cadastro)                        │
+│       │ CU03: Gerenciar Perfil Pessoal                             │ T5 (t5-perfil)                          │
+├───────┼────────────────────────────────────────────────────────────┼─────────────────────────────────────────┤
+│ RNF02 │ CU06: Iniciar Contato                                      │ T4 (t4-detalhes-negocio)                │
+├───────┼────────────────────────────────────────────────────────────┼─────────────────────────────────────────┤
+│ RNF03 │ Todos os CU (Infraestrutura)                               │ T1-T12 (Todas)                          │
+├───────┼────────────────────────────────────────────────────────────┼─────────────────────────────────────────┤
+│ RNF04 │ Todos os CU (Backend)                                      │ T1-T12 (Todas)                          │
+├───────┼────────────────────────────────────────────────────────────┼─────────────────────────────────────────┤
+│ RNF05 │ Todos os CU (Interface)                                    │ T1-T12 (Todas)                          │
+├───────┼────────────────────────────────────────────────────────────┼─────────────────────────────────────────┤
+│ RNF06 │ CU04: Buscar Comércio Local [NOVO v2.0]                    │ T1 (t1-tela-inicial)                    │
+├───────┼────────────────────────────────────────────────────────────┼─────────────────────────────────────────┤
+│ RNF07 │ CU04: Buscar Comércio Local [NOVO v2.0]                    │ T1 (t1-tela-inicial)                    │
+├───────┼────────────────────────────────────────────────────────────┼─────────────────────────────────────────┤
+│ RNF08 │ CU04: Buscar Comércio Local [NOVO v2.0]                    │ T1 (t1-tela-inicial)                    │
+│       │ CU07: Gerenciar Publicação do Negócio                      │ T6 (t6-criacao), T7 (t7-painel-gestao) │
+├───────┼────────────────────────────────────────────────────────────┼─────────────────────────────────────────┤
+│ RNF09 │ CU02: Autenticar (Login) [NOVO v2.0]                       │ T3 (t3-login)                           │
+└───────┴────────────────────────────────────────────────────────────┴─────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+9. RELACIONAMENTOS ENTRE CASOS DE USO
+═══════════════════════════════════════════════════════════════════════════════
+
+INCLUDE (Obrigatório):
+  • CU03, CU04, CU05, CU06, CU07, CU08, CU10, CU11 <<include>> CU02 (Autenticar)
+    → Todos esses casos de uso exigem login prévio
+
+  • CU12 (Moderar Conteúdo) <<include>> CU02 (Autenticar) [NOVO v2.0]
+    → Requer autenticação com role=admin
+
+EXTEND (Opcional):
+  • CUExt (Publicar Oferta/Destaque) <<extend>> CU07 (Gerenciar Publicação do Negócio)
+    → Recurso opcional disponível apenas para planos premium (Nível 3+)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+10. SISTEMA DE NÍVEIS DE PLANOS [NOVO v2.0]
+═══════════════════════════════════════════════════════════════════════════════
+
+┌────────┬──────────┬──────────────┬─────────────────────┬───────────────────────┐
+│ NÍVEL  │ VALOR    │ FOTOS        │ BADGE IMPERDÍVEL    │ LINKS SOCIAIS         │
+├────────┼──────────┼──────────────┼─────────────────────┼───────────────────────┤
+│ 1      │ Gratuito │ 1 foto       │ ❌                  │ ❌                    │
+├────────┼──────────┼──────────────┼─────────────────────┼───────────────────────┤
+│ 2      │ R$ 19,99 │ 1 foto       │ ❌                  │ ✅                    │
+├────────┼──────────┼──────────────┼─────────────────────┼───────────────────────┤
+│ 3      │ R$ 29,99 │ 3 fotos      │ ✅                  │ ✅                    │
+├────────┼──────────┼──────────────┼─────────────────────┼───────────────────────┤
+│ 4      │ R$ 39,99 │ 5 fotos      │ ✅                  │ ✅ + Relatórios       │
+└────────┴──────────┴──────────────┴─────────────────────┴───────────────────────┘
+
+REGRAS DE NEGÓCIO:
+- Anúncios Nível 1 aparecem após anúncios pagos na listagem
+- Níveis 2-4 aparecem no topo da página
+- Badge "Imperdível" é exclusivo de Níveis 3 e 4
+- Links sociais (Site, Facebook, Pinterest) liberados a partir do Nível 2
+- Relatórios de desempenho disponíveis apenas no Nível 4
+- Validação automática no formulário T6 conforme nível do usuário
+
+
+═══════════════════════════════════════════════════════════════════════════════
+11. TELAS IMPLEMENTADAS
+═══════════════════════════════════════════════════════════════════════════════
+
+T1  - t1-tela-inicial (Home com filtros de categoria)
+T2  - t2-cadastro (Cadastro de Usuário)
+T3  - t3-login (Login)
+T4  - t4-detalhes-negocio (Detalhes do Negócio com WhatsApp, Favoritos, Denúncia)
+T5  - t5-perfil (Perfil do Usuário)
+T6  - t6-criacao-edicao-negocio (Criação/Edição de Anúncio com validação por nível)
+T7  - t7-painel-gestao (Painel de Gestão - lista de anúncios) [NOVO v2.0]
+T8  - t8-politicas-termos (Políticas e Termos LGPD)
+T9  - t9-favoritos (Favoritos) [NOVO v2.0]
+T10 - t10-contato (Contato com sistema de denúncia) [NOVO v2.0]
+T11 - t11-termos-condicoes (Termos e Condições)
+T12 - t12-planos (Planos e Preços) [NOVO v2.0]
+
+
+═══════════════════════════════════════════════════════════════════════════════
+12. DIAGRAMA DE CLASSES (UML) - ATUALIZADO v2.0
+═══════════════════════════════════════════════════════════════════════════════
+
+CLASSES PRINCIPAIS:
+
+┌─────────────────────────────────────────┐
+│ Conta_Usuario                           │
+├─────────────────────────────────────────┤
+│ - uid: string (PK)                      │
+│ - name: string                          │
+│ - email: string (UNIQUE)                │
+│ - phone: string                         │
+│ - cpf: string (UNIQUE)                  │
+│ - isPremium: boolean                    │
+│ - nivel: int (1-4) [NOVO v2.0]          │
+│ - role: string [NOVO v2.0]              │
+│ - createdAt: timestamp                  │
+├─────────────────────────────────────────┤
+│ + cadastrar()                           │
+│ + logar()                               │
+│ + atualizarPerfil()                     │
+│ + alterarTema() [NOVO v2.0]             │
+└─────────────────────────────────────────┘
+         |
+         | 1:0..1
+         |
+         ▼
+┌─────────────────────────────────────────┐
+│ Perfil_Negocio                          │
+├─────────────────────────────────────────┤
+│ - id: string (PK)                       │
+│ - owner: string (FK -> uid)             │
+│ - name: string                          │
+│ - categories: string[]                  │
+│ - location: string                      │
+│ - lat: number                           │
+│ - lon: number                           │
+│ - whatsapp: string                      │
+│ - phone: string                         │
+│ - description: string                   │
+│ - images: string[] [NOVO v2.0]          │
+│ - instagram: string                     │
+│ - facebook: string [NOVO v2.0]          │
+│ - pinterest: string [NOVO v2.0]         │
+│ - website: string [NOVO v2.0]           │
+│ - entregaRapida: boolean                │
+│ - status: string [NOVO v2.0]            │
+│ - createdAt: timestamp                  │
+├─────────────────────────────────────────┤
+│ + publicar()                            │
+│ + editar()                              │
+│ + excluir()                             │
+│ + buscar()                              │
+└─────────────────────────────────────────┘
+         |
+         | 1:0..N
+         |
+         ▼
+┌─────────────────────────────────────────┐
+│ Anuncio [EXTEND]                        │
+├─────────────────────────────────────────┤
+│ - isImperdivel: boolean [NOVO v2.0]     │
+│ - nivel: int                            │
+│ - destaque: string                      │
+├─────────────────────────────────────────┤
+│ + destacar()                            │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│ Favorito [N:N] [NOVO v2.0]              │
+├─────────────────────────────────────────┤
+│ - userId: string (FK)                   │
+│ - businessId: string (FK)               │
+│ - createdAt: timestamp                  │
+├─────────────────────────────────────────┤
+│ + favoritar()                           │
+│ + desfavoritar()                        │
+│ + listarFavoritos()                     │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│ Denuncia [NOVO v2.0]                    │
+├─────────────────────────────────────────┤
+│ - id: string (PK)                       │
+│ - businessId: string (FK)               │
+│ - userId: string (FK)                   │
+│ - message: string                       │
+│ - status: string (pending/reviewed)     │
+│ - createdAt: timestamp                  │
+├─────────────────────────────────────────┤
+│ + registrar()                           │
+│ + listar()                              │
+└─────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+13. DIAGRAMAS DE SEQUÊNCIA ATUALIZADOS
+═══════════════════════════════════════════════════════════════════════════════
+
+13.1 GERENCIAR FAVORITOS [NOVO v2.0]
+
+Consumidor → App UI → AppContext → Firebase Firestore
+    |           |          |              |
+    | Clica no  |          |              |
+    | coração   |          |              |
+    |---------->|          |              |
+    |           | toggle   |              |
+    |           |--------->|              |
+    |           |          | UPDATE users/{uid}/favorites/{businessId}
+    |           |          |------------->|
+    |           |          |              | ✓ Salvo
+    |           |          |<-------------|
+    |           | Toast: "Favoritado"     |
+    |<----------|          |              |
+
+
+13.2 DENUNCIAR CONTEÚDO [NOVO v2.0]
+
+Consumidor → App UI (T4) → AppContext → App UI (T10) → Firebase
+    |             |            |              |            |
+    | Clica       |            |              |            |
+    | "Denunciar" |            |              |            |
+    |------------>|            |              |            |
+    |             | setReportBusiness(data)   |            |
+    |             |----------->|              |            |
+    |             |            | navega T10   |            |
+    |             |            |------------->|            |
+    |             |            |              | Exibe form |
+    |             |            |              | com banner |
+    | Preenche    |            |              |            |
+    | mensagem    |            |              |            |
+    |------------>|            |              |            |
+    |             |            |              | CREATE reports/{id}
+    |             |            |              |----------->|
+    |             |            |              |            | ✓
+    |             |            |              |<-----------|
+    |             | Toast: "Denúncia enviada" |            |
+    |<------------|            |              |            |
+
+
+13.3 MODERAR CONTEÚDO [PLANEJADO v2.0]
+
+Admin → App Admin Panel → Firebase Firestore
+  |            |                  |
+  | Acessa     |                  |
+  | Moderação  |                  |
+  |----------->|                  |
+  |            | QUERY businesses WHERE status=pendente
+  |            |----------------->|
+  |            |                  | Lista
+  |            |<-----------------|
+  |            | Exibe cards      |
+  | Clica      |                  |
+  | "Aprovar"  |                  |
+  |----------->|                  |
+  |            | UPDATE businesses/{id} SET status=aprovado
+  |            |----------------->|
+  |            |                  | ✓
+  |            |<-----------------|
+  |            | Toast: "Aprovado"|
+  |<-----------|                  |
+
+
+═══════════════════════════════════════════════════════════════════════════════
+14. TESTES DE CAIXA PRETA - ATUALIZADO v2.0
+═══════════════════════════════════════════════════════════════════════════════
+
+┌──────┬───────────────────────────┬──────────────────────────────────────┬────────────────────────────────────────┐
+│ ID   │ MÓDULO/CENÁRIO            │ CASO DE TESTE                        │ RESULTADO ESPERADO                     │
+├──────┼───────────────────────────┼──────────────────────────────────────┼────────────────────────────────────────┤
+│ CT01 │ Autenticação              │ Cadastro com email duplicado         │ Sistema exibe "Email já cadastrado"    │
+│      │ (CU01)                    │                                      │ e retorna para tela de login.          │
+├──────┼───────────────────────────┼──────────────────────────────────────┼────────────────────────────────────────┤
+│ CT02 │ Autenticação              │ Login com senha incorreta            │ Sistema exibe "Credenciais inválidas". │
+│      │ (CU02)                    │                                      │                                        │
+├──────┼───────────────────────────┼──────────────────────────────────────┼────────────────────────────────────────┤
+│ CT03 │ Publicação                │ WhatsApp inválido                    │ Sistema destaca campo e exige formato  │
+│      │ (CU07)                    │                                      │ válido (mín. 8 dígitos).               │
+├──────┼───────────────────────────┼──────────────────────────────────────┼────────────────────────────────────────┤
+│ CT04 │ Busca                     │ Busca com múltiplos filtros          │ Sistema retorna apenas negócios que    │
+│      │ (CU04)                    │                                      │ atendem TODOS os filtros.              │
+├──────┼───────────────────────────┼──────────────────────────────────────┼────────────────────────────────────────┤
+│ CT05 │ Favoritos [NOVO]          │ Favoritar/Desfavoritar mesmo negócio │ Ícone alterna entre vazio/preenchido.  │
+│      │ (CU08)                    │                                      │ Firebase sincroniza estado.            │
+├──────┼───────────────────────────┼──────────────────────────────────────┼────────────────────────────────────────┤
+│ CT06 │ Segurança                 │ Verificação senha criptografada      │ Campo senhaHash não legível no BD.     │
+├──────┼───────────────────────────┼──────────────────────────────────────┼────────────────────────────────────────┤
+│ CT07 │ Planos [NOVO]             │ Validação de recursos por nível      │ Usuário Nível 1 não vê campo "links". │
+│      │ (CU09)                    │                                      │ Usuário Nível 3 pode marcar badge.     │
+├──────┼───────────────────────────┼──────────────────────────────────────┼────────────────────────────────────────┤
+│ CT08 │ Denúncia [NOVO]           │ Denunciar sem login                  │ Sistema exibe toast "Faça login para   │
+│      │ (CU11)                    │                                      │ reportar" e bloqueia ação.             │
+├──────┼───────────────────────────┼──────────────────────────────────────┼────────────────────────────────────────┤
+│ CT09 │ Moderação [NOVO]          │ Admin aprova anúncio pendente        │ Status muda para "aprovado".           │
+│      │ (CU12)                    │                                      │ Anúncio aparece em T1.                 │
+├──────┼───────────────────────────┼──────────────────────────────────────┼────────────────────────────────────────┤
+│ CT10 │ Painel Gestão [NOVO]      │ Listar apenas anúncios do usuário    │ Sistema filtra por owner=email logado. │
+│      │ (CU10)                    │                                      │                                        │
+└──────┴───────────────────────────┴──────────────────────────────────────┴────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+15. STACK TECNOLÓGICA
+═══════════════════════════════════════════════════════════════════════════════
+
+Frontend:      React Native + TypeScript + Expo ~54.0
+Backend:       Firebase (Auth + Firestore + Storage)
+State:         Context API
+UI:            Componentes customizados (Button, Input, Card, Dialog, etc.)
+Styling:       theme.ts (cores e espaçamentos) + Modo claro/escuro [NOVO v2.0]
+Notificações:  Sonner (toasts) [NOVO v2.0]
+Upload:        Cloudinary Service [NOVO v2.0]
+
+
+═══════════════════════════════════════════════════════════════════════════════
+16. CRONOGRAMA ATUALIZADO - VERSÃO 2.0
+═══════════════════════════════════════════════════════════════════════════════
+
+FASE 1: Setup, Infraestrutura & Autenticação (Semanas 1-4) ✅ CONCLUÍDO
+  ◼ Setup RN/Firebase OK
+  ◼ Lógica de Auth Core (RF01, CU01, CU02) funcional
+  ◼ Tema claro/escuro implementado (RF21)
+
+FASE 2: Segurança, BD Firestore & Gestão Pessoal (Semanas 5-8) ✅ CONCLUÍDO
+  ◼ Regras de BD (RNF04) definidas
+  ◼ Validação CPF/Telefone (RF20) implantada
+  ◼ Perfil pessoal (CU03) funcional
+
+FASE 3: Core Business: Cadastro Empreendedor (Semanas 9-12) ✅ CONCLUÍDO
+  ◼ CRUD do Negócio (RF11, CU07) funcional
+  ◼ Múltiplas fotos (RF12) e links sociais (RF13) integrados
+  ◼ Validação por nível de plano implementada
+
+FASE 4: Core Business: Busca e Interação (Semanas 13-16) ✅ CONCLUÍDO
+  ◼ Lógica de buscar por categoria (RF04, CU04) implementada
+  ◼ Sistema de Favoritos (RF08, CU08) completo
+  ◼ Conversão via WhatsApp (RF07, CU06) funcionando
+
+FASE 5: Recursos Premium e Gestão (Semanas 17-20) ✅ CONCLUÍDO
+  ◼ 4 Níveis de Planos (RF09, CU09) documentados
+  ◼ Painel de Gestão (RF14, CU10) implementado
+  ◼ Badge Imperdível (RF10, CUExt) funcional
+  ◼ Sistema de Denúncia (RF16, CU11) implementado
+  ◼ Sistema de notificações (RF19) via toasts
+
+FASE 6: Moderação e Admin (Planejado - Semanas 21-24) ⏳ PENDENTE
+  ◻ Painel Admin para moderação (CU12)
+  ◻ Workflow de aprovação (RF17, RF18)
+  ◻ Gestão de planos pelo admin (CU13)
+  ◻ Bloqueio de conta após tentativas (RNF09)
+  ◻ Relatórios para Nível 4
+
+
+═══════════════════════════════════════════════════════════════════════════════
+17. REFERÊNCIAS
+═══════════════════════════════════════════════════════════════════════════════
+
+OMG (Object Management Group). UML: Unified Modeling Language, Version 2.5.1. 
+  Needham: OMG, 2017. Disponível em: https://www.omg.org/spec/UML/2.5.1/PDF. 
+  Acesso em: 02 nov. 2025.
+
+PLANTUML. PlantUML Language Reference Guide. Versão 1.2024. Disponível em: 
+  https://plantuml.com/sitemap. Acesso em: 02 nov. 2025.
+
+PRESSMAN, Roger S. Engenharia de Software: Uma Abordagem Profissional. 8. ed. 
+  Porto Alegre: AMGH Editora (McGraw Hill), 2020.
+
+EXPO. Expo Documentation. Versão 54.0. Disponível em: https://docs.expo.dev. 
+  Acesso em: 19 fev. 2026.
+
+FIREBASE. Firebase Documentation. Google, 2026. Disponível em: 
+  https://firebase.google.com/docs. Acesso em: 19 fev. 2026.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+FIM DO DOCUMENTO - VERSÃO 2.0
+═══════════════════════════════════════════════════════════════════════════════

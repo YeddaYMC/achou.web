@@ -132,6 +132,25 @@ Ver [ARCHITECTURE.md](ARCHITECTURE.md) para:
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Padrões de código, workflow, conventions |
 | [BD-NOTAS.txt](BD-NOTAS.txt) | Estrutura Firestore, regras de negócio |
 
+## 🧭 Próximos Passos: Geolocalização
+
+- **Localização do usuário (default GPS):** solicitar permissão e capturar coordenadas; registrar quando GPS não estiver disponível.
+- **Entrada opcional (CEP/endereço):** permitir informar manualmente; marcar explicitamente quando o dado for manual.
+- **Localização fixa dos negócios:** armazenar coordenadas dos pontos (geopoint) para cálculo de proximidade.
+- **Busca por proximidade:** consultar negócios mais próximos do usuário combinando GPS ou CEP/endereço quando fornecido.
+
+## 🪪 Planos e Limites
+
+- **Nível 1:** 1 foto no feed, sem imperdível, sem links.
+- **Nível 2:** 1 foto no feed, sem imperdível, com links.
+- **Nível 3:** 1 foto no feed e até 3 fotos em detalhes do negócio, com imperdível, com links.
+- **Nível 4:** 1 foto no feed e até 5 fotos em detalhes do negócio, com imperdível, com links, relatórios (futuro).
+
+### Anotações para implementação futura
+- Garantir suporte consistente a “1 foto no feed e até 3/5 fotos em detalhes” nos fluxos de criação/edição e exibição.
+- Validar limites por nível tanto no app quanto nas regras do Firestore.
+- **Admin (futuro):** gestão de planos e pagamentos via BD SQL (modelo híbrido financeiro/contratos) complementando Firestore; listas de email marketing, contatos WhatsApp e redes sociais para comunicação segmentada.
+
 ## 🚢 Build & Deploy
 
 ### Desenvolvimento Local
