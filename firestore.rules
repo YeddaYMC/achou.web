@@ -2,134 +2,169 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Função para buscar o nível do usuário
-    function getLevel() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.anuncianteLevel;
+    // ============================================================
+    // FUNÇÕES AUXILIARES
+    // ============================================================
+
+    // Retorna true se o usuario está logado
+    function logado() {
+      return request.auth != null;
+    }
+
+    // Retorna true se o usuario logado tem a claim "admin" definida como true
+    // (essa claim é definida via Admin SDK ou Cloud Function)
+    function administrador() {
+      return logado() && request.auth.token.admin == true;
+    }
+
+    // Modo de teste: sem bloqueio por plano, exigindo exatamente 1 foto por anuncio
+    function validarConteudoAnuncioTeste() {
+      let dados = request.resource.data;
+      let quantidadeFotos = dados.get('fotos', []).size();
+      return quantidadeFotos == 1;
     }
 
     // ============================================================
-    // USUÁRIOS - Autenticação e Validação de Nível
+    // USUÁRIOS
+    // Cada usuario so acessa e edita o proprio perfil.
+    // O administrador NAO tem acesso de leitura a perfis.
     // ============================================================
-    match /users/{userId} {
-      // Leitura: qualquer usuário autenticado pode ler seu próprio perfil
-      allow read: if request.auth != null;
-      
-      // Criação e Atualização: apenas o proprietário pode criar/atualizar
-      // Validação: anuncianteLevel deve estar entre 1 e 4
-      allow create, update: if request.auth != null && request.auth.uid == userId
-                            && request.resource.data.anuncianteLevel in [1, 2, 3, 4];
-      
-      // Deleção: apenas o proprietário pode deletar sua conta
-      allow delete: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // ============================================================
-    // NEGÓCIOS/ANÚNCIOS - Validação por Nível de Plano
-    // ============================================================
-    match /businesses/{businessId} {
-      // Leitura: qualquer pessoa pode ver anúncios publicados
-      allow read: if true;
-      
-      // Deleção: apenas o proprietário do anúncio pode deletar
-      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    match /usuarios/{userId} {
+      // Somente o proprio usuario pode ler o proprio perfil
+      allow read: if logado() && request.auth.uid == userId;
 
-      // Criação e Atualização: apenas o proprietário pode criar/atualizar
-      // Validação: checa o nível de plano do usuário e suas permissões
-      allow create, update: if request.auth != null 
-                            && request.resource.data.userId == request.auth.uid
-                            && validateContent(getLevel());
+      // Somente o proprio usuario pode criar ou editar o proprio perfil
+      // O nivel do plano deve ser um valor valido (1, 2, 3 ou 4)
+      allow create, update: if logado()
+                            && request.auth.uid == userId
+                            && request.resource.data.nivelAnunciante in [1, 2, 3, 4];
+
+      // Somente o proprio usuario pode excluir a propria conta
+      allow delete: if logado() && request.auth.uid == userId;
     }
 
     // ============================================================
-    // ANÚNCIOS (nova coleção) - Validação por Nível de Plano
+    // ANÚNCIOS (colecao "anuncios")
+    // Qualquer pessoa pode ver. Somente o dono pode criar/editar.
+    // O conteudo deve respeitar os limites do plano contratado.
+    // O administrador pode aprovar/reprovar anuncio.
     // ============================================================
     match /anuncios/{anuncioId} {
-      // Leitura: qualquer pessoa pode ver anúncios publicados
+      // Qualquer pessoa (ate sem login) pode ver os anuncios
       allow read: if true;
-      
-      // Deleção: apenas o proprietário do anúncio pode deletar
-      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
 
-      // Criação e Atualização: apenas o proprietário pode criar/atualizar
-      // Validação: checa o nível de plano do usuário e suas permissões
-      allow create, update: if request.auth != null 
-                            && request.resource.data.userId == request.auth.uid
-                            && validateContent(getLevel());
+      // Somente o dono do anuncio pode criar
+      // Em teste: exige exatamente 1 foto
+      allow create: if logado()
+                    && request.resource.data.usuarioId == request.auth.uid
+                    && validarConteudoAnuncioTeste();
+
+      // O dono pode editar o proprio anuncio
+      // O campo totalFavoritos e atualizado automaticamente por Cloud Function
+      allow update: if (
+                      logado()
+                      && request.resource.data.usuarioId == request.auth.uid
+                      && validarConteudoAnuncioTeste()
+                      && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['totalFavoritos'])
+                    ) || (
+                      // Admin so pode moderar aprovacao do anuncio
+                      administrador()
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                        'statusModeracao',
+                        'motivoReprovacao',
+                        'moderadoEm',
+                        'moderadoPor'
+                      ])
+                    );
+
+      // Dono ou administrador pode excluir anuncio
+      allow delete: if (logado() && resource.data.usuarioId == request.auth.uid)
+            || administrador();
     }
 
     // ============================================================
-    // VALIDAÇÃO DE CONTEÚDO POR NÍVEL DE PLANO
+    // FAVORITOS (subcoleção /usuarios/{userId}/favoritos/{itemId})
+    // Cada usuario tem sua propria lista de favoritos como subcoleção.
+    // Somente o dono pode ver sua propria lista.
+    // Qualquer usuario logado pode adicionar ou remover da propria lista.
+    // O total de favoritos fica no campo "totalFavoritos" do anuncio.
     // ============================================================
-    // Esta função valida se o usuário pode enviar o conteúdo que está tentando salvar
-    // baseado no seu nível de plano (1, 2, 3 ou 4)
-    function validateContent(level) {
-      let data = request.resource.data;
-      
-      // .get('campo', padrão) evita erro se o campo não for enviado
-      let fotosCount = data.get('fotos', []).size();
-      let hasImperdivel = data.get('isImperdivel', false);
-      
-      // NÍVEL 1 (GRATUITO)
-      // - Máx 1 foto
-      // - NÃO permite "Imperdível"
-      // - Sem links adicionais (validado no app)
-      let checkNivel1 = (level == 1 && fotosCount <= 1 && hasImperdivel == false);
-      
-      // NÍVEL 2 (BÁSICO - R$ 19,99)
-      // - Máx 1 foto
-      // - NÃO permite "Imperdível"
-      // - COM links adicionais (validado no app)
-      let checkNivel2 = (level == 2 && fotosCount <= 1 && hasImperdivel == false);
-      
-      // NÍVEL 3 (PROFISSIONAL - R$ 29,99)
-      // - Máx 3 fotos
-      // - PERMITE "Imperdível"
-      // - COM links adicionais
-      let checkNivel3 = (level == 3 && fotosCount <= 3);
-      
-      // NÍVEL 4 (PREMIUM - R$ 39,99)
-      // - Máx 5 fotos
-      // - PERMITE "Imperdível"
-      // - COM links adicionais
-      // - COM relatórios de visualizações
-      let checkNivel4 = (level == 4 && fotosCount <= 5);
+    match /usuarios/{userId}/favoritos/{itemId} {
+      // Somente o proprio usuario pode ver sua lista de favoritos
+      allow read, list: if logado() && request.auth.uid == userId;
 
-      // Retorna true se o usuário está em conformidade com seu nível
-      return checkNivel1 || checkNivel2 || checkNivel3 || checkNivel4;
+      // Qualquer usuario logado pode adicionar um item aos proprios favoritos
+      allow create: if logado() && request.auth.uid == userId;
+
+      // Qualquer usuario logado pode remover um item dos proprios favoritos
+      allow delete: if logado() && request.auth.uid == userId;
     }
+
+    // ============================================================
+    // MENSAGENS DE CONTATO (colecao "mensagensContato")
+    // Usuario envia mensagem. Admin pode ler.
+    // ============================================================
+    match /mensagensContato/{mensagemId} {
+      // Permite envio de mensagem de contato
+      allow create: if true;
+
+      // Somente admin pode ler mensagens recebidas
+      allow read: if administrador();
+
+      // Somente admin pode atualizar status interno
+      allow update: if administrador();
+
+      // Ninguem exclui mensagem pelo app
+      allow delete: if false;
+    }
+
+    // ============================================================
+    // DENÚNCIAS (colecao "denuncias")
+    // Qualquer usuario logado pode registrar uma denuncia.
+    // Somente o administrador pode ler, atualizar ou excluir denuncias.
+    // Moderacao segue dois cenarios, sempre com justificativa:
+    // 1) aceita -> anuncio_removido
+    // 2) nao_aceita -> denuncia_arquivada
+    // ============================================================
+    match /denuncias/{denunciaId} {
+      // Somente o administrador ve as denuncias
+      allow read: if administrador();
+
+      // Qualquer usuario logado pode enviar uma denuncia
+      // O campo "denuncianteId" deve corresponder ao uid do usuario logado
+      allow create: if logado()
+                    && request.resource.data.denuncianteId == request.auth.uid;
+
+      // Somente o administrador pode atualizar o resultado da analise
+      // Campos permitidos na moderacao:
+      // - decisaoDenuncia: "aceita" ou "nao_aceita"
+      // - statusDenuncia: "anuncio_removido" ou "denuncia_arquivada"
+      // - justificativa: texto obrigatorio nos dois casos
+      // - analisadaEm, analisadaPor
+      allow update: if administrador()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                      'decisaoDenuncia',
+                      'statusDenuncia',
+                      'justificativa',
+                      'analisadaEm',
+                      'analisadaPor'
+                    ])
+                    && request.resource.data.decisaoDenuncia in ['aceita', 'nao_aceita']
+                    && request.resource.data.statusDenuncia in ['anuncio_removido', 'denuncia_arquivada']
+                    && (
+                      (request.resource.data.decisaoDenuncia == 'aceita'
+                       && request.resource.data.statusDenuncia == 'anuncio_removido')
+                      ||
+                      (request.resource.data.decisaoDenuncia == 'nao_aceita'
+                       && request.resource.data.statusDenuncia == 'denuncia_arquivada')
+                    )
+                    && request.resource.data.justificativa is string
+                    && request.resource.data.justificativa.size() > 0;
+
+      // Somente o administrador pode excluir denuncias
+      allow delete: if administrador();
+    }
+
   }
 }
 
-// ============================================================
-// NOTAS IMPORTANTES
-// ============================================================
-// 
-// 1. CAMPOS OBRIGATÓRIOS NO DOCUMENTO "businesses":
-//    - userId: string (proprietário do anúncio)
-//    - fotos: array (pode estar vazio [])
-//    - isImperdivel: boolean (true/false)
-//    - name, category, description, etc (validado no app)
-//
-// 2. CAMPOS OBRIGATÓRIOS NO DOCUMENTO "users":
-//    - anuncianteLevel: number (1, 2, 3 ou 4)
-//    - email, name, etc
-//
-// 3. TRATAMENTO DE CAMPOS AUSENTES:
-//    - .get('fotos', []) retorna [] se o campo não existir
-//    - .get('isImperdivel', false) retorna false se não existir
-//    - Isso evita erros de permissão ao validar
-//
-// 4. FLUXO DE VALIDAÇÃO:
-//    a. Usuário tenta criar/atualizar um anúncio
-//    b. Firestore chama validateContent(getLevel())
-//    c. getLevel() busca o anuncianteLevel do usuário
-//    d. validateContent() valida se o conteúdo está OK para esse nível
-//    e. Se passar, salva; se falhar, retorna erro de permissão
-//
-// 5. TESTES RECOMENDADOS:
-//    - Nível 1: tentar salvar com isImperdivel=true (deve falhar)
-//    - Nível 1: tentar salvar com 2+ fotos (deve falhar)
-//    - Nível 3: salvar com 3 fotos e isImperdivel=true (deve passar)
-//    - Nível 4: salvar com 5 fotos e isImperdivel=true (deve passar)
-//
-// ============================================================

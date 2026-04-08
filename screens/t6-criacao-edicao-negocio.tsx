@@ -1,17 +1,19 @@
 import * as ImagePicker from 'expo-image-picker';
 import { getAuth } from 'firebase/auth';
 import { Check, ChevronLeft } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
 import { Button } from '../components/ui/button';
 import { Checkbox } from '../components/ui/checkbox';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { useAppContext } from '../context/AppContext';
 import app from '../firebaseConfig';
-import { createAnuncio } from '../src/services/anuncioService';
-import { uploadMultipleImages } from '../src/services/cloudinaryService';
+import { createAnuncio, updateAnuncio } from '../src/services/anuncioService';
+import { deleteCloudinaryImagesByUrls, uploadMultipleImages } from '../src/services/cloudinaryService';
+import { geocodeBusinessAddress } from '../src/services/geocodingService';
 
 const auth = getAuth(app);
 
@@ -35,13 +37,25 @@ const CATEGORIES = [
 ];
 
 export default function T6CriacaoEdicao() {
-  const { navigateTo, businesses, setBusinesses, userProfile, isDarkMode } = useAppContext();
+  const { navigateTo, businesses, setBusinesses, userProfile, isDarkMode, selectedBusiness, setSelectedBusiness } = useAppContext();
+  const resolveFirestoreId = (business: any): string | null => {
+    if (!business) return null;
+    if (typeof business.firestoreId === 'string' && business.firestoreId) return business.firestoreId;
+    if (typeof business.id === 'string' && business.id) return business.id;
+    return null;
+  };
+
+  const [editingFirestoreId, setEditingFirestoreId] = useState<string | null>(null);
+  const isEditing = Boolean(editingFirestoreId);
   const [formData, setFormData] = useState({
     name: '',
     category: '',
     location: '',
     cep: '',
     street: '',
+    neighborhood: '',
+    city: '',
+    state: '',
     number: '',
     phone: '',
     email: '',
@@ -58,7 +72,7 @@ export default function T6CriacaoEdicao() {
 
   const [contactVisibility, setContactVisibility] = useState({
     phone: false,
-    whatsapp: true,  // WhatsApp é obrigatório e marcado por padrão
+    whatsapp: true,
     email: false,
     site: false,
     instagram: false,
@@ -66,68 +80,181 @@ export default function T6CriacaoEdicao() {
     pinterest: false,
   });
 
-  const [categoryPickerVisible, setCategoryPickerVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCepLoading, setIsCepLoading] = useState(false);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [errosValidacao, setErrosValidacao] = useState<string[]>([]);
+  const [geoFeedback, setGeoFeedback] = useState<{ type: 'success' | 'warning'; message: string } | null>(null);
+  const lastCepLookup = useRef('');
+
+  useEffect(() => {
+    if (!selectedBusiness) return;
+
+    const resolvedEditingId = resolveFirestoreId(selectedBusiness);
+    if (resolvedEditingId) {
+      setEditingFirestoreId(resolvedEditingId);
+    }
+
+    const category = selectedBusiness.category || selectedBusiness.categories?.[0] || '';
+    const existingFotos = Array.isArray((selectedBusiness as any).fotos)
+      ? (selectedBusiness as any).fotos.filter(Boolean)
+      : (selectedBusiness.image ? [selectedBusiness.image] : []);
+
+    setFormData((prev) => ({
+      ...prev,
+      name: selectedBusiness.name || '',
+      category,
+      location: selectedBusiness.location || '',
+      cep: selectedBusiness.cep || '',
+      street: selectedBusiness.street || '',
+      neighborhood: selectedBusiness.neighborhood || '',
+      city: selectedBusiness.city || '',
+      state: selectedBusiness.state || '',
+      number: selectedBusiness.number || '',
+      phone: selectedBusiness.phone || '',
+      whatsapp: selectedBusiness.whatsapp || '',
+      email: (selectedBusiness as any).email || '',
+      site: (selectedBusiness as any).site || '',
+      instagram: selectedBusiness.instagram || '',
+      facebook: selectedBusiness.facebook || '',
+      pinterest: selectedBusiness.pinterest || '',
+      description: selectedBusiness.description || '',
+      entregaRapida: Boolean(selectedBusiness.entregaRapida),
+      isImperdivel: Boolean((selectedBusiness as any).isImperdivel),
+      fotos: existingFotos,
+    }));
+
+    setExistingImageUrls(existingFotos);
+
+    if (selectedBusiness.contactVisibility) {
+      setContactVisibility((prev) => ({
+        ...prev,
+        ...selectedBusiness.contactVisibility,
+      }));
+    }
+  }, [selectedBusiness]);
 
 
   const ChevronLeftIcon: any = ChevronLeft;
   const CheckIcon: any = Check;
 
-  // Função auxiliar para verificar permissões por nível
-  const getNivelPermissoes = () => {
-    const nivel = userProfile?.anuncianteLevel || 1;
-    return {
-      maxFotos: [1, 1, 3, 5][nivel - 1],
-      isImperdivelEnabled: nivel >= 3,
-      linksEnabled: nivel >= 2,
-      maxCategorias: nivel === 1 ? 1 : Infinity,
-      relatoriosEnabled: nivel === 4
-    };
+  // Modo de teste: sem travas de upgrade, com limite fixo de 1 imagem por anúncio
+  const permissoes = {
+    maxFotos: 1,
+    isImperdivelEnabled: true,
+    linksEnabled: true,
   };
-
-  const permissoes = getNivelPermissoes();
 
   const normalizeUrl = (u: string) => {
     if (!u) return '';
     return u.startsWith('http://') || u.startsWith('https://') ? u : 'https://' + u;
   };
 
-  // Função de validação dos campos obrigatórios
-  const validarFormulario = () => {
-    const camposObrigatorios = [
-      { campo: 'name', label: 'Nome do Negócio', valor: formData.name },
-      { campo: 'category', label: 'Categoria', valor: formData.category },
-      { campo: 'cep', label: 'CEP', valor: formData.cep },
-      { campo: 'phone', label: 'Telefone', valor: formData.phone },
-      { campo: 'whatsapp', label: 'WhatsApp', valor: formData.whatsapp },
-      { campo: 'description', label: 'Descrição', valor: formData.description },
-    ];
+  const toUpperSafe = (value: string) => (value || '').toUpperCase();
+  const onlyDigits = (value: string) => (value || '').replace(/\D/g, '');
+  const formatCep = (value: string) => {
+    const digits = onlyDigits(value).slice(0, 8);
+    if (digits.length <= 5) return digits;
+    return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+  };
 
-    const camposFaltando = camposObrigatorios.filter(c => !c.valor || c.valor.trim() === '');
-    
-    if (camposFaltando.length > 0) {
-      const listaFaltas = camposFaltando.map(c => c.label);
-      setErrosValidacao(listaFaltas);
-      console.log('❌ Campos faltando:', listaFaltas.join(', '));
-      console.log('📋 Dados do formulário:', formData);
-      
+  const normalizeAddressPayload = (data: any) => {
+    const street = toUpperSafe(data?.logradouro || data?.street || '');
+    const neighborhood = toUpperSafe(data?.bairro || data?.neighborhood || '');
+    const city = toUpperSafe(data?.localidade || data?.city || '');
+    const state = toUpperSafe(data?.uf || data?.state || '');
+
+    return { street, neighborhood, city, state };
+  };
+
+  const fetchAddressByCep = async (cepDigits: string) => {
+    if (cepDigits.length !== 8) return;
+    if (lastCepLookup.current === cepDigits) return;
+
+    setIsCepLoading(true);
+    try {
+      let data: any = null;
+
+      // Primeira tentativa: ViaCEP
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`);
+        const viaCepData = await response.json();
+        if (!viaCepData?.erro) {
+          data = viaCepData;
+        }
+      } catch {
+        // Continua para fallback
+      }
+
+      // Fallback: BrasilAPI (mais estavel em alguns ambientes mobile)
+      if (!data) {
+        const fallbackResponse = await fetch(`https://brasilapi.com.br/api/cep/v1/${cepDigits}`);
+        if (fallbackResponse.ok) {
+          data = await fallbackResponse.json();
+        }
+      }
+
+      if (!data) {
+        Alert.alert('CEP não encontrado', 'Confira o CEP informado e tente novamente.');
+        return;
+      }
+
+      const resolved = normalizeAddressPayload(data);
+      const locationParts = [resolved.neighborhood, resolved.city, resolved.state].filter(Boolean);
+      const location = locationParts.join(' - ');
+
+      lastCepLookup.current = cepDigits;
+      setFormData((prev) => ({
+        ...prev,
+        street: resolved.street || prev.street,
+        neighborhood: resolved.neighborhood || prev.neighborhood,
+        city: resolved.city || prev.city,
+        state: resolved.state || prev.state,
+        location: location || prev.location,
+      }));
+    } catch (error) {
+      Alert.alert('Erro ao buscar CEP', 'Não foi possível consultar o CEP no momento.');
+    } finally {
+      setIsCepLoading(false);
+    }
+  };
+
+  const handleCepChange = (value: string) => {
+    const formatted = formatCep(value);
+    setFormData((prev) => ({ ...prev, cep: formatted }));
+    setGeoFeedback(null);
+
+    const cepDigits = onlyDigits(formatted);
+    if (cepDigits.length === 8) {
+      fetchAddressByCep(cepDigits);
+    } else {
+      lastCepLookup.current = '';
+    }
+  };
+
+  // Modo de teste: sem obrigatoriedade de campos, somente validação de imagem
+  const validarFormulario = () => {
+    const cepDigits = onlyDigits(formData.cep);
+    const quantidadeFinalImagens = selectedImages.length > 0 ? selectedImages.length : existingImageUrls.length;
+
+    if (cepDigits.length > 0 && cepDigits.length !== 8) {
+      setErrosValidacao(['CEP deve estar no formato 00000-000']);
       Alert.alert(
-        '⚠️ Campos Obrigatórios Faltando',
-        `Por favor, preencha os seguintes campos:\n\n${listaFaltas.map(c => `• ${c}`).join('\n')}`,
-        [{ text: 'OK, vou preencher' }]
+        '⚠️ CEP inválido',
+        'Use o formato 00000-000 para salvar o anúncio.',
+        [{ text: 'OK' }]
       );
       return false;
     }
 
-    if (selectedImages.length === 0) {
-      setErrosValidacao(['Selecione pelo menos 1 imagem']);
-      console.log('❌ Nenhuma imagem selecionada');
+    if (quantidadeFinalImagens !== 1) {
+      setErrosValidacao(['Selecione exatamente 1 imagem']);
+      console.log('❌ Quantidade de imagens inválida:', quantidadeFinalImagens);
 
       Alert.alert(
-        '⚠️ Imagem Obrigatória',
-        'Você precisa selecionar pelo menos uma imagem para o anúncio',
+        '⚠️ Imagem obrigatória',
+        'Para este teste, selecione exatamente 1 imagem por anúncio.',
         [{ text: 'OK, vou selecionar' }]
       );
       return false;
@@ -137,10 +264,19 @@ export default function T6CriacaoEdicao() {
     return true;
   };
 
-  // Selecionar imagens da galeria
-  const handleSelectImages = async () => {
+  const applyPickedImage = (uris: string[]) => {
+    const maxFotos = permissoes.maxFotos;
+    if (uris.length > maxFotos) {
+      Alert.alert('Limite de Fotos', `Você pode selecionar no máximo ${maxFotos} foto por anúncio.`);
+      return;
+    }
+
+    setSelectedImages(uris);
+    Alert.alert('Sucesso', `${uris.length} imagem(ns) selecionada(s)`);
+  };
+
+  const pickFromGallery = async () => {
     const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
     if (!permissao.granted) {
       Alert.alert('Permissão Necessária', 'Você precisa permitir acesso à galeria');
       return;
@@ -148,35 +284,59 @@ export default function T6CriacaoEdicao() {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultiple: true,
       quality: 0.8,
+      base64: true,
     });
 
     if (!result.canceled) {
-      const uris = result.assets.map((asset) => asset.uri);
-      
-      // Validar limite de fotos por nível
-      const maxFotos = permissoes.maxFotos;
-      if (uris.length > maxFotos) {
-        Alert.alert(
-          'Limite de Fotos',
-          `Você pode selecionar no máximo ${maxFotos} foto(s) no Nível ${userProfile?.anuncianteLevel || 1}`
-        );
-        return;
-      }
-
-      setSelectedImages(uris);
-      Alert.alert('Sucesso', `${uris.length} imagem(ns) selecionada(s)`);
+      applyPickedImage(
+        result.assets.map((asset) =>
+          asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri
+        )
+      );
     }
+  };
+
+  const pickFromCamera = async () => {
+    const permissao = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permissao.granted) {
+      Alert.alert('Permissão Necessária', 'Você precisa permitir acesso à câmera');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+      cameraType: ImagePicker.CameraType.back,
+      base64: true,
+    });
+
+    if (!result.canceled) {
+      applyPickedImage(
+        result.assets.map((asset) =>
+          asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri
+        )
+      );
+    }
+  };
+
+  // Selecionar imagem com escolha entre câmera e galeria
+  const handleSelectImages = async () => {
+    Alert.alert('Selecionar foto', 'Escolha a origem da imagem:', [
+      { text: 'Câmera', onPress: () => { void pickFromCamera(); } },
+      { text: 'Galeria', onPress: () => { void pickFromGallery(); } },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
   };
 
   // Upload e Salvamento
   const handleSubmit = async () => {
-    console.log('🚀 Iniciando publicação do anúncio...');
+    console.log(`🚀 Iniciando ${isEditing ? 'edição' : 'publicação'} do anúncio...`);
+    setGeoFeedback(null);
     
-    // Validar campos obrigatórios
+    // Validação de teste
     if (!validarFormulario()) {
-      console.log('⚠️ Validação falhou - campos obrigatórios faltando');
+      console.log('⚠️ Validação falhou');
       return;
     }
 
@@ -184,23 +344,92 @@ export default function T6CriacaoEdicao() {
     setIsLoading(true);
 
     try {
-      // Upload das imagens para o Cloudinary
-      console.log(`📸 Fazendo upload de ${selectedImages.length} imagem(ns)...`);
-      const fotosUrls = await uploadMultipleImages(
-        selectedImages,
-        formData.name,
-        `${userProfile?.email}_${Date.now()}` // Usar email + timestamp como ID único
-      );
-      console.log('✓ Upload completo! URLs:', fotosUrls);
+      const oldImageUrls = [...existingImageUrls];
+      let fotosUrls: string[] = existingImageUrls;
+
+      // Upload apenas quando usuário selecionar nova imagem
+      if (selectedImages.length > 0) {
+        console.log(`📸 Fazendo upload de ${selectedImages.length} imagem(ns)...`);
+        try {
+          fotosUrls = await uploadMultipleImages(
+            selectedImages,
+            formData.name,
+            `${userProfile?.email}_${Date.now()}` // Usar email + timestamp como ID único
+          );
+        } catch (uploadError) {
+          console.error('❌ Falha no upload Cloudinary:', uploadError);
+          throw new Error('Falha no upload das imagens. Verifique internet e tente novamente.');
+        }
+        console.log('✓ Upload completo! URLs:', fotosUrls);
+      }
 
       const normalizedForm = {
         ...formData,
+        cep: formatCep(formData.cep),
         site: normalizeUrl(formData.site),
         instagram: normalizeUrl(formData.instagram),
         facebook: normalizeUrl(formData.facebook),
         pinterest: normalizeUrl(formData.pinterest),
         fotos: fotosUrls,
       };
+
+      // Resolve coordenadas por CEP/endereco para habilitar georreferenciamento.
+      const existingLat = typeof (selectedBusiness as any)?.lat === 'number' ? (selectedBusiness as any).lat : null;
+      const existingLon = typeof (selectedBusiness as any)?.lon === 'number' ? (selectedBusiness as any).lon : null;
+      const existingOrigemGeo = (selectedBusiness as any)?.origemGeo || null;
+
+      let lat: number | null = isEditing ? existingLat : null;
+      let lon: number | null = isEditing ? existingLon : null;
+      let origemGeo: 'gps' | 'cep' | 'endereco' | null = isEditing ? existingOrigemGeo : null;
+      let geocodeResolved = false;
+
+      const hasGeoInput = Boolean(
+        onlyDigits(normalizedForm.cep).length === 8 ||
+        normalizedForm.street ||
+        normalizedForm.neighborhood ||
+        normalizedForm.city ||
+        normalizedForm.state
+      );
+
+      if (hasGeoInput) {
+        try {
+          const geo = await geocodeBusinessAddress({
+            cep: normalizedForm.cep,
+            street: normalizedForm.street,
+            number: normalizedForm.number,
+            neighborhood: normalizedForm.neighborhood,
+            city: normalizedForm.city,
+            state: normalizedForm.state,
+            country: 'Brasil',
+          });
+
+          if (geo) {
+            lat = geo.lat;
+            lon = geo.lon;
+            origemGeo = geo.source;
+            geocodeResolved = true;
+          }
+        } catch (geoError) {
+          console.warn('Falha na geocodificacao do anuncio:', geoError);
+        }
+
+        if (geocodeResolved) {
+          setGeoFeedback({
+            type: 'success',
+            message: 'Coordenadas atualizadas com sucesso para este anúncio.',
+          });
+        } else if (lat == null || lon == null) {
+          setGeoFeedback({
+            type: 'warning',
+            message: 'Não foi possível obter coordenadas agora. O anúncio foi salvo sem lat/lon; revise CEP/endereço e tente novamente.',
+          });
+        } else {
+          setGeoFeedback({
+            type: 'warning',
+            message: 'Não foi possível recalcular as coordenadas agora. O anúncio foi salvo com as coordenadas anteriores.',
+          });
+        }
+      }
 
       // Salvar no Firestore - coleção "anuncios"
       console.log('💾 Salvando anúncio no Firestore...');
@@ -210,82 +439,156 @@ export default function T6CriacaoEdicao() {
         throw new Error('Usuário não autenticado');
       }
       
-      const anuncioId = await createAnuncio({
-        businessId: `${userProfile?.email}_${Date.now()}`, // Link ao negócio
-        userId: currentUser.uid, // UID do Firebase Auth (não email!)
-        userEmail: userProfile?.email || '',
-        name: normalizedForm.name,
-        category: normalizedForm.category,
-        location: normalizedForm.location,
-        cep: normalizedForm.cep,
-        street: normalizedForm.street,
-        number: normalizedForm.number,
-        phone: normalizedForm.phone,
-        whatsapp: normalizedForm.whatsapp,
-        email: normalizedForm.email,
-        site: normalizedForm.site,
-        instagram: normalizedForm.instagram,
-        facebook: normalizedForm.facebook,
-        pinterest: normalizedForm.pinterest,
-        description: normalizedForm.description,
-        fotos: fotosUrls,
-        entregaRapida: normalizedForm.entregaRapida,
-        isImperdivel: normalizedForm.isImperdivel,
-        contactVisibility,
-        status: 'active',
-        reportCount: 0,
-        anuncianteLevel: userProfile?.anuncianteLevel || 1,
-      });
+      let anuncioId = '';
+      try {
+        if (isEditing && editingFirestoreId) {
+          await updateAnuncio(editingFirestoreId, {
+            name: normalizedForm.name,
+            category: normalizedForm.category,
+            location: normalizedForm.location,
+            cep: normalizedForm.cep,
+            street: normalizedForm.street,
+            neighborhood: normalizedForm.neighborhood,
+            city: normalizedForm.city,
+            state: normalizedForm.state,
+            number: normalizedForm.number,
+            lat,
+            lon,
+            origemGeo,
+            phone: normalizedForm.phone,
+            whatsapp: normalizedForm.whatsapp,
+            email: normalizedForm.email,
+            site: normalizedForm.site,
+            instagram: normalizedForm.instagram,
+            facebook: normalizedForm.facebook,
+            pinterest: normalizedForm.pinterest,
+            description: normalizedForm.description,
+            fotos: fotosUrls,
+            entregaRapida: normalizedForm.entregaRapida,
+            isImperdivel: normalizedForm.isImperdivel,
+            contactVisibility,
+            status: 'active',
+            reportCount: 0,
+            anuncianteLevel: userProfile?.anuncianteLevel || 1,
+          } as any);
+          anuncioId = editingFirestoreId;
+        } else {
+          anuncioId = await createAnuncio({
+            businessId: `${userProfile?.email}_${Date.now()}`, // Link ao negócio
+            userId: currentUser.uid, // UID do Firebase Auth (não email!)
+            userEmail: userProfile?.email || '',
+            name: normalizedForm.name,
+            category: normalizedForm.category,
+            location: normalizedForm.location,
+            cep: normalizedForm.cep,
+            street: normalizedForm.street,
+            neighborhood: normalizedForm.neighborhood,
+            city: normalizedForm.city,
+            state: normalizedForm.state,
+            number: normalizedForm.number,
+            lat,
+            lon,
+            origemGeo,
+            phone: normalizedForm.phone,
+            whatsapp: normalizedForm.whatsapp,
+            email: normalizedForm.email,
+            site: normalizedForm.site,
+            instagram: normalizedForm.instagram,
+            facebook: normalizedForm.facebook,
+            pinterest: normalizedForm.pinterest,
+            description: normalizedForm.description,
+            fotos: fotosUrls,
+            entregaRapida: normalizedForm.entregaRapida,
+            isImperdivel: normalizedForm.isImperdivel,
+            contactVisibility,
+            status: 'active',
+            reportCount: 0,
+            anuncianteLevel: userProfile?.anuncianteLevel || 1,
+          });
+        }
+      } catch (firestoreError) {
+        console.error('❌ Falha ao salvar no Firestore:', firestoreError);
+        throw new Error('Falha ao salvar no banco. Verifique regras/firestore e tente novamente.');
+      }
 
-      // Também manter no estado local (para compatibilidade com código antigo)
-      const newBusiness: any = {
+      const existingBusinessRecord = businesses.find((b: any) => resolveFirestoreId(b) === anuncioId) || selectedBusiness || {};
+
+      const mergedBusiness: any = {
+        ...(existingBusinessRecord || {}),
         ...normalizedForm,
-        id: anuncioId,
+        id: (existingBusinessRecord as any)?.id ?? anuncioId,
+        firestoreId: resolveFirestoreId(existingBusinessRecord) ?? anuncioId,
+        categories: [normalizedForm.category],
+        image: fotosUrls?.[0] || (existingBusinessRecord as any)?.image || null,
         fotos: fotosUrls,
+        lat,
+        lon,
+        origemGeo,
         contactVisibility,
-        owner: userProfile?.email || null,
-        ownerId: userProfile?.email || null,
-        createdAt: new Date().toISOString(),
+        owner: userProfile?.email || (existingBusinessRecord as any)?.owner || null,
+        ownerId: currentUser.uid,
         updatedAt: new Date().toISOString(),
         status: 'active',
         reportCount: 0,
       };
 
-      setBusinesses([...businesses, newBusiness]);
+      if (isEditing) {
+        setBusinesses(
+          businesses.map((b: any) =>
+            resolveFirestoreId(b) === anuncioId
+              ? { ...b, ...mergedBusiness, id: b.id, firestoreId: anuncioId }
+              : b
+          )
+        );
+
+        // Se uma nova imagem foi enviada, remove a antiga do Cloudinary para evitar consumo desnecessário.
+        if (selectedImages.length > 0 && oldImageUrls.length > 0) {
+          const cleanupResult = await deleteCloudinaryImagesByUrls(oldImageUrls);
+          if (!cleanupResult.success) {
+            console.warn('Falha ao limpar imagens antigas no Cloudinary:', cleanupResult.error);
+          }
+        }
+      } else {
+        setBusinesses([...businesses, mergedBusiness]);
+      }
       setIsLoading(false);
       setErrosValidacao([]); // Limpa erros de validação
+      setEditingFirestoreId(null);
+      setSelectedBusiness(null);
       
-      console.log('✅ Anúncio criado com sucesso! ID:', anuncioId);
+      console.log(`✅ Anúncio ${isEditing ? 'atualizado' : 'criado'} com sucesso! ID:`, anuncioId);
       
-      // Mostrar alerta de sucesso e navegar para painel após 2 segundos
+      // Mostrar alerta de sucesso com navegação explícita (sem redirecionamento automático)
       Alert.alert(
-        '✅ Anúncio Publicado com Sucesso!', 
-        `Seu anúncio "${normalizedForm.name}" foi criado e está ativo!\n\nVocê será redirecionado para o Painel de Gestão em 2 segundos...`,
+        isEditing ? '✅ Anúncio Atualizado com Sucesso!' : '✅ Anúncio Publicado com Sucesso!',
+        isEditing
+          ? `Seu anúncio "${normalizedForm.name}" foi atualizado com sucesso.`
+          : `Seu anúncio "${normalizedForm.name}" foi criado e está ativo.`,
         [
-          { 
-            text: 'Ver Agora', 
+          {
+            text: 'Ir para Painel',
             onPress: () => {
               console.log('Navegando para Painel de Gestão...');
               navigateTo('T7');
             }
-          }
+          },
+          {
+            text: 'OK',
+            style: 'cancel',
+          },
         ],
-        { cancelable: false }
+        { cancelable: true }
       );
-      
-      // Redirecionar automaticamente após 2 segundos
-      setTimeout(() => {
-        console.log('Redirecionando automaticamente para T7...');
-        navigateTo('T7');
-      }, 2000);
     } catch (error) {
       setIsLoading(false);
-      console.error('❌ Erro ao criar anúncio:', error);
+      console.error(`❌ Erro ao ${isEditing ? 'atualizar' : 'criar'} anúncio:`, error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       
       Alert.alert(
-        '❌ Erro ao Publicar', 
-        `Não foi possível publicar seu anúncio.\n\nDetalhes: ${errorMessage}\n\nTente novamente.`,
+        isEditing ? '❌ Erro ao Atualizar' : '❌ Erro ao Publicar',
+        isEditing
+          ? `Não foi possível atualizar seu anúncio.\n\nDetalhes: ${errorMessage}\n\nTente novamente.`
+          : `Não foi possível publicar seu anúncio.\n\nDetalhes: ${errorMessage}\n\nTente novamente.`,
         [{ text: 'OK' }]
       );
     }
@@ -300,6 +603,7 @@ export default function T6CriacaoEdicao() {
   const backTextStyle = isDarkMode ? { ...styles.backText, ...styles.backTextDark } : styles.backText;
   const categoryButtonStyle = isDarkMode ? { ...styles.categoryButton, ...styles.categoryButtonDark } : styles.categoryButton;
   const checkboxTextStyle = isDarkMode ? { ...styles.checkboxText, ...styles.checkboxTextDark } : styles.checkboxText;
+  const helperTextColor = isDarkMode ? '#D1D5DB' : '#6B7280';
 
   return (
     <LayoutRN>
@@ -312,15 +616,15 @@ export default function T6CriacaoEdicao() {
         </TouchableOpacity>
 
         <View style={cardStyle}>
-          <Text style={titleStyle}>Criar Anúncio</Text>
+          <Text style={titleStyle}>{isEditing ? 'Editar Anúncio' : 'Criar Anúncio'}</Text>
 
           <View style={styles.form}>
             {/* Nome do Negócio */}
             <View style={styles.inputGroup}>
-              <Label style={labelStyle}>Nome do Negócio *</Label>
+              <Label style={labelStyle}>Nome do Negócio</Label>
               <Input
                 value={formData.name}
-                onChangeText={(text) => setFormData({ ...formData, name: text })}
+                onChangeText={(text) => setFormData({ ...formData, name: toUpperSafe(text) })}
                 style={inputStyle}
                 placeholder="Ex: Restaurante Sabor Local"
                 placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
@@ -329,62 +633,74 @@ export default function T6CriacaoEdicao() {
 
             {/* Categoria */}
             <View style={styles.inputGroup}>
-              <Label style={labelStyle}>Categoria *</Label>
-              <TouchableOpacity 
-                style={categoryButtonStyle}
-                onPress={() => setCategoryPickerVisible(!categoryPickerVisible)}
+              <Label style={labelStyle}>Categoria</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(category) => setFormData((prev) => ({ ...prev, category }))}
               >
-                <Text style={[styles.categoryButtonText, isDarkMode && styles.categoryButtonTextDark]}>
-                  {formData.category || 'Selecione uma categoria'}
-                </Text>
-              </TouchableOpacity>
-              {categoryPickerVisible && (
-                <View style={[styles.categoryList, isDarkMode && styles.categoryListDark]}>
-                  <ScrollView style={styles.categoryScroll}>
-                    {CATEGORIES.map((category) => (
-                      <TouchableOpacity
-                        key={category}
-                        style={styles.categoryItem}
-                        onPress={() => {
-                          setFormData({ ...formData, category });
-                          setCategoryPickerVisible(false);
-                        }}
-                      >
-                        <Text style={[styles.categoryItemText, isDarkMode && styles.categoryItemTextDark]}>
-                          {category}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
+                <SelectTrigger style={categoryButtonStyle}>
+                  <SelectValue placeholder="Selecione uma categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </View>
 
-            {/* Localização e CEP */}
+            {/* CEP e UF */}
             <View style={styles.row}>
               <View style={styles.halfInput}>
-                <Label style={labelStyle}>Localização</Label>
-                <Input
-                  value={formData.location}
-                  onChangeText={(text) => setFormData({ ...formData, location: text })}
-                  style={inputStyle}
-                  placeholder="Ex: Centro"
-                  placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <Label style={labelStyle}>CEP *</Label>
+                <Label style={labelStyle}>CEP</Label>
                 <Input
                   value={formData.cep}
-                  onChangeText={(text) => setFormData({ ...formData, cep: text })}
+                  onChangeText={handleCepChange}
+                  onBlur={() => {
+                    const cepDigits = onlyDigits(formData.cep);
+                    if (cepDigits.length === 8) {
+                      fetchAddressByCep(cepDigits);
+                    }
+                  }}
                   style={inputStyle}
                   placeholder="00000-000"
                   placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
                   maxLength={9}
                   keyboardType="numeric"
                 />
+                {isCepLoading ? (
+                  <Text style={{ fontSize: 12, color: isDarkMode ? '#9CA3AF' : '#6B7280', marginTop: 6 }}>
+                    Buscando endereco pelo CEP...
+                  </Text>
+                ) : null}
+              </View>
+              <View style={styles.halfInput}>
+                <Label style={labelStyle}>UF</Label>
+                <Input
+                  value={formData.state}
+                  onChangeText={(text) => {
+                    setGeoFeedback(null);
+                    setFormData({ ...formData, state: toUpperSafe(text).slice(0, 2) });
+                  }}
+                  style={inputStyle}
+                  placeholder="PR"
+                  placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                  maxLength={2}
+                  autoCapitalize="characters"
+                />
               </View>
             </View>
+
+            {geoFeedback && (
+              <View style={geoFeedback.type === 'success' ? styles.geoSuccessBox : styles.geoWarningBox}>
+                <Text style={geoFeedback.type === 'success' ? styles.geoSuccessText : styles.geoWarningText}>
+                  {geoFeedback.type === 'success' ? '✅ ' : '⚠️ '}
+                  {geoFeedback.message}
+                </Text>
+              </View>
+            )}
 
             {/* Rua e Número */}
             <View style={styles.row}>
@@ -392,7 +708,10 @@ export default function T6CriacaoEdicao() {
                 <Label style={labelStyle}>Rua</Label>
                 <Input
                   value={formData.street}
-                  onChangeText={(text) => setFormData({ ...formData, street: text })}
+                  onChangeText={(text) => {
+                    setGeoFeedback(null);
+                    setFormData({ ...formData, street: toUpperSafe(text) });
+                  }}
                   style={inputStyle}
                   placeholder="Ex: Rua das Flores"
                   placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
@@ -402,9 +721,42 @@ export default function T6CriacaoEdicao() {
                 <Label style={labelStyle}>Número</Label>
                 <Input
                   value={formData.number}
-                  onChangeText={(text) => setFormData({ ...formData, number: text })}
+                  onChangeText={(text) => {
+                    setGeoFeedback(null);
+                    setFormData({ ...formData, number: text });
+                  }}
                   style={inputStyle}
                   placeholder="Ex: 123"
+                  placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                />
+              </View>
+            </View>
+
+            {/* Bairro, Cidade e Estado */}
+            <View style={styles.row}>
+              <View style={styles.halfInput}>
+                <Label style={labelStyle}>Bairro</Label>
+                <Input
+                  value={formData.neighborhood}
+                  onChangeText={(text) => {
+                    setGeoFeedback(null);
+                    setFormData({ ...formData, neighborhood: toUpperSafe(text) });
+                  }}
+                  style={inputStyle}
+                  placeholder="Ex: CENTRO"
+                  placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                />
+              </View>
+              <View style={styles.halfInput}>
+                <Label style={labelStyle}>Cidade</Label>
+                <Input
+                  value={formData.city}
+                  onChangeText={(text) => {
+                    setGeoFeedback(null);
+                    setFormData({ ...formData, city: toUpperSafe(text) });
+                  }}
+                  style={inputStyle}
+                  placeholder="Ex: PINHAIS"
                   placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
                 />
               </View>
@@ -413,7 +765,7 @@ export default function T6CriacaoEdicao() {
             {/* Telefone e WhatsApp */}
             <View style={styles.row}>
               <View style={styles.halfInput}>
-                <Label style={labelStyle}>Telefone *</Label>
+                <Label style={labelStyle}>Telefone</Label>
                 <Input
                   value={formData.phone}
                   onChangeText={(text) => setFormData({ ...formData, phone: text })}
@@ -431,7 +783,7 @@ export default function T6CriacaoEdicao() {
                 </View>
               </View>
               <View style={styles.halfInput}>
-                <Label style={labelStyle}>WhatsApp * (Obrigatório)</Label>
+                <Label style={labelStyle}>WhatsApp</Label>
                 <Input
                   value={formData.whatsapp}
                   onChangeText={(text) => setFormData({ ...formData, whatsapp: text })}
@@ -442,10 +794,10 @@ export default function T6CriacaoEdicao() {
                 />
                 <View style={styles.checkboxRow}>
                   <Checkbox
-                    checked={true}
-                    disabled={true}
+                    checked={contactVisibility.whatsapp}
+                    onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, whatsapp: Boolean(v) })}
                   />
-                  <Text style={checkboxTextStyle}>Sempre mostrado no anúncio (obrigatório)</Text>
+                  <Text style={checkboxTextStyle}>Mostrar no anúncio</Text>
                 </View>
               </View>
             </View>
@@ -472,40 +824,21 @@ export default function T6CriacaoEdicao() {
                 </View>
               </View>
               <View style={styles.halfInput}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Label style={labelStyle}>Site</Label>
-                  {!permissoes.linksEnabled && (
-                    <TouchableOpacity onPress={() => navigateTo('planos')}>
-                      <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '600' }}>
-                        ⓘ Nível 2+ - Fazer Upgrade
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
+                <Label style={labelStyle}>Site</Label>
                 <Input
                   value={formData.site}
                   onChangeText={(text) => setFormData({ ...formData, site: text })}
-                  onFocus={() => {
-                    if (!permissoes.linksEnabled) {
-                      Alert.alert(
-                        'Recurso Premium',
-                        'Links adicionais estão disponíveis a partir do Nível 2 (R$ 19,99).\n\nFaça upgrade para adicionar seu site!'
-                      );
-                    }
-                  }}
-                  style={[inputStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}
+                  style={inputStyle}
                   placeholder="seudominio.com"
                   placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
                   autoCapitalize="none"
-                  editable={permissoes.linksEnabled}
                 />
                 <View style={styles.checkboxRow}>
                   <Checkbox
                     checked={contactVisibility.site}
                     onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, site: Boolean(v) })}
-                    disabled={!permissoes.linksEnabled}
                   />
-                  <Text style={[checkboxTextStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}>Mostrar no anúncio</Text>
+                  <Text style={checkboxTextStyle}>Mostrar no anúncio</Text>
                 </View>
               </View>
             </View>
@@ -531,86 +864,50 @@ export default function T6CriacaoEdicao() {
             </View>
 
             <View style={styles.inputGroup}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Label style={labelStyle}>Facebook</Label>
-                {!permissoes.linksEnabled && (
-                  <TouchableOpacity onPress={() => navigateTo('planos')}>
-                    <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '600' }}>
-                      ⓘ Nível 2+ - Fazer Upgrade
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              <Label style={labelStyle}>Facebook</Label>
               <Input
                 value={formData.facebook}
                 onChangeText={(text) => setFormData({ ...formData, facebook: text })}
-                onFocus={() => {
-                  if (!permissoes.linksEnabled) {
-                    Alert.alert(
-                      'Recurso Premium',
-                      'Links adicionais estão disponíveis a partir do Nível 2 (R$ 19,99).'
-                    );
-                  }
-                }}
-                style={[inputStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}
+                style={inputStyle}
                 placeholder="facebook.com/sua_pagina"
                 placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
                 autoCapitalize="none"
-                editable={permissoes.linksEnabled}
               />
               <View style={styles.checkboxRow}>
                 <Checkbox
                   checked={contactVisibility.facebook}
                   onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, facebook: Boolean(v) })}
-                  disabled={!permissoes.linksEnabled}
                 />
-                <Text style={[checkboxTextStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}>Mostrar Facebook no anúncio</Text>
+                <Text style={checkboxTextStyle}>Mostrar Facebook no anúncio</Text>
               </View>
             </View>
 
             <View style={styles.inputGroup}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Label style={labelStyle}>Pinterest</Label>
-                {!permissoes.linksEnabled && (
-                  <TouchableOpacity onPress={() => navigateTo('planos')}>
-                    <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '600' }}>
-                      ⓘ Nível 2+ - Fazer Upgrade
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              <Label style={labelStyle}>Pinterest</Label>
               <Input
                 value={formData.pinterest}
                 onChangeText={(text) => setFormData({ ...formData, pinterest: text })}
-                onFocus={() => {
-                  if (!permissoes.linksEnabled) {
-                    Alert.alert(
-                      'Recurso Premium',
-                      'Links adicionais estão disponíveis a partir do Nível 2 (R$ 19,99).'
-                    );
-                  }
-                }}
-                style={[inputStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}
+                style={inputStyle}
                 placeholder="pinterest.com/seu_perfil"
                 placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
                 autoCapitalize="none"
-                editable={permissoes.linksEnabled}
               />
               <View style={styles.checkboxRow}>
                 <Checkbox
                   checked={contactVisibility.pinterest}
                   onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, pinterest: Boolean(v) })}
-                  disabled={!permissoes.linksEnabled}
                 />
-                <Text style={[checkboxTextStyle, { opacity: permissoes.linksEnabled ? 1 : 0.5 }]}>Mostrar Pinterest no anúncio</Text>
+                <Text style={checkboxTextStyle}>Mostrar Pinterest no anúncio</Text>
               </View>
             </View>
 
             {/* Seleção de Imagens */}
             <View style={styles.inputGroup}>
               <Label style={labelStyle}>Fotos do Anúncio *</Label>
-              <Text style={{ fontSize: 12, color: '#6B7280', marginBottom: 8 }}>
-                Máximo de {permissoes.maxFotos} foto(s) permitida(s) para seu nível
+              <Text style={{ fontSize: 12, color: helperTextColor, marginBottom: 8 }}>
+                {isEditing
+                  ? 'Mantenha a foto atual ou selecione uma nova imagem'
+                  : `Máximo de ${permissoes.maxFotos} foto por anúncio (modo teste)`}
               </Text>
               
               <TouchableOpacity
@@ -626,21 +923,42 @@ export default function T6CriacaoEdicao() {
               >
                 <Text style={{ fontSize: 24, marginBottom: 8 }}>📷</Text>
                 <Text style={[labelStyle, { textAlign: 'center' }]}>
-                  {selectedImages.length > 0 ? `${selectedImages.length} imagem(ns) selecionada(s)` : 'Toque para selecionar imagens'}
+                  {selectedImages.length > 0
+                    ? `${selectedImages.length} imagem(ns) selecionada(s)`
+                    : existingImageUrls.length > 0
+                      ? 'Usando imagem atual do anúncio'
+                      : 'Toque para selecionar imagens'}
                 </Text>
               </TouchableOpacity>
 
+              {isEditing && existingImageUrls.length > 0 && (
+                <View style={styles.editImageActions}>
+                  <Button onPress={handleSelectImages} variant="outline" style={styles.editImageButtonOutline} disabled={isLoading}>
+                    <Text style={styles.editImageButtonOutlineText}>Trocar foto</Text>
+                  </Button>
+                  <Button
+                    onPress={() => setSelectedImages([])}
+                    style={styles.editImageButtonPrimary}
+                    disabled={isLoading}
+                  >
+                    <Text style={styles.editImageButtonPrimaryText}>Manter foto atual</Text>
+                  </Button>
+                </View>
+              )}
+
               {/* Preview das imagens selecionadas */}
-              {selectedImages.length > 0 && (
+              {(selectedImages.length > 0 || existingImageUrls.length > 0) && (
                 <View style={styles.imagePreviewContainer}>
-                  {selectedImages.map((uri, index) => (
+                  {(selectedImages.length > 0 ? selectedImages : existingImageUrls).map((uri, index) => (
                     <View key={index} style={styles.imagePreview}>
                       <Image 
                         source={{ uri }} 
                         style={{ width: 80, height: 80, borderRadius: 8 }} 
                         resizeMode="cover"
                       />
-                      <Text style={{ fontSize: 10, color: '#6B7280', marginTop: 4 }}>Foto {index + 1}</Text>
+                      <Text style={{ fontSize: 10, color: helperTextColor, marginTop: 4 }}>
+                        {existingImageUrls.length > 0 && selectedImages.length === 0 ? 'Foto atual' : `Foto ${index + 1}`}
+                      </Text>
                     </View>
                   ))}
                 </View>
@@ -659,36 +977,15 @@ export default function T6CriacaoEdicao() {
               </View>
             </View>
 
-            {/* Tag Imperdível (somente níveis 3 e 4) */}
+            {/* Tag Imperdível */}
             <View style={styles.inputGroup}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Label style={labelStyle}>Destaque "Imperdível"</Label>
-                {!permissoes.isImperdivelEnabled && (
-                  <TouchableOpacity onPress={() => navigateTo('planos')}>
-                    <Text style={{ fontSize: 11, color: '#f59e0b', fontWeight: '600' }}>
-                      ⓘ Nível 3+ - Fazer Upgrade
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              <Label style={labelStyle}>Destaque "Imperdível"</Label>
               <View style={styles.checkboxRow}>
                 <Checkbox
                   checked={formData.isImperdivel}
-                  onCheckedChange={(v) => {
-                    if (!permissoes.isImperdivelEnabled) {
-                      Alert.alert(
-                        'Recurso Premium',
-                        'O destaque "Imperdível" está disponível a partir do Nível 3 (R$ 29,99).\n\nFaça upgrade para destacar seu negócio!',
-                        [{ text: 'OK' }]
-                      );
-                      return;
-                    }
-                    setFormData({ ...formData, isImperdivel: Boolean(v) });
-                  }}
-                  disabled={!permissoes.isImperdivelEnabled}
-                  style={{ opacity: permissoes.isImperdivelEnabled ? 1 : 0.4 }}
+                  onCheckedChange={(v) => setFormData({ ...formData, isImperdivel: Boolean(v) })}
                 />
-                <Text style={[checkboxTextStyle, { opacity: permissoes.isImperdivelEnabled ? 1 : 0.4 }]}>
+                <Text style={checkboxTextStyle}>
                   Marcar como "Imperdível" (maior visibilidade)
                 </Text>
               </View>
@@ -696,10 +993,10 @@ export default function T6CriacaoEdicao() {
 
             {/* Descrição */}
             <View style={styles.inputGroup}>
-              <Label style={labelStyle}>Descrição *</Label>
+              <Label style={labelStyle}>Descrição</Label>
               <TextInput
                 value={formData.description}
-                onChangeText={(text) => setFormData({ ...formData, description: text })}
+                onChangeText={(text) => setFormData({ ...formData, description: toUpperSafe(text) })}
                 style={textareaStyle}
                 placeholder="Descreva seu negócio... (máx. 500 caracteres)"
                 placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
@@ -718,7 +1015,7 @@ export default function T6CriacaoEdicao() {
               <View style={styles.errorBox}>
                 <Text style={styles.errorTitle}>⚠️ Atenção!</Text>
                 <Text style={styles.errorSubtitle}>
-                  Preencha os campos obrigatórios antes de publicar:
+                  Ajuste os itens abaixo antes de publicar:
                 </Text>
                 {errosValidacao.map((erro, index) => (
                   <Text key={index} style={styles.errorItem}>
@@ -731,7 +1028,7 @@ export default function T6CriacaoEdicao() {
             {/* Botão Salvar */}
             <Button 
               onPress={handleSubmit} 
-              style={[styles.submitButton, { opacity: isLoading ? 0.6 : 1 }]}
+              style={StyleSheet.flatten([styles.submitButton, { opacity: isLoading ? 0.6 : 1 }])}
               disabled={isLoading}
             >
               <View style={styles.buttonContent}>
@@ -745,10 +1042,19 @@ export default function T6CriacaoEdicao() {
                 ) : (
                   <>
                     <CheckIcon size={20} color="#fff" />
-                    <Text style={styles.submitButtonText}>Salvar e Publicar</Text>
+                    <Text style={styles.submitButtonText}>{isEditing ? 'Salvar Alterações' : 'Salvar e Publicar'}</Text>
                   </>
                 )}
               </View>
+            </Button>
+
+            <Button
+              onPress={() => navigateTo('T1')}
+              variant="outline"
+              style={styles.cancelButton}
+              disabled={isLoading}
+            >
+              <Text style={[styles.cancelButtonText, isDarkMode && styles.cancelButtonTextDark]}>Cancelar</Text>
             </Button>
           </View>
         </View>
@@ -764,7 +1070,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   containerDark: {
-    backgroundColor: '#0f172a',
+    backgroundColor: 'transparent',
   },
   backButton: {
     marginBottom: 16,
@@ -941,6 +1247,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  cancelButton: {
+    marginTop: 10,
+    borderWidth: 2,
+    borderColor: '#1e3a8a',
+    backgroundColor: '#FFFFFF',
+    minHeight: 48,
+  },
+  cancelButtonText: {
+    color: '#1e3a8a',
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  cancelButtonTextDark: {
+    color: '#60A5FA',
+  },
   imageButton: {
     borderWidth: 2,
     borderColor: '#9CA3AF',
@@ -965,6 +1287,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#D1D5DB',
+  },
+  editImageActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  editImageButtonOutline: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: '#1e3a8a',
+    backgroundColor: '#FFFFFF',
+    minHeight: 44,
+  },
+  editImageButtonOutlineText: {
+    color: '#1e3a8a',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  editImageButtonPrimary: {
+    flex: 1,
+    backgroundColor: '#2563EB',
+    minHeight: 44,
+  },
+  editImageButtonPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 18,
   },
   errorBox: {
     backgroundColor: '#FEE2E2',
@@ -991,5 +1342,33 @@ const styles = StyleSheet.create({
     color: '#991B1B',
     marginBottom: 4,
     paddingLeft: 8,
+  },
+  geoWarningBox: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  geoWarningText: {
+    color: '#92400E',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  geoSuccessBox: {
+    backgroundColor: '#DCFCE7',
+    borderWidth: 1,
+    borderColor: '#22C55E',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  geoSuccessText: {
+    color: '#166534',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

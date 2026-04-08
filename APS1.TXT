@@ -1,0 +1,405 @@
+APS1 - ESQUEMA DE DADOS PRONTO PARA IMPLEMENTAÇÃO
+Projeto: Achou App RN/FIREBASE
+Data: 13/03/2026
+
+🔐 Fluxo de Regras Firestore (com atores e ações)
+👤 Usuário comum
+Perfil (/usuarios/{userId})
+Ler → apenas o próprio perfil
+Criar/Editar → apenas o próprio perfil, plano válido (1–4)
+Excluir → apenas a própria conta
+Anúncios (/anuncios/{anuncioId})
+Ler → qualquer pessoa (mesmo sem login)
+Criar → dono logado, respeitando plano
+Editar → dono logado, respeitando plano
+Excluir → dono
+Favoritos (/usuarios/{userId}/favoritos/{itemId})
+Ler/Listar → apenas o próprio usuário
+Criar/Excluir → apenas o próprio usuário
+Denúncias (/denuncias/{denunciaId})
+Criar → qualquer usuário logado (denuncianteId = uid)
+Mensagens de contato (/mensagensContato)
+Criar → qualquer pessoa pode enviar mensagem
+🛡️ Administrador (moderação)
+Anúncios
+Aprovar/Reprovar publicação (campos de moderação)
+Excluir anúncio
+Denúncias
+Ler todas as denúncias
+Atualizar resultado da análise (aceita → anuncio_removido / não aceita → denuncia_arquivada, sempre com justificativa)
+Excluir denúncias
+Mensagens de contato
+Ler mensagens recebidas
+Atualizar status interno
+
+
+
+
+🔐 Regras Firestore
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // FUNÇÕES AUXILIARES
+    // ============================================================
+
+    // Retorna true se o usuario está logado
+    function logado() {
+      return request.auth != null;
+    }
+
+    // Retorna true se o usuario logado tem a claim "admin" definida como true
+    // (essa claim é definida via Admin SDK ou Cloud Function)
+    function administrador() {
+      return logado() && request.auth.token.admin == true;
+    }
+
+    // Retorna o nivel do plano do usuario logado (1, 2, 3 ou 4)
+    function nivelAnuncianteLogado() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nivelAnunciante;
+    }
+
+    // Valida se o conteudo do anuncio respeita os limites do plano contratado
+    // Plano 1 e 2: ate 1 foto, sem imperdivel
+    // Plano 3: ate 3 fotos, imperdivel permitido
+    // Plano 4: ate 5 fotos, imperdivel permitido
+    function validarConteudoPlano(nivel) {
+      let dados = request.resource.data;
+      let quantidadeFotos = dados.get('fotos', []).size();
+      let possuiImperdivel = dados.get('imperdivel', dados.get('isImperdivel', false));
+
+      let nivel1 = (nivel == 1 && quantidadeFotos <= 1 && possuiImperdivel == false);
+      let nivel2 = (nivel == 2 && quantidadeFotos <= 1 && possuiImperdivel == false);
+      let nivel3 = (nivel == 3 && quantidadeFotos <= 3);
+      let nivel4 = (nivel == 4 && quantidadeFotos <= 5);
+
+      return nivel1 || nivel2 || nivel3 || nivel4;
+    }
+
+    // ============================================================
+    // USUÁRIOS
+    // Cada usuario so acessa e edita o proprio perfil.
+    // O administrador NAO tem acesso de leitura a perfis.
+    // ============================================================
+    match /usuarios/{userId} {
+      // Somente o proprio usuario pode ler o proprio perfil
+      allow read: if logado() && request.auth.uid == userId;
+
+      // Somente o proprio usuario pode criar ou editar o proprio perfil
+      // O nivel do plano deve ser um valor valido (1, 2, 3 ou 4)
+      allow create, update: if logado()
+                            && request.auth.uid == userId
+                            && request.resource.data.nivelAnunciante in [1, 2, 3, 4];
+
+      // Somente o proprio usuario pode excluir a propria conta
+      allow delete: if logado() && request.auth.uid == userId;
+    }
+
+    // ============================================================
+    // ANÚNCIOS (colecao "anuncios")
+    // Qualquer pessoa pode ver. Somente o dono pode criar/editar.
+    // O conteudo deve respeitar os limites do plano contratado.
+    // O administrador pode aprovar/reprovar anuncio.
+    // ============================================================
+    match /anuncios/{anuncioId} {
+      // Qualquer pessoa (ate sem login) pode ver os anuncios
+      allow read: if true;
+
+      // Somente o dono do anuncio pode criar ou editar
+      // O conteudo e validado de acordo com o plano do anunciante
+      allow create: if logado()
+                    && request.resource.data.usuarioId == request.auth.uid
+                    && validarConteudoPlano(nivelAnuncianteLogado());
+
+      // O dono pode editar o proprio anuncio (validando o plano)
+      // O campo totalFavoritos e atualizado automaticamente por Cloud Function
+      allow update: if (
+                      logado()
+                      && request.resource.data.usuarioId == request.auth.uid
+                      && validarConteudoPlano(nivelAnuncianteLogado())
+                      && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['totalFavoritos'])
+                    ) || (
+                      // Admin so pode moderar aprovacao do anuncio
+                      administrador()
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                        'statusModeracao',
+                        'motivoReprovacao',
+                        'moderadoEm',
+                        'moderadoPor'
+                      ])
+                    );
+
+      // Dono ou administrador pode excluir anuncio
+      allow delete: if (logado() && resource.data.usuarioId == request.auth.uid)
+                    || administrador();
+    }
+
+    // ============================================================
+    // FAVORITOS (subcoleção /usuarios/{userId}/favoritos/{itemId})
+    // Cada usuario tem sua propria lista de favoritos como subcoleção.
+    // Somente o dono pode ver sua propria lista.
+    // Qualquer usuario logado pode adicionar ou remover da propria lista.
+    // O total de favoritos fica no campo "totalFavoritos" do anuncio.
+    // ============================================================
+    match /usuarios/{userId}/favoritos/{itemId} {
+      // Somente o proprio usuario pode ver sua lista de favoritos
+      allow read, list: if logado() && request.auth.uid == userId;
+
+      // Qualquer usuario logado pode adicionar um item aos proprios favoritos
+      allow create: if logado() && request.auth.uid == userId;
+
+      // Qualquer usuario logado pode remover um item dos proprios favoritos
+      allow delete: if logado() && request.auth.uid == userId;
+    }
+
+    // ============================================================
+    // MENSAGENS DE CONTATO (colecao "mensagensContato")
+    // Usuario envia mensagem. Admin pode ler.
+    // ============================================================
+    match /mensagensContato/{mensagemId} {
+      // Permite envio de mensagem de contato
+      allow create: if true;
+
+      // Somente admin pode ler mensagens recebidas
+      allow read: if administrador();
+
+      // Somente admin pode atualizar status interno
+      allow update: if administrador();
+
+      // Ninguem exclui mensagem pelo app
+      allow delete: if false;
+    }
+
+    // ============================================================
+    // DENÚNCIAS (colecao "denuncias")
+    // Qualquer usuario logado pode registrar uma denuncia.
+    // Somente o administrador pode ler, atualizar ou excluir denuncias.
+    // Moderacao segue dois cenarios, sempre com justificativa:
+    // 1) aceita -> anuncio_removido
+    // 2) nao_aceita -> denuncia_arquivada
+    // ============================================================
+    match /denuncias/{denunciaId} {
+      // Somente o administrador ve as denuncias
+      allow read: if administrador();
+
+      // Qualquer usuario logado pode enviar uma denuncia
+      // O campo "denuncianteId" deve corresponder ao uid do usuario logado
+      allow create: if logado()
+                    && request.resource.data.denuncianteId == request.auth.uid;
+
+      // Somente o administrador pode atualizar o resultado da analise
+      // Campos permitidos na moderacao:
+      // - decisaoDenuncia: "aceita" ou "nao_aceita"
+      // - statusDenuncia: "anuncio_removido" ou "denuncia_arquivada"
+      // - justificativa: texto obrigatorio nos dois casos
+      // - analisadaEm, analisadaPor
+      allow update: if administrador()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                      'decisaoDenuncia',
+                      'statusDenuncia',
+                      'justificativa',
+                      'analisadaEm',
+                      'analisadaPor'
+                    ])
+                    && request.resource.data.decisaoDenuncia in ['aceita', 'nao_aceita']
+                    && request.resource.data.statusDenuncia in ['anuncio_removido', 'denuncia_arquivada']
+                    && (
+                      (request.resource.data.decisaoDenuncia == 'aceita'
+                       && request.resource.data.statusDenuncia == 'anuncio_removido')
+                      ||
+                      (request.resource.data.decisaoDenuncia == 'nao_aceita'
+                       && request.resource.data.statusDenuncia == 'denuncia_arquivada')
+                    )
+                    && request.resource.data.justificativa is string
+                    && request.resource.data.justificativa.size() > 0;
+
+      // Somente o administrador pode excluir denuncias
+      allow delete: if administrador();
+    }
+
+  }
+}
+
+
+
+
+
+COLEÇÕES:
+- Usuário autenticado
+- Anúncios
+- Favoritos
+- Denúncias/moderação
+- Planos/Níveis de anunciante (1 a 4)
+- Geolocalização (lat/lon + busca por raio)
+
+
+
+
+
+FUTUROS
+___________________________________________________
+5) CONSULTA POR RAIO (NOSQL)
+--------------------------------------------------------------------------------
+- Firestore puro NÃO executa busca por raio nativamente com lat/lon.
+- Estratégia definida para esta fase: modelo híbrido.
+- Fluxo híbrido:
+  1) ViaCEP: normaliza CEP e endereço.
+  2) Nominatim: converte endereço em latitude/longitude.
+  3) App: filtra candidatos e calcula distância com Haversine local.
+
+CHECKLIST FINAL DE IMPLEMENTAÇÃO (FOCO FIREBASE)
+[ ] Garantir lat/lon obrigatórios no anúncio ativo
+[X ] Publicar regras firestore.rules em produção
+[x] Definir estratégia geoespacial (híbrido ViaCEP + Nominatim + Haversine local)
+[ X] Fechar padrão de categoria: string única ou array- ARRAY PARA MANTER IMPERDÍVEL + FILTRO DA CATEGORIA
+
+
+.
+
+___________________________________________________
+___________________________________________________
+___________________________________________________
+RULES DE TESTE (COPIAR E PUBLICAR)
+
+// RULES DE TESTE - 29/03/2026
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // FUNÇÕES AUXILIARES
+    // ============================================================
+
+    // Retorna true se o usuario está logado
+    function logado() {
+      return request.auth != null;
+    }
+
+    // Retorna true se o usuario logado tem a claim "admin" definida como true
+    // (essa claim é definida via Admin SDK ou Cloud Function)
+    function administrador() {
+      return logado() && request.auth.token.admin == true;
+    }
+
+    // Modo de teste: sem bloqueio por plano, exigindo exatamente 1 foto por anuncio
+    function validarConteudoAnuncioTeste() {
+      let dados = request.resource.data;
+      let quantidadeFotos = dados.get('fotos', []).size();
+      return quantidadeFotos == 1;
+    }
+
+    // ============================================================
+    // USUÁRIOS
+    // Cada usuario so acessa e edita o proprio perfil.
+    // O administrador NAO tem acesso de leitura a perfis.
+    // ============================================================
+    match /usuarios/{userId} {
+      // Somente o proprio usuario pode ler o proprio perfil
+      allow read: if logado() && request.auth.uid == userId;
+
+      // Somente o proprio usuario pode criar ou editar o proprio perfil
+      // O nivel do plano deve ser um valor valido (1, 2, 3 ou 4)
+      allow create, update: if logado()
+                            && request.auth.uid == userId
+                            && request.resource.data.nivelAnunciante in [1, 2, 3, 4];
+
+      // Somente o proprio usuario pode excluir a propria conta
+      allow delete: if logado() && request.auth.uid == userId;
+    }
+
+    // ============================================================
+    // ANÚNCIOS (colecao "anuncios")
+    // Qualquer pessoa pode ver. Somente o dono pode criar/editar.
+    // O administrador pode aprovar/reprovar anuncio.
+    // ============================================================
+    match /anuncios/{anuncioId} {
+      // Qualquer pessoa (ate sem login) pode ver os anuncios
+      allow read: if true;
+
+      // Somente o dono do anuncio pode criar
+      // Em teste: exige exatamente 1 foto
+      allow create: if logado()
+                    && request.resource.data.usuarioId == request.auth.uid
+                    && validarConteudoAnuncioTeste();
+
+      // O dono pode editar o proprio anuncio
+      // O campo totalFavoritos e atualizado automaticamente por Cloud Function
+      allow update: if (
+                      logado()
+                      && request.resource.data.usuarioId == request.auth.uid
+                      && validarConteudoAnuncioTeste()
+                      && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['totalFavoritos'])
+                    ) || (
+                      // Admin so pode moderar aprovacao do anuncio
+                      administrador()
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                        'statusModeracao',
+                        'motivoReprovacao',
+                        'moderadoEm',
+                        'moderadoPor'
+                      ])
+                    );
+
+      // Dono ou administrador pode excluir anuncio
+      allow delete: if (logado() && resource.data.usuarioId == request.auth.uid)
+            || administrador();
+    }
+
+    // ============================================================
+    // FAVORITOS (subcoleção /usuarios/{userId}/favoritos/{itemId})
+    // ============================================================
+    match /usuarios/{userId}/favoritos/{itemId} {
+      allow read, list: if logado() && request.auth.uid == userId;
+      allow create: if logado() && request.auth.uid == userId;
+      allow delete: if logado() && request.auth.uid == userId;
+    }
+
+    // ============================================================
+    // MENSAGENS DE CONTATO (colecao "mensagensContato")
+    // ============================================================
+    match /mensagensContato/{mensagemId} {
+      allow create: if true;
+      allow read: if administrador();
+      allow update: if administrador();
+      allow delete: if false;
+    }
+
+    // ============================================================
+    // DENÚNCIAS (colecao "denuncias")
+    // ============================================================
+    match /denuncias/{denunciaId} {
+      allow read: if administrador();
+
+      allow create: if logado()
+                    && request.resource.data.denuncianteId == request.auth.uid;
+
+      allow update: if administrador()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                      'decisaoDenuncia',
+                      'statusDenuncia',
+                      'justificativa',
+                      'analisadaEm',
+                      'analisadaPor'
+                    ])
+                    && request.resource.data.decisaoDenuncia in ['aceita', 'nao_aceita']
+                    && request.resource.data.statusDenuncia in ['anuncio_removido', 'denuncia_arquivada']
+                    && (
+                      (request.resource.data.decisaoDenuncia == 'aceita'
+                       && request.resource.data.statusDenuncia == 'anuncio_removido')
+                      ||
+                      (request.resource.data.decisaoDenuncia == 'nao_aceita'
+                       && request.resource.data.statusDenuncia == 'denuncia_arquivada')
+                    )
+                    && request.resource.data.justificativa is string
+                    && request.resource.data.justificativa.size() > 0;
+
+      allow delete: if administrador();
+    }
+
+  }
+}
+
+
+

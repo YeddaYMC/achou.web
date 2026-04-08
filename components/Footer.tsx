@@ -7,8 +7,15 @@ export default function Footer() {
 
   return (
     <View style={[styles.footer, isDarkMode && styles.footerDark]}>
+      <Text style={[styles.footerText, isDarkMode && styles.footerTextDark]}>© 2025</Text>
+      <Text style={[styles.footerText, styles.footerName, isDarkMode && styles.footerTextDark]}>
+        YEDDA MARIA CARVALHAIS
+      </Text>
+      <Text style={[styles.footerText, styles.footerName, isDarkMode && styles.footerTextDark]}>
+        MARY ANA CARVALHAIS CARNEIRO
+      </Text>
       <Text style={[styles.footerText, isDarkMode && styles.footerTextDark]}>
-        © 2025 YEDDA MARIA CARVALHAIS. Licenciado sob{' '}
+        Licenciado sob{' '}
         <Text onPress={() => Linking.openURL('https://creativecommons.org/licenses/by-nc-sa/4.0/')} style={styles.footerLink}>
           CC BY-NC-SA 4.0
         </Text>
@@ -23,18 +30,24 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
     backgroundColor: '#fff',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     flexShrink: 0,
+    alignItems: 'center',
   },
   footerDark: {
     borderTopColor: '#334155',
     backgroundColor: '#0f172a',
   },
   footerText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748b',
     textAlign: 'center',
+    width: '100%',
+    lineHeight: 15,
+  },
+  footerName: {
+    fontWeight: '700',
   },
   footerTextDark: {
     color: '#94a3b8',

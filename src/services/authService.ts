@@ -1,17 +1,77 @@
 import {
     AuthError,
     createUserWithEmailAndPassword,
+    deleteUser,
+    EmailAuthProvider,
     getAuth,
     onAuthStateChanged,
+    reauthenticateWithCredential,
+    sendPasswordResetEmail,
     signInWithEmailAndPassword,
     signOut,
+    updatePassword,
     User
 } from 'firebase/auth';
-import { doc, getDoc, getFirestore, setDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, getFirestore, query, setDoc, where } from 'firebase/firestore';
+import { geohashForLocation } from 'geofire-common';
 import app from '../../firebaseConfig.js';
+import { geocodeBusinessAddress } from './geocodingService';
 
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+const toFiniteNumber = (value: unknown): number | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+};
+
+function mapUserFromFirestore(data: any): UserProfile {
+  return {
+    name: data?.nome ?? data?.name ?? '',
+    nickname: data?.apelido ?? data?.nickname,
+    email: data?.email ?? '',
+    phone: data?.telefone ?? data?.phone ?? '',
+    cpf: data?.cpf ?? '',
+    anuncianteLevel: (data?.nivelAnunciante ?? data?.anuncianteLevel ?? 1) as 1 | 2 | 3 | 4,
+    createdAt: data?.criadoEm ?? data?.createdAt ?? new Date().toISOString(),
+    cep: data?.cep ?? '',
+    street: data?.rua ?? data?.street ?? '',
+    number: data?.numero ?? data?.number ?? '',
+    neighborhood: data?.bairro ?? data?.neighborhood ?? '',
+    city: data?.cidade ?? data?.city ?? '',
+    state: data?.estado ?? data?.state ?? '',
+    lat: toFiniteNumber(data?.lat ?? data?.latitude),
+    lon: toFiniteNumber(data?.lon ?? data?.longitude),
+    geohash: data?.geohash ?? data?.geoHash,
+  };
+}
+
+function mapUserToFirestore(data: Partial<UserProfile>): Record<string, any> {
+  const mapped: Record<string, any> = {};
+
+  if (data.name !== undefined) mapped.nome = data.name;
+  if (data.nickname !== undefined) mapped.apelido = data.nickname;
+  if (data.email !== undefined) mapped.email = data.email;
+  if (data.phone !== undefined) mapped.telefone = data.phone;
+  if (data.cpf !== undefined) mapped.cpf = data.cpf;
+  if (data.anuncianteLevel !== undefined) mapped.nivelAnunciante = data.anuncianteLevel;
+  if (data.createdAt !== undefined) mapped.criadoEm = data.createdAt;
+  if (data.cep !== undefined) mapped.cep = data.cep;
+  if (data.street !== undefined) mapped.rua = data.street;
+  if (data.number !== undefined) mapped.numero = data.number;
+  if (data.neighborhood !== undefined) mapped.bairro = data.neighborhood;
+  if (data.city !== undefined) mapped.cidade = data.city;
+  if (data.state !== undefined) mapped.estado = data.state;
+  if (data.lat !== undefined) mapped.lat = data.lat;
+  if (data.lon !== undefined) mapped.lon = data.lon;
+  if (data.geohash !== undefined) mapped.geohash = data.geohash;
+
+  return mapped;
+}
 
 // Interface para perfil de usuário
 export interface UserProfile {
@@ -22,6 +82,15 @@ export interface UserProfile {
   cpf: string;
   anuncianteLevel: 1 | 2 | 3 | 4;
   createdAt: string;
+  cep?: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  lat?: number;
+  lon?: number;
+  geohash?: string;
 }
 
 // Registrar novo usuário com email/senha
@@ -30,18 +99,83 @@ export async function registerWithEmail(
   password: string,
   userData: Omit<UserProfile, 'createdAt'>
 ) {
+  const normalizedEmail = (email || '').trim().toLowerCase();
+
+  let lat: number | undefined;
+  let lon: number | undefined;
+  let geohash: string | undefined;
+
   try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const geo = await geocodeBusinessAddress({
+      cep: userData.cep,
+      street: userData.street,
+      number: userData.number,
+      neighborhood: userData.neighborhood,
+      city: userData.city,
+      state: userData.state,
+      country: 'Brasil',
+    });
+
+    if (geo) {
+      lat = geo.lat;
+      lon = geo.lon;
+      geohash = geohashForLocation([geo.lat, geo.lon]);
+    }
+  } catch (error) {
+    console.warn('Falha ao resolver geolocalização no cadastro:', error);
+  }
+
+  const userPayload = {
+    nome: userData.name,
+    apelido: userData.nickname || '',
+    email: normalizedEmail,
+    telefone: userData.phone,
+    cpf: userData.cpf,
+    nivelAnunciante: 1, // Novo usuário sempre começa no nível 1
+    criadoEm: new Date().toISOString(),
+    favoritos: [],
+    cep: userData.cep || '',
+    rua: userData.street || '',
+    numero: userData.number || '',
+    bairro: userData.neighborhood || '',
+    cidade: userData.city || '',
+    estado: userData.state || '',
+    ...(lat !== undefined ? { lat } : {}),
+    ...(lon !== undefined ? { lon } : {}),
+    ...(geohash ? { geohash } : {}),
+  };
+
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
     const user = userCredential.user;
 
-    // Salvar dados adicionais no Firestore
-    await setDoc(doc(db, 'users', user.uid), {
-      ...userData,
-      email,
-      anuncianteLevel: 1, // Novo usuário sempre começa no nível 1
-      createdAt: new Date().toISOString(),
-      favorites: [],
-    });
+    try {
+      // Salvar perfil na coleção padrão PT-BR
+      await setDoc(doc(db, 'usuarios', user.uid), userPayload);
+    } catch (firestoreError: any) {
+      // Evita usuário órfão no Auth caso falhe ao persistir perfil no Firestore
+      try {
+        await deleteUser(user);
+      } catch (rollbackError) {
+        console.error('Falha no rollback de usuário órfão:', rollbackError);
+      }
+
+      if (auth.currentUser) {
+        await signOut(auth).catch(() => undefined);
+      }
+
+      if (firestoreError?.code === 'permission-denied') {
+        return {
+          success: false,
+          error: 'Sem permissão para salvar perfil em usuarios. Publique as regras atualizadas e tente novamente.'
+        };
+      }
+
+      return {
+        success: false,
+        error: 'Conta criada no Auth, mas falhou ao salvar o perfil. Tente novamente.'
+      };
+    }
 
     return { success: true, user, uid: user.uid };
   } catch (error: any) {
@@ -51,7 +185,32 @@ export async function registerWithEmail(
     let errorMessage = 'Erro ao criar conta';
     
     if (error.code === 'auth/email-already-in-use') {
-      errorMessage = 'Este e-mail já está cadastrado. Faça login.';
+      // Recupera cenário de conta existente no Auth sem perfil em /usuarios
+      try {
+        const existingCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+        const existingUser = existingCredential.user;
+        const existingProfileRef = doc(db, 'usuarios', existingUser.uid);
+        const existingProfile = await getDoc(existingProfileRef);
+
+        if (!existingProfile.exists()) {
+          await setDoc(existingProfileRef, userPayload);
+          return {
+            success: true,
+            user: existingUser,
+            uid: existingUser.uid,
+            recoveredProfile: true,
+          };
+        }
+
+        await signOut(auth).catch(() => undefined);
+        errorMessage = 'Este e-mail já está cadastrado. Faça login.';
+      } catch (recoveryError: any) {
+        // Se a senha estiver diferente, mantém mensagem padrão de e-mail já existente
+        if (auth.currentUser) {
+          await signOut(auth).catch(() => undefined);
+        }
+        errorMessage = 'Este e-mail já está cadastrado. Faça login ou redefina sua senha.';
+      }
     } else if (error.code === 'auth/invalid-email') {
       errorMessage = 'E-mail inválido.';
     } else if (error.code === 'auth/weak-password') {
@@ -69,12 +228,48 @@ export async function registerWithEmail(
 // Login com email/senha
 export async function loginWithEmail(email: string, password: string) {
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
     const user = userCredential.user;
 
-    // Buscar dados do usuário no Firestore
-    const userDoc = await getDoc(doc(db, 'users', user.uid));
-    const userData = userDoc.data() as UserProfile | undefined;
+    // Buscar dados do usuário no Firestore (coleção PT-BR)
+    const userRef = doc(db, 'usuarios', user.uid);
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      // Recupera automaticamente perfil órfão quando houver conta no Auth sem doc em /usuarios
+      try {
+        const fallbackName = (user.email || normalizedEmail || '').split('@')[0] || 'USUARIO';
+        const recoveredPayload = {
+          nome: fallbackName.toUpperCase(),
+          apelido: '',
+          email: user.email || normalizedEmail,
+          telefone: '',
+          cpf: '',
+          nivelAnunciante: 1,
+          criadoEm: new Date().toISOString(),
+          favoritos: [],
+        };
+
+        await setDoc(userRef, recoveredPayload);
+        const recoveredDoc = await getDoc(userRef);
+
+        if (recoveredDoc.exists()) {
+          const recoveredUserData = mapUserFromFirestore(recoveredDoc.data());
+          return { success: true, user, userData: recoveredUserData, recoveredProfile: true };
+        }
+      } catch (recoveryError: any) {
+        console.error('Falha ao recuperar perfil ausente no login:', recoveryError);
+      }
+
+      // Se não conseguiu recuperar, encerra sessão parcial
+      await signOut(auth);
+      return {
+        success: false,
+        error: 'Perfil não encontrado e não foi possível recuperar automaticamente. Tente criar a conta novamente.'
+      };
+    }
+
+    const userData = mapUserFromFirestore(userDoc.data());
 
     return { success: true, user, userData };
   } catch (error: any) {
@@ -101,6 +296,72 @@ export async function loginWithEmail(email: string, password: string) {
   }
 }
 
+// Solicitar redefinição de senha por e-mail
+export async function requestPasswordReset(email: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const normalizedEmail = (email || '').trim();
+
+    if (!normalizedEmail) {
+      return { success: false, error: 'Informe seu e-mail para redefinir a senha.' };
+    }
+
+    await sendPasswordResetEmail(auth, normalizedEmail);
+    return { success: true };
+  } catch (error: any) {
+    console.error('Erro ao solicitar redefinição de senha:', error);
+
+    let errorMessage = 'Não foi possível enviar o link de redefinição.';
+
+    if (error.code === 'auth/user-not-found') {
+      errorMessage = 'Este e-mail não está cadastrado.';
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = 'E-mail inválido.';
+    } else if (error.code === 'auth/too-many-requests') {
+      errorMessage = 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    return { success: false, error: errorMessage };
+  }
+}
+
+// Alterar senha dentro do app (exige senha atual)
+export async function changePasswordWithCurrent(
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = auth.currentUser;
+
+    if (!user?.email) {
+      return { success: false, error: 'Usuário não autenticado.' };
+    }
+
+    if (!currentPassword || !newPassword) {
+      return { success: false, error: 'Informe a senha atual e a nova senha.' };
+    }
+
+    if (newPassword.length < 6) {
+      return { success: false, error: 'A nova senha deve ter no mínimo 6 caracteres.' };
+    }
+
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    await reauthenticateWithCredential(user, credential);
+    await updatePassword(user, newPassword);
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Erro ao alterar senha:', error);
+
+    if (error?.code === 'auth/wrong-password' || error?.code === 'auth/invalid-credential') {
+      return { success: false, error: 'Senha atual incorreta.' };
+    }
+
+    return { success: false, error: error?.message || 'Não foi possível redefinir a senha.' };
+  }
+}
+
 // Logout
 export async function logout() {
   try {
@@ -120,8 +381,8 @@ export function subscribeToAuthState(callback: (user: User | null) => void) {
 // Buscar dados do usuário no Firestore
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   try {
-    const userDoc = await getDoc(doc(db, 'users', uid));
-    return (userDoc.data() as UserProfile) || null;
+    const userDoc = await getDoc(doc(db, 'usuarios', uid));
+    return userDoc.exists() ? mapUserFromFirestore(userDoc.data()) : null;
   } catch (error) {
     console.error('Erro ao buscar perfil:', error);
     return null;
@@ -131,7 +392,9 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
 // Atualizar dados do usuário
 export async function updateUserProfile(uid: string, data: Partial<UserProfile>) {
   try {
-    await setDoc(doc(db, 'users', uid), data, { merge: true });
+    const mappedData = mapUserToFirestore(data);
+    await setDoc(doc(db, 'usuarios', uid), mappedData, { merge: true });
+
     return { success: true };
   } catch (error) {
     const authError = error as AuthError;
@@ -142,8 +405,9 @@ export async function updateUserProfile(uid: string, data: Partial<UserProfile>)
 // Buscar favoritos do usuário
 export async function getFavorites(uid: string): Promise<number[]> {
   try {
-    const userDoc = await getDoc(doc(db, 'users', uid));
-    return (userDoc.data()?.favorites as number[]) || [];
+    const userDoc = await getDoc(doc(db, 'usuarios', uid));
+    const data = userDoc.data();
+    return (data?.favoritos as number[]) || (data?.favorites as number[]) || [];
   } catch (error) {
     console.error('Erro ao buscar favoritos:', error);
     return [];
@@ -153,13 +417,14 @@ export async function getFavorites(uid: string): Promise<number[]> {
 // Adicionar favorito
 export async function addFavorite(uid: string, businessId: number): Promise<{ success: boolean; error?: string }> {
   try {
-    const userDoc = await getDoc(doc(db, 'users', uid));
-    const currentFavorites = (userDoc.data()?.favorites as number[]) || [];
+    const userDoc = await getDoc(doc(db, 'usuarios', uid));
+    const data = userDoc.data();
+    const currentFavorites = (data?.favoritos as number[]) || (data?.favorites as number[]) || [];
     
     if (!currentFavorites.includes(businessId)) {
       await setDoc(
-        doc(db, 'users', uid),
-        { favorites: [...currentFavorites, businessId] },
+        doc(db, 'usuarios', uid),
+        { favoritos: [...currentFavorites, businessId] },
         { merge: true }
       );
     }
@@ -174,14 +439,15 @@ export async function addFavorite(uid: string, businessId: number): Promise<{ su
 // Remover favorito
 export async function removeFavorite(uid: string, businessId: number): Promise<{ success: boolean; error?: string }> {
   try {
-    const userDoc = await getDoc(doc(db, 'users', uid));
-    const currentFavorites = (userDoc.data()?.favorites as number[]) || [];
+    const userDoc = await getDoc(doc(db, 'usuarios', uid));
+    const data = userDoc.data();
+    const currentFavorites = (data?.favoritos as number[]) || (data?.favorites as number[]) || [];
     
     const updated = currentFavorites.filter((id) => id !== businessId);
     
     await setDoc(
-      doc(db, 'users', uid),
-      { favorites: updated },
+      doc(db, 'usuarios', uid),
+      { favoritos: updated },
       { merge: true }
     );
     
@@ -189,5 +455,71 @@ export async function removeFavorite(uid: string, businessId: number): Promise<{
   } catch (error: any) {
     console.error('Erro ao remover favorito:', error);
     return { success: false, error: error.message };
+  }
+}
+
+// Excluir conta do usuário e dados associados no Firestore
+export async function deleteAccountAndData(currentPassword: string): Promise<{ success: boolean; error?: string; deletedAnuncios?: number }> {
+  try {
+    const currentUser = auth.currentUser;
+
+    if (!currentUser?.uid || !currentUser.email) {
+      return { success: false, error: 'Usuário não autenticado.' };
+    }
+
+    if (!currentPassword) {
+      return { success: false, error: 'Informe sua senha atual para confirmar a exclusão.' };
+    }
+
+    // Reautenticação antes da exclusão (requisito do Firebase Auth)
+    const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+    await reauthenticateWithCredential(currentUser, credential);
+
+    const uid = currentUser.uid;
+
+    // Remove anúncios do usuário (compatível com campos legados)
+    const anunciosByUsuarioId = await getDocs(
+      query(collection(db, 'anuncios'), where('usuarioId', '==', uid))
+    );
+
+    const anunciosByUserId = await getDocs(
+      query(collection(db, 'anuncios'), where('userId', '==', uid))
+    );
+
+    const refs = new Map<string, any>();
+    anunciosByUsuarioId.forEach((d) => refs.set(d.id, d.ref));
+    anunciosByUserId.forEach((d) => refs.set(d.id, d.ref));
+
+    for (const ref of refs.values()) {
+      await deleteDoc(ref);
+    }
+
+    // Remove documento de perfil (coleção PT-BR)
+    await deleteDoc(doc(db, 'usuarios', uid));
+
+    // Remove conta no Firebase Auth (pode exigir reautenticação)
+    await deleteUser(currentUser);
+
+    return { success: true, deletedAnuncios: refs.size };
+  } catch (error: any) {
+    console.error('Erro ao excluir conta e dados:', error);
+
+    if (error?.code === 'auth/requires-recent-login') {
+      return {
+        success: false,
+        error: 'Por segurança, faça login novamente e tente excluir a conta outra vez.',
+        deletedAnuncios: 0
+      };
+    }
+
+    if (error?.code === 'auth/wrong-password' || error?.code === 'auth/invalid-credential') {
+      return {
+        success: false,
+        error: 'Senha atual incorreta.',
+        deletedAnuncios: 0
+      };
+    }
+
+    return { success: false, error: error?.message || 'Falha ao excluir conta.', deletedAnuncios: 0 };
   }
 }

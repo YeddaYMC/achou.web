@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   containerDark: {
-    backgroundColor: '#111827',
+    backgroundColor: 'transparent',
   },
   title: {
     fontSize: 24,

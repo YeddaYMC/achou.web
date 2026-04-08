@@ -43,6 +43,11 @@ export const colors = {
     formLabel: '#374151', // Label formulário light
     formLink: '#2563EB', // Link formulário light
     success: '#16A34A', // Cor sucesso
+    successForeground: '#ffffff', // Texto sucesso
+    cancel: '#d1d5db', // Cor cancelar (cinza)
+    cancelForeground: '#374151', // Texto cancelar
+    delete: '#dc2626', // Cor deletar (vermelho)
+    deleteForeground: '#ffffff', // Texto deletar
   },
   dark: {
     background: '#252525', // Fundo principal
@@ -86,7 +91,12 @@ export const colors = {
     formInputBg: '#1F2937', // Fundo input formulário dark
     formLabel: '#D1D5DB', // Label formulário dark
     formLink: '#60A5FA', // Link formulário dark
-    success: '#16A34A', // Cor sucesso
+    success: '#22c55e', // Cor sucesso (mais brilhante no dark)
+    successForeground: '#ffffff', // Texto sucesso
+    cancel: '#6b7280', // Cor cancelar (cinza escuro)
+    cancelForeground: '#f3f4f6', // Texto cancelar
+    delete: '#ef4444', // Cor deletar (vermelho brilhante)
+    deleteForeground: '#ffffff', // Texto deletar
   },
 } as const;
 

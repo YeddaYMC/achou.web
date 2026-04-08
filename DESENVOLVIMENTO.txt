@@ -226,3 +226,10 @@ OBSERVAÇÕES
 - Comentários breves em cada linha
 - Dark mode em todas as telas
 - TypeScript strict mode
+
+=================================================
+INCIDENTES RECENTES
+=================================================
+
+- 04/04/2026: anúncios não apareciam no T1 após recriar o perfil porque alguns documentos estavam com lat/lon salvos como string ou sem coordenadas normalizadas, o que zerava o filtro de distância.
+- Correção aplicada: leitura de coordenadas agora aceita número ou string numérica em anúncios e no cache global; T1 mantém fallback para a base completa quando a busca geográfica vem vazia.

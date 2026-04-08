@@ -1,7 +1,8 @@
 import { getAuth } from 'firebase/auth';
-import { ChevronLeft, Edit, LogOut, Trash2 } from 'lucide-react-native';
+import { geohashForLocation } from 'geofire-common';
+import { ChevronLeft, Edit, KeyRound, LogOut, Trash2 } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
@@ -9,11 +10,21 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { useAppContext } from '../context/AppContext';
 import app from '../firebaseConfig';
-import { logout, updateUserProfile } from '../src/services/authService';
+import { changePasswordWithCurrent, deleteAccountAndData, logout, updateUserProfile } from '../src/services/authService';
+import { fetchCepDetails, geocodeBusinessAddress } from '../src/services/geocodingService';
 
 export default function T5Perfil() {
-  const { userProfile, setUserProfile, navigateTo, setIsLoggedIn, showUpdateProfileDialog, setShowUpdateProfileDialog, setFavorites, isDarkMode, registeredUsers, setRegisteredUsers, setReturnTo, setReportBusiness, setSelectedBusiness } = useAppContext();
+  const { isLoggedIn, userProfile, setUserProfile, navigateTo, setIsLoggedIn, showUpdateProfileDialog, setShowUpdateProfileDialog, setFavorites, isDarkMode, registeredUsers, setRegisteredUsers, setReturnTo, setReportBusiness, setSelectedBusiness, setLocationSettings } = useAppContext();
+  const { height } = useWindowDimensions();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [formData, setFormData] = useState({ 
     name: userProfile?.name || '', 
     nickname: userProfile?.nickname || '',
@@ -22,7 +33,13 @@ export default function T5Perfil() {
     phone: userProfile?.phone || '', 
     cpf: userProfile?.cpf || '', 
     anuncianteLevel: userProfile?.anuncianteLevel || 1, 
-    createdAt: userProfile?.createdAt || '' 
+    createdAt: userProfile?.createdAt || '',
+    cep: userProfile?.cep || '',
+    street: userProfile?.street || '',
+    number: userProfile?.number || '',
+    neighborhood: userProfile?.neighborhood || '',
+    city: userProfile?.city || '',
+    state: userProfile?.state || '',
   });
 
   // Sincroniza formData quando userProfile mudar
@@ -36,10 +53,61 @@ export default function T5Perfil() {
         phone: userProfile.phone || '',
         cpf: userProfile.cpf || '',
         anuncianteLevel: userProfile.anuncianteLevel || 1,
-        createdAt: userProfile.createdAt || ''
+        createdAt: userProfile.createdAt || '',
+        cep: userProfile.cep || '',
+        street: userProfile.street || '',
+        number: userProfile.number || '',
+        neighborhood: userProfile.neighborhood || '',
+        city: userProfile.city || '',
+        state: userProfile.state || '',
       });
     }
   }, [userProfile]);
+
+  // Auto-preenche endereço quando CEP for preenchido
+  React.useEffect(() => {
+    const autoFillAddressFromCep = async () => {
+      const cepClean = formData.cep.replace(/\D/g, '');
+      
+      // Verifica se o CEP tem 8 dígitos
+      if (cepClean.length !== 8) return;
+      
+      // Se rua já foi preenchida manualmente, não sobrescreve
+      if (formData.street && formData.street.trim().length > 0) return;
+      
+      try {
+        const result = await fetchCepDetails(formData.cep);
+        
+        if (result && result.details) {
+          setFormData(prev => ({
+            ...prev,
+            street: result.details.road || '',
+            neighborhood: result.details.suburb || '',
+            city: result.details.city || '',
+            state: result.details.state || '',
+          }));
+        }
+      } catch (error) {
+        console.warn('Falha ao buscar endereço pelo CEP:', error);
+      }
+    };
+    
+    if (showUpdateProfileDialog) {
+      autoFillAddressFromCep();
+    }
+  }, [formData.cep, showUpdateProfileDialog]);
+
+  // Bloqueia acesso ao perfil sem autenticação
+  React.useEffect(() => {
+    if (!isLoggedIn) {
+      Alert.alert('Acesso restrito', 'Você precisa fazer login para acessar seu perfil.');
+      navigateTo('T3');
+    }
+  }, [isLoggedIn, navigateTo]);
+
+  if (!isLoggedIn) {
+    return null;
+  }
 
   const initials = useMemo(() => {
     const name = userProfile?.name || '';
@@ -49,29 +117,106 @@ export default function T5Perfil() {
     return (names[0][0] + names[names.length - 1][0]).toUpperCase();
   }, [userProfile]);
 
+  const greetingName = useMemo(() => {
+    const nickname = (userProfile?.nickname || '').trim();
+    if (nickname) return nickname;
+
+    const firstName = (userProfile?.name || '').trim().split(' ').filter(Boolean)[0];
+    if (firstName) return firstName;
+
+    return 'usuário';
+  }, [userProfile]);
+
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Data não disponível';
     const date = new Date(dateString);
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  const performDeleteAccount = () => {
+  const performDeleteAccount = async () => {
+    if (isDeletingAccount) return;
+
+    setIsDeletingAccount(true);
     setShowDeleteConfirm(false);
+
+    if (!deletePassword) {
+      setIsDeletingAccount(false);
+      Alert.alert('Atenção', 'Informe sua senha atual para confirmar a exclusão da conta.');
+      return;
+    }
+
+    let result;
+    try {
+      result = await deleteAccountAndData(deletePassword);
+    } catch (error: any) {
+      setIsDeletingAccount(false);
+      Alert.alert('Erro ao excluir conta', error?.message || 'Falha inesperada ao excluir seus dados.');
+      return;
+    }
+
+    if (!result.success) {
+      setIsDeletingAccount(false);
+      Alert.alert('Erro ao excluir conta', result.error || 'Não foi possível excluir seus dados.');
+      return;
+    }
+
     try { setIsLoggedIn(false); } catch {}
-    try { setUserProfile({ name: '', email: '', phone: '', cpf: '', anuncianteLevel: 1, createdAt: '' }); } catch {}
+    try { setUserProfile(null); } catch {}
     try { if (setFavorites) setFavorites([]); } catch {}
-    Alert.alert('Sucesso', 'Sua conta e dados foram excluídos permanentemente');
-    navigateTo('T1');
+    setDeletePassword('');
+    setIsDeletingAccount(false);
+    Alert.alert(
+      'Dados excluídos permanentemente',
+      `Seu perfil foi removido com sucesso. ${result.deletedAnuncios || 0} anúncio(s) vinculado(s) também foi(ram) excluído(s) de forma permanente.`,
+      [{ text: 'OK', onPress: () => navigateTo('T1') }]
+    );
   };
 
   const handleUpdateProfile = async () => {
-    setUserProfile(formData);
+    let resolvedCoords: null | { lat: number; lon: number } = null;
+    let resolvedGeoSource: 'cep' | 'endereco' | null = null;
+    let resolvedGeohash: string | null = null;
+
+    try {
+      const geo = await geocodeBusinessAddress({
+        cep: formData.cep,
+        street: formData.street,
+        number: formData.number,
+        neighborhood: formData.neighborhood,
+        city: formData.city,
+        state: formData.state,
+        country: 'Brasil',
+      });
+
+      if (geo) {
+        resolvedCoords = { lat: geo.lat, lon: geo.lon };
+        resolvedGeoSource = geo.source;
+        resolvedGeohash = geohashForLocation([geo.lat, geo.lon]);
+      }
+    } catch (error) {
+      console.warn('Falha ao geocodificar endereço do perfil:', error);
+    }
+
+    setUserProfile({
+      ...formData,
+      ...(resolvedCoords ? { lat: resolvedCoords.lat, lon: resolvedCoords.lon, geohash: resolvedGeohash || undefined } : {}),
+    } as any);
+
+    if (resolvedCoords) {
+      setLocationSettings({
+        mode: 'address',
+        cep: formData.cep,
+        address: [formData.street, formData.number, formData.neighborhood, formData.city, formData.state].filter(Boolean).join(', '),
+        coords: resolvedCoords,
+        geoSource: resolvedGeoSource,
+      });
+    }
     
     // Sincroniza também com registeredUsers
     try {
       if (Array.isArray(registeredUsers) && setRegisteredUsers) {
         const updated = registeredUsers.map((u: any) =>
-          u.email === userProfile?.email ? { ...u, name: formData.name, nickname: formData.nickname, phone: formData.phone, cpf: formData.cpf } : u
+          u.email === userProfile?.email ? { ...u, name: formData.name, nickname: formData.nickname, phone: formData.phone, cpf: formData.cpf, cep: formData.cep, street: formData.street, number: formData.number, neighborhood: formData.neighborhood, city: formData.city, state: formData.state } : u
         );
         setRegisteredUsers(updated);
       }
@@ -88,7 +233,14 @@ export default function T5Perfil() {
           cpf: formData.cpf,
           email: formData.email,
           anuncianteLevel: formData.anuncianteLevel,
-          createdAt: formData.createdAt
+          createdAt: formData.createdAt,
+          cep: formData.cep,
+          street: formData.street,
+          number: formData.number,
+          neighborhood: formData.neighborhood,
+          city: formData.city,
+          state: formData.state,
+          ...(resolvedCoords ? { lat: resolvedCoords.lat, lon: resolvedCoords.lon, geohash: resolvedGeohash || undefined } : {}),
         });
       }
     } catch (error) {
@@ -116,6 +268,30 @@ export default function T5Perfil() {
     navigateTo('T1');
   };
 
+  const handlePasswordReset = async () => {
+    const { currentPassword, newPassword, confirmPassword } = passwordData;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      Alert.alert('Erro', 'Preencha todos os campos de senha.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Erro', 'A confirmação da nova senha não confere.');
+      return;
+    }
+
+    const result = await changePasswordWithCurrent(currentPassword, newPassword);
+    if (result.success) {
+      Alert.alert('Sucesso', 'Senha atualizada com sucesso.');
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setShowPasswordDialog(false);
+      return;
+    }
+
+    Alert.alert('Erro', result.error || 'Não foi possível redefinir a senha.');
+  };
+
   const containerStyle = isDarkMode ? { ...styles.container, ...styles.containerDark } : styles.container;
   const cardStyle = isDarkMode ? { ...styles.card, ...styles.cardDark } : styles.card;
   const titleStyle = isDarkMode ? { ...styles.title, ...styles.titleDark } : styles.title;
@@ -140,7 +316,7 @@ export default function T5Perfil() {
               <Text style={avatarTextStyle}>{initials}</Text>
             </View>
 
-            <Text style={titleStyle}>Meu Perfil</Text>
+            <Text style={titleStyle}>Olá, {greetingName}!</Text>
           </View>
 
           <View style={styles.infoList}>
@@ -161,6 +337,21 @@ export default function T5Perfil() {
               <Text style={infoTextStyle}>{userProfile?.cpf || 'Não informado'}</Text>
             </View>
             <View style={[styles.infoItem, isDarkMode && { backgroundColor: '#374151', borderColor: '#60A5FA' }]}>
+              <Text style={infoLabelStyle}>Endereço padrão de busca</Text>
+              <Text style={infoTextStyle}>
+                {[
+                  userProfile?.street,
+                  userProfile?.number,
+                  userProfile?.neighborhood,
+                  userProfile?.city,
+                  userProfile?.state,
+                ]
+                  .filter(Boolean)
+                  .join(', ') || 'Não informado'}
+              </Text>
+              <Text style={[infoLabelStyle, { marginTop: 6 }]}>CEP: {userProfile?.cep || 'Não informado'}</Text>
+            </View>
+            <View style={[styles.infoItem, isDarkMode && { backgroundColor: '#374151', borderColor: '#60A5FA' }]}>
               <Text style={infoLabelStyle}>Plano Atual</Text>
               <Text style={infoTextStyle}>
                 Nível {userProfile?.anuncianteLevel || 1} 
@@ -177,93 +368,160 @@ export default function T5Perfil() {
           </View>
 
           <View style={styles.actions}>
-            <Button onPress={() => setShowUpdateProfileDialog(true)} variant="outline" style={styles.actionOutlined}>
+            <Button onPress={() => setShowUpdateProfileDialog(true)} variant="cancel" style={styles.actionButton}>
               <View style={styles.buttonContent}>
-                <Edit width={20} height={20} color={isDarkMode ? '#60A5FA' : '#1e3a8a'} />
-                <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Atualizar Perfil</Text>
+                <Edit width={20} height={20} color={isDarkMode ? '#374151' : '#374151'} />
+                <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Atualizar</Text>
               </View>
             </Button>
 
-            <Button onPress={() => navigateTo('planos')} style={[styles.actionOutlined, { borderColor: '#F59E0B', backgroundColor: isDarkMode ? '#78350F' : '#FEF3C7' }]}>
+            <Button onPress={() => setShowPasswordDialog(true)} variant="cancel" style={styles.actionButton}>
               <View style={styles.buttonContent}>
-                <Text style={[styles.buttonText, { color: '#F59E0B' }]}>⭐ Ver Planos e Fazer Upgrade</Text>
+                <KeyRound width={20} height={20} color={isDarkMode ? '#374151' : '#374151'} />
+                <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Redefinir Senha</Text>
               </View>
             </Button>
 
-            <Button onPress={() => setShowDeleteConfirm(true)} variant="destructive" style={styles.actionDanger}>
+            <Button
+              onPress={() => {
+                setDeletePassword('');
+                setShowDeleteConfirm(true);
+              }}
+              variant="destructive"
+              style={styles.actionButton}
+            >
               <View style={styles.buttonContent}>
                 <Trash2 width={20} height={20} color="#fff" />
                 <Text style={styles.buttonText}>Excluir Conta</Text>
               </View>
             </Button>
 
-            <Button onPress={handleLogout} variant="outline" style={styles.actionOutlined}>
+            <Button onPress={handleLogout} variant="cancel" style={styles.actionButton}>
               <View style={styles.buttonContent}>
-                <LogOut width={20} height={20} color={isDarkMode ? '#60A5FA' : '#1e3a8a'} />
-                <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>LOGOUT</Text>
+                <LogOut width={20} height={20} color={isDarkMode ? '#374151' : '#374151'} />
+                <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Sair</Text>
               </View>
             </Button>
           </View>
         </View>
 
         <Dialog open={showUpdateProfileDialog} onOpenChange={setShowUpdateProfileDialog}>
-          <DialogContent style={styles.dialogContent}>
+          <DialogContent style={{ ...styles.dialogContent, maxHeight: Math.min(640, Math.floor(height * 0.82)) }}>
             <DialogHeader>
               <DialogTitle style={titleStyle}>Atualizar Perfil</DialogTitle>
               <DialogDescription>Atualize suas informações pessoais</DialogDescription>
             </DialogHeader>
-            <View style={styles.form}>
-              <View style={styles.inputGroup}>
-                <Label>Nome Completo</Label>
-                <Input 
-                  value={formData.name} 
-                  onChangeText={(v: string) => setFormData({ ...formData, name: v })} 
-                  style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]} 
-                />
-              </View>
-              <View style={styles.inputGroup}>
-                <Label>Como você quer ser chamado? (opcional)</Label>
-                <Input 
-                  value={formData.nickname} 
-                  onChangeText={(v: string) => setFormData({ ...formData, nickname: v })} 
-                  placeholder="Apelido" 
-                  style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]} 
-                />
-              </View>
-              <View style={styles.inputGroup}>
-                <Label>E-mail</Label>
-                <Input 
-                  value={formData.email} 
-                  onChangeText={(v: string) => setFormData({ ...formData, email: v })} 
-                  keyboardType="email-address" 
-                  autoCapitalize="none" 
-                  style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]} 
-                />
-              </View>
-              <View style={styles.inputGroup}>
-                <Label>Telefone</Label>
-                <Input 
-                  value={formData.phone} 
-                  onChangeText={(v: string) => setFormData({ ...formData, phone: v })} 
-                  keyboardType="phone-pad" 
-                  style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]} 
-                />
-              </View>
-              <View style={styles.inputGroup}>
-                <Label>CPF</Label>
-                <Input 
-                  value={formData.cpf} 
-                  onChangeText={(v: string) => setFormData({ ...formData, cpf: v })} 
-                  keyboardType="numeric" 
-                  style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]} 
-                />
-              </View>
-              <View style={styles.formActions}>
-                <Button variant="outline" onPress={() => setShowUpdateProfileDialog(false)} style={styles.formButtonOutline}>
-                  <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Cancelar</Text>
+            <View style={styles.dialogBody}>
+              <ScrollView
+                style={styles.dialogScroll}
+                contentContainerStyle={styles.dialogScrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.form}>
+                  <View style={styles.inputGroup}>
+                    <Label>Nome Completo</Label>
+                    <Input 
+                      value={formData.name} 
+                      onChangeText={(v: string) => setFormData({ ...formData, name: v })} 
+                      style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]} 
+                    />
+                  </View>
+                  <View style={styles.inputGroup}>
+                    <Label>Como você quer ser chamado? (opcional)</Label>
+                    <Input 
+                      value={formData.nickname} 
+                      onChangeText={(v: string) => setFormData({ ...formData, nickname: v })} 
+                      placeholder="Apelido" 
+                      style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]} 
+                    />
+                  </View>
+                  <View style={styles.inputGroup}>
+                    <Label>E-mail</Label>
+                    <Input 
+                      value={formData.email} 
+                      onChangeText={(v: string) => setFormData({ ...formData, email: v })} 
+                      keyboardType="email-address" 
+                      autoCapitalize="none" 
+                      style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]} 
+                    />
+                  </View>
+                  <View style={styles.inputGroup}>
+                    <Label>Telefone</Label>
+                    <Input 
+                      value={formData.phone} 
+                      onChangeText={(v: string) => setFormData({ ...formData, phone: v })} 
+                      keyboardType="phone-pad" 
+                      style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]} 
+                    />
+                  </View>
+                  <View style={styles.inputGroup}>
+                    <Label>CPF</Label>
+                    <Input 
+                      value={formData.cpf} 
+                      onChangeText={(v: string) => setFormData({ ...formData, cpf: v })} 
+                      keyboardType="numeric" 
+                      style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]} 
+                    />
+                  </View>
+                  <View style={styles.inputGroup}>
+                    <Label>CEP</Label>
+                    <Input
+                      value={formData.cep}
+                      onChangeText={(v: string) => setFormData({ ...formData, cep: v })}
+                      keyboardType="numeric"
+                      placeholder="00000-000"
+                      style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]}
+                    />
+                  </View>
+                  <View style={styles.inputGroup}>
+                    <Label>Rua</Label>
+                    <Input
+                      value={formData.street}
+                      onChangeText={(v: string) => setFormData({ ...formData, street: v })}
+                      style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]}
+                    />
+                  </View>
+                  <View style={styles.inputGroup}>
+                    <Label>Número</Label>
+                    <Input
+                      value={formData.number}
+                      onChangeText={(v: string) => setFormData({ ...formData, number: v })}
+                      style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]}
+                    />
+                  </View>
+                  <View style={styles.inputGroup}>
+                    <Label>Bairro</Label>
+                    <Input
+                      value={formData.neighborhood}
+                      onChangeText={(v: string) => setFormData({ ...formData, neighborhood: v })}
+                      style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]}
+                    />
+                  </View>
+                  <View style={styles.inputGroup}>
+                    <Label>Cidade</Label>
+                    <Input
+                      value={formData.city}
+                      onChangeText={(v: string) => setFormData({ ...formData, city: v })}
+                      style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]}
+                    />
+                  </View>
+                  <View style={styles.inputGroup}>
+                    <Label>Estado</Label>
+                    <Input
+                      value={formData.state}
+                      onChangeText={(v: string) => setFormData({ ...formData, state: v })}
+                      style={[styles.input, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]}
+                    />
+                  </View>
+                </View>
+              </ScrollView>
+              <View style={styles.dialogActions}>
+                <Button variant="cancel" onPress={() => setShowUpdateProfileDialog(false)} style={styles.formButtonFlex}>
+                  Cancelar
                 </Button>
-                <Button onPress={handleUpdateProfile} style={styles.formButtonPrimary}>
-                  <Text style={styles.buttonText}>Salvar</Text>
+                <Button variant="success" onPress={handleUpdateProfile} style={styles.formButtonFlex}>
+                  Salvar
                 </Button>
               </View>
             </View>
@@ -278,15 +536,101 @@ export default function T5Perfil() {
             </DialogHeader>
             <View>
               <Text style={{ fontSize: 14, color: isDarkMode ? '#e5e7eb' : '#374151', marginBottom: 16 }}>
-                Pela LGPD exigimos sua confirmação explícita. Se você realmente deseja prosseguir, clique em "Sim, desejo excluir meus dados". Esta ação não poderá ser desfeita.
+                Pela LGPD exigimos sua confirmação explícita. Ao confirmar, seu perfil e todos os anúncios vinculados a esta conta serão apagados permanentemente. Esta ação não poderá ser desfeita.
               </Text>
-              <View style={styles.deleteActions}>
-                <TouchableOpacity onPress={() => setShowDeleteConfirm(false)} style={styles.deleteCancelButton}>
-                  <Text style={styles.deleteCancelText}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={performDeleteAccount} style={styles.deleteConfirmButton}>
-                  <Text style={styles.deleteConfirmText}>Sim, desejo excluir meus dados</Text>
-                </TouchableOpacity>
+              <View style={styles.inputGroup}>
+                <Label>Senha atual</Label>
+                <View style={styles.passwordRow}>
+                  <Input
+                    value={deletePassword}
+                    onChangeText={setDeletePassword}
+                    secureTextEntry={!showDeletePassword}
+                    style={[styles.input, styles.passwordInput, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]}
+                    placeholder="Digite sua senha atual"
+                    placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                  />
+                  <TouchableOpacity onPress={() => setShowDeletePassword((prev) => !prev)} style={styles.passwordToggle}>
+                    <Text style={[styles.passwordToggleText, isDarkMode && styles.passwordToggleTextDark]}>
+                      {showDeletePassword ? 'Ocultar' : 'Ver senha'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={styles.formActions}>
+                <Button variant="cancel" onPress={() => setShowDeleteConfirm(false)} style={[styles.formButtonFlex, isDeletingAccount && { opacity: 0.5 }]} disabled={isDeletingAccount}>
+                  <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Cancelar</Text>
+                </Button>
+                <Button variant="destructive" onPress={performDeleteAccount} style={[styles.formButtonFlex, isDeletingAccount && { opacity: 0.5 }]} disabled={isDeletingAccount}>
+                  <Text style={styles.buttonText}>{isDeletingAccount ? 'Excluindo...' : 'Sim, Excluir dados'}</Text>
+                </Button>
+              </View>
+            </View>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+          <DialogContent style={styles.dialogContent}>
+            <DialogHeader>
+              <DialogTitle style={titleStyle}>Redefinir senha</DialogTitle>
+              <DialogDescription>Altere sua senha sem sair do app.</DialogDescription>
+            </DialogHeader>
+            <View style={styles.form}>
+              <View style={styles.inputGroup}>
+                <Label>Senha atual</Label>
+                <View style={styles.passwordRow}>
+                  <Input
+                    value={passwordData.currentPassword}
+                    onChangeText={(v: string) => setPasswordData((p) => ({ ...p, currentPassword: v }))}
+                    secureTextEntry={!showCurrentPassword}
+                    style={[styles.input, styles.passwordInput, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]}
+                  />
+                  <TouchableOpacity onPress={() => setShowCurrentPassword((prev) => !prev)} style={styles.passwordToggle}>
+                    <Text style={[styles.passwordToggleText, isDarkMode && styles.passwordToggleTextDark]}>{showCurrentPassword ? 'Ocultar' : 'Ver senha'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={styles.inputGroup}>
+                <Label>Nova senha</Label>
+                <View style={styles.passwordRow}>
+                  <Input
+                    value={passwordData.newPassword}
+                    onChangeText={(v: string) => setPasswordData((p) => ({ ...p, newPassword: v }))}
+                    secureTextEntry={!showNewPassword}
+                    style={[styles.input, styles.passwordInput, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]}
+                  />
+                  <TouchableOpacity onPress={() => setShowNewPassword((prev) => !prev)} style={styles.passwordToggle}>
+                    <Text style={[styles.passwordToggleText, isDarkMode && styles.passwordToggleTextDark]}>{showNewPassword ? 'Ocultar' : 'Ver senha'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={styles.inputGroup}>
+                <Label>Confirmar nova senha</Label>
+                <View style={styles.passwordRow}>
+                  <Input
+                    value={passwordData.confirmPassword}
+                    onChangeText={(v: string) => setPasswordData((p) => ({ ...p, confirmPassword: v }))}
+                    secureTextEntry={!showConfirmPassword}
+                    style={[styles.input, styles.passwordInput, { color: '#000000', backgroundColor: isDarkMode ? '#374151' : '#F3F4F6' }]}
+                  />
+                  <TouchableOpacity onPress={() => setShowConfirmPassword((prev) => !prev)} style={styles.passwordToggle}>
+                    <Text style={[styles.passwordToggleText, isDarkMode && styles.passwordToggleTextDark]}>{showConfirmPassword ? 'Ocultar' : 'Ver senha'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <View style={styles.formActions}>
+                <Button
+                  variant="cancel"
+                  onPress={() => {
+                    setShowPasswordDialog(false);
+                    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                  }}
+                  style={styles.formButtonFlex}
+                >
+                  <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Cancelar</Text>
+                </Button>
+                <Button variant="success" onPress={handlePasswordReset} style={styles.formButtonFlex}>
+                  <Text style={styles.buttonText}>Salvar senha</Text>
+                </Button>
               </View>
             </View>
           </DialogContent>
@@ -303,7 +647,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   containerDark: {
-    backgroundColor: '#0f172a',
+    backgroundColor: 'transparent',
   },
   backButton: {
     marginBottom: 16,
@@ -391,41 +735,49 @@ const styles = StyleSheet.create({
   actions: {
     marginTop: 8,
   },
-  actionOutlined: {
-    height: 48,
-    borderWidth: 2,
-    borderColor: '#1e3a8a',
+  actionButton: {
+    minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
-  actionDanger: {
-    height: 48,
-    backgroundColor: '#dc2626',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+    lineHeight: 20,
     marginLeft: 8,
+    textAlign: 'center',
   },
   buttonTextDark: {
     color: '#FFFFFF',
   },
   dialogContent: {
     maxWidth: '90%',
+    width: '100%',
+    overflow: 'hidden',
+  },
+  dialogBody: {
+    marginTop: 16,
+    gap: 12,
+    flexShrink: 1,
+  },
+  dialogScroll: {
+    flexGrow: 0,
+  },
+  dialogScrollContent: {
+    gap: 12,
+    paddingBottom: 12,
   },
   form: {
-    paddingTop: 8,
+    paddingTop: 0,
   },
   inputGroup: {
-    marginBottom: 12,
+    marginBottom: 0,
   },
   input: {
     borderWidth: 1,
@@ -439,52 +791,42 @@ const styles = StyleSheet.create({
   },
   formActions: {
     flexDirection: 'row',
-    marginTop: 8,
-  },
-  formButtonOutline: {
-    flex: 1,
-    borderWidth: 2,
-    borderColor: '#1e3a8a',
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  formButtonPrimary: {
-    flex: 1,
-    backgroundColor: '#2563EB',
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deleteActions: {
-    flexDirection: 'column',
+    marginTop: 0,
     gap: 12,
+    flexShrink: 0,
   },
-  deleteCancelButton: {
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
-    paddingVertical: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+  dialogActions: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingTop: 4,
+    paddingBottom: 12,
+    flexShrink: 0,
   },
-  deleteCancelText: {
-    color: '#374151',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  deleteConfirmButton: {
-    backgroundColor: '#dc2626',
-    borderRadius: 8,
-    paddingVertical: 12,
+  formButtonFlex: {
+    flex: 1,
+    minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  deleteConfirmText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  passwordInput: {
+    flex: 1,
+  },
+  passwordToggle: {
+    height: 48,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  passwordToggleText: {
+    color: '#2563EB',
+    fontSize: 12,
     fontWeight: '600',
+  },
+  passwordToggleTextDark: {
+    color: '#93c5fd',
   },
 });

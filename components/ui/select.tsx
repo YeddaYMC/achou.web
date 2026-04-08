@@ -88,7 +88,7 @@ export function SelectContent({ children }: SelectContentProps) {
   return (
     <Modal visible={isOpen} transparent animationType="fade" onRequestClose={() => setIsOpen(false)}>
       <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setIsOpen(false)}>
-        <View style={[styles.modalContent, { borderColor: colors.border }]}>
+        <View style={[styles.modalContent, { borderColor: colors.border, backgroundColor: colors.card }]}>
           <ScrollView showsVerticalScrollIndicator={true}>
             {children}
           </ScrollView>
@@ -117,7 +117,8 @@ export function SelectItem({ value, children }: SelectItemProps) {
         setIsOpen(false); // Fecha modal
       }}
       style={[
-        styles.item, 
+        styles.item,
+        { backgroundColor: colors.card },
         isSelected && { backgroundColor: colors.accent },
         isImperdiveis && styles.itemImperdiveis
       ]}
@@ -155,12 +156,10 @@ const styles = StyleSheet.create({
     borderRadius: 12, // Borda arredondada
     borderWidth: 1, // Borda
     paddingVertical: 8, // Padding vertical
-    backgroundColor: '#FFFFFF', // Fundo branco sólido sempre
   },
   item: {
     paddingHorizontal: 16, // Padding horizontal
     paddingVertical: 12, // Padding vertical
-    backgroundColor: '#FFFFFF', // Fundo branco para todos os itens
   },
   itemImperdiveis: {
     backgroundColor: '#fff', // Mantém fundo branco

@@ -5,23 +5,34 @@ import app from '../firebaseConfig';
 import { mockBusinesses } from '../mockData/mockBusinesses';
 import { getAllActiveAnuncios } from '../src/services/anuncioService';
 import { addFavorite, getFavorites, getUserProfile, removeFavorite, subscribeToAuthState } from '../src/services/authService';
+import { geocodeBusinessAddress } from '../src/services/geocodingService';
 
 // Tipo para negócio
 interface Business {
   id: number;
+  firestoreId?: string;
   name: string;
+  category?: string;
   categories: string[]; // Array de categorias (múltiplas)
   location: string;
   cep: string;
+  street?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  number?: string;
   phone: string;
   whatsapp: string;
   description: string;
   image: any;
-  lat: number;
-  lon: number;
+  lat: number | null;
+  lon: number | null;
+  origemGeo?: 'gps' | 'cep' | 'endereco' | null;
   instagram?: string;
   facebook?: string;
   pinterest?: string;
+  owner?: string | null;
+  ownerId?: string | null;
   entregaRapida?: boolean; // Tag para entrega rápida na região
   contactVisibility?: {
     instagram?: boolean;
@@ -40,6 +51,15 @@ interface UserProfile {
   cpf: string;
   anuncianteLevel: 1 | 2 | 3 | 4;
   createdAt: string;
+    cep?: string; // Código postal
+    street?: string; // Rua
+    number?: string; // Número
+    neighborhood?: string; // Bairro
+    city?: string; // Cidade
+    state?: string; // Estado
+    lat?: number; // Latitude persistida no perfil
+    lon?: number; // Longitude persistida no perfil
+    geohash?: string; // Geohash persistido no perfil
 }
 
 // Tipo para contexto
@@ -50,7 +70,7 @@ interface AppContextType {
   setSelectedBusiness: (business: Business | null) => void; // Define negócio selecionado
   selectedBusiness: Business | null; // Negócio selecionado
   favorites: number[]; // Lista de favoritos
-  setFavorites: (favorites: number[]) => void; // Define favoritos
+  setFavorites: React.Dispatch<React.SetStateAction<number[]>>; // Define favoritos
   toggleFavorite: (id: number) => void; // Adiciona/remove favorito
   isDarkMode: boolean; // Modo escuro ativo
   setIsDarkMode: (value: boolean) => void; // Define modo escuro
@@ -93,6 +113,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isDarkMode, setIsDarkMode] = useState(false); // Modo escuro
   const colorScheme = useColorScheme(); // Esquema de cores do dispositivo
 
+  // Gera ID numérico estável a partir do doc.id do Firestore para manter favoritos consistentes.
+  const stableNumericIdFromString = (value: string): number => {
+    let hash = 0;
+    for (let i = 0; i < value.length; i++) {
+      hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+    }
+    return hash;
+  };
+
+  const toFiniteNumber = (value: unknown): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  };
+
   // Sincroniza com Firebase Auth State
   useEffect(() => {
     const unsubscribe = subscribeToAuthState(async (firebaseUser) => {
@@ -117,49 +155,179 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setIsLoggedIn(false);
         setUserProfile(null);
         setFavorites([]);
+        setLocationSettings(null);
       }
     });
 
     return () => unsubscribe?.(); // Cleanup
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    const resolveDefaultLocation = async () => {
+      if (locationSettings?.coords) {
+        return;
+      }
+
+      if (!userProfile) {
+        return;
+      }
+
+      const hasAddress = Boolean(
+        userProfile.cep ||
+        userProfile.street ||
+        userProfile.number ||
+        userProfile.neighborhood ||
+        userProfile.city ||
+        userProfile.state
+      );
+
+      const hasPersistedCoords =
+        typeof userProfile.lat === 'number' &&
+        typeof userProfile.lon === 'number';
+
+      if (hasPersistedCoords) {
+        if (!active) return;
+
+        setLocationSettings({
+          mode: 'address',
+          cep: userProfile.cep || '',
+          address: [userProfile.street, userProfile.number, userProfile.neighborhood, userProfile.city, userProfile.state]
+            .filter(Boolean)
+            .join(', '),
+          coords: { lat: userProfile.lat as number, lon: userProfile.lon as number },
+          geoSource: 'endereco',
+          geohash: userProfile.geohash || null,
+        });
+        return;
+      }
+
+      if (!hasAddress) {
+        return;
+      }
+
+      try {
+        const geo = await geocodeBusinessAddress({
+          cep: userProfile.cep,
+          street: userProfile.street,
+          number: userProfile.number,
+          neighborhood: userProfile.neighborhood,
+          city: userProfile.city,
+          state: userProfile.state,
+          country: 'Brasil',
+        });
+
+        if (!active || !geo) {
+          return;
+        }
+
+        setLocationSettings({
+          mode: 'address',
+          cep: userProfile.cep || '',
+          address: [userProfile.street, userProfile.number, userProfile.neighborhood, userProfile.city, userProfile.state]
+            .filter(Boolean)
+            .join(', '),
+          coords: { lat: geo.lat, lon: geo.lon },
+          geoSource: geo.source,
+        });
+      } catch (error) {
+        console.warn('Falha ao resolver localização padrão do usuário:', error);
+      }
+    };
+
+    void resolveDefaultLocation();
+
+    return () => {
+      active = false;
+    };
+  }, [userProfile, locationSettings]);
+
   // Carrega anúncios do Firestore ao iniciar
   useEffect(() => {
     const carregarAnuncios = async () => {
+      const loadMockBusinesses = () => {
+        const fallback = (mockBusinesses || []).map((mock: any, index: number) => ({
+          id: typeof mock.id === 'number' ? mock.id : index + 1,
+          firestoreId: undefined,
+          name: mock.name || 'Negócio',
+          category: Array.isArray(mock.categories) ? mock.categories[0] : mock.category,
+          categories: Array.isArray(mock.categories) ? mock.categories : [mock.category].filter(Boolean),
+          location: mock.location || '',
+          cep: mock.cep || '',
+          street: mock.street,
+          neighborhood: mock.neighborhood,
+          city: mock.city,
+          state: mock.state,
+          number: mock.number,
+          phone: mock.phone || '',
+          whatsapp: mock.whatsapp || '',
+          description: mock.description || '',
+          image: mock.image || null,
+          lat: toFiniteNumber(mock.lat),
+          lon: toFiniteNumber(mock.lon),
+          origemGeo: mock.origemGeo ?? null,
+          instagram: mock.instagram,
+          facebook: mock.facebook,
+          pinterest: mock.pinterest,
+          owner: null,
+          ownerId: null,
+          entregaRapida: Boolean(mock.entregaRapida),
+          contactVisibility: mock.contactVisibility,
+        }));
+
+        console.warn(`⚠️ Usando fallback local com ${fallback.length} anúncio(s) de mock.`);
+        setBusinesses(fallback);
+      };
+
       try {
-        console.log('📡 Buscando anúncios do Firestore...');
         const anuncios = await getAllActiveAnuncios();
         
         if (anuncios.length > 0) {
-          console.log(`✅ ${anuncios.length} anúncio(s) encontrado(s)`);
           // Converter anúncios para formato de Business
-          const businesses = anuncios.map(anuncio => ({
-            id: parseInt(anuncio.id?.substring(0, 10) || Math.random().toString()) || Math.random(),
+          const businesses = anuncios.map(anuncio => {
+            const enderecoPartes = [anuncio.street, anuncio.number, anuncio.neighborhood, anuncio.city, anuncio.state]
+              .filter(Boolean)
+              .join(', ');
+
+            const stableId = anuncio.id ? stableNumericIdFromString(anuncio.id) : stableNumericIdFromString(`${anuncio.name}-${anuncio.userId}`);
+
+            return ({
+            id: stableId,
+            firestoreId: anuncio.id,
             name: anuncio.name,
+            category: anuncio.category,
             categories: [anuncio.category],
-            location: anuncio.location,
+            location: anuncio.location || enderecoPartes,
             cep: anuncio.cep,
+            street: anuncio.street,
+            neighborhood: anuncio.neighborhood,
+            city: anuncio.city,
+            state: anuncio.state,
+            number: anuncio.number,
             phone: anuncio.phone,
             whatsapp: anuncio.whatsapp,
             description: anuncio.description,
             image: anuncio.fotos?.[0] || null,
-            lat: 0,
-            lon: 0,
+            lat: toFiniteNumber(anuncio.lat),
+            lon: toFiniteNumber(anuncio.lon),
+            origemGeo: anuncio.origemGeo ?? null,
             instagram: anuncio.instagram,
             facebook: anuncio.facebook,
             pinterest: anuncio.pinterest,
+            owner: anuncio.userEmail || null,
+            ownerId: anuncio.userId || null,
             entregaRapida: anuncio.entregaRapida,
             contactVisibility: anuncio.contactVisibility,
-          }));
+          });
+          });
           setBusinesses(businesses);
         } else {
-          console.log('⚠️ Nenhum anúncio encontrado, usando dados de teste');
-          setBusinesses(mockBusinesses);
+          loadMockBusinesses();
         }
       } catch (error) {
         console.error('❌ Erro ao buscar anúncios:', error);
-        console.log('📚 Usando dados de teste como fallback');
-        setBusinesses(mockBusinesses);
+        loadMockBusinesses();
       }
     };
 
@@ -185,57 +353,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Toggle de favorito (sincroniza com Firebase)
   const toggleFavorite = (id: number) => {
-    console.log('=== TOGGLE FAVORITO START ===');
-    console.log('ID:', id);
-    console.log('isLoggedIn:', isLoggedIn);
-    console.log('userProfile:', userProfile?.name);
-    
     const isFavorite = (favorites || []).includes(id);
-    console.log('isFavorite (antes):', isFavorite);
     
     // Atualizar estado local PRIMEIRO
     const newFavorites = isFavorite
       ? (favorites || []).filter((fav) => fav !== id)
       : [...(favorites || []), id];
-    
-    console.log('newFavorites:', newFavorites);
+
     setFavorites(newFavorites);
 
     // Sincronizar com Firebase se logado
     if (isLoggedIn) {
-      console.log('Iniciando sincronização com Firebase...');
       const syncFavorite = async () => {
         try {
           const auth = getAuth(app);
           const currentUser = auth.currentUser;
-          
-          console.log('currentUser.uid:', currentUser?.uid);
-          
+
           if (currentUser?.uid) {
-            console.log('Acionando', isFavorite ? 'removeFavorite' : 'addFavorite', 'para ID:', id);
-            
             if (isFavorite) {
-              const result = await removeFavorite(currentUser.uid, id);
-              console.log('removeFavorite resultado:', result);
+              await removeFavorite(currentUser.uid, id);
             } else {
-              const result = await addFavorite(currentUser.uid, id);
-              console.log('addFavorite resultado:', result);
+              await addFavorite(currentUser.uid, id);
             }
-            console.log('Sincronização concluída com sucesso!');
           } else {
             console.warn('⚠️ currentUser.uid não encontrado!');
           }
         } catch (error) {
           console.error('❌ Erro ao sincronizar favorito:', error);
         }
-        console.log('=== TOGGLE FAVORITO END ===');
       };
       
       // Executar imediatamente sem delay
       syncFavorite();
     } else {
       console.warn('⚠️ Usuário não está logado!');
-      console.log('=== TOGGLE FAVORITO END ===');
     }
   };
 

@@ -1,13 +1,20 @@
 import { useTheme } from '@/hooks/useTheme';
+import * as SecureStore from 'expo-secure-store';
 import { ChevronLeft } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
 import { Button } from '../components/ui/button';
+import { Checkbox } from '../components/ui/checkbox';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { useAppContext } from '../context/AppContext';
-import { loginWithEmail } from '../src/services/authService';
+import { loginWithEmail, requestPasswordReset } from '../src/services/authService';
+
+const REMEMBER_LOGIN_KEY = 'achou_remember_login';
+const REMEMBER_EMAIL_KEY = 'achou_login_email';
+const REMEMBER_PASSWORD_KEY = 'achou_login_password';
 
 // Tela de login
 export default function Login() {
@@ -16,6 +23,39 @@ export default function Login() {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [forgotDialogOpen, setForgotDialogOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotFeedback, setForgotFeedback] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [rememberLogin, setRememberLogin] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    const loadRememberedCredentials = async () => {
+      try {
+        const remember = await SecureStore.getItemAsync(REMEMBER_LOGIN_KEY);
+        const shouldRemember = remember === 'true';
+        setRememberLogin(shouldRemember);
+
+        if (shouldRemember) {
+          const [savedEmail, savedPassword] = await Promise.all([
+            SecureStore.getItemAsync(REMEMBER_EMAIL_KEY),
+            SecureStore.getItemAsync(REMEMBER_PASSWORD_KEY),
+          ]);
+
+          setFormData({
+            email: savedEmail || '',
+            password: savedPassword || '',
+          });
+        }
+      } catch (error) {
+        console.warn('Falha ao carregar credenciais salvas:', error);
+      }
+    };
+
+    void loadRememberedCredentials();
+  }, []);
 
   // Submete login
   const handleSubmit = async () => {
@@ -40,6 +80,20 @@ export default function Login() {
       }
 
       // Login bem-sucedido
+      if (rememberLogin) {
+        await Promise.all([
+          SecureStore.setItemAsync(REMEMBER_LOGIN_KEY, 'true'),
+          SecureStore.setItemAsync(REMEMBER_EMAIL_KEY, formData.email.trim()),
+          SecureStore.setItemAsync(REMEMBER_PASSWORD_KEY, formData.password),
+        ]);
+      } else {
+        await Promise.all([
+          SecureStore.setItemAsync(REMEMBER_LOGIN_KEY, 'false'),
+          SecureStore.deleteItemAsync(REMEMBER_EMAIL_KEY),
+          SecureStore.deleteItemAsync(REMEMBER_PASSWORD_KEY),
+        ]);
+      }
+
       setUserProfile(result.userData || null);
       setIsLoggedIn(true);
       Alert.alert('Sucesso', 'Login realizado com sucesso!');
@@ -49,6 +103,36 @@ export default function Login() {
       console.error('Erro no login:', error);
       setErrorMessage('Não foi possível fazer login. Tente novamente.');
     }
+  };
+
+  const openForgotPasswordDialog = () => {
+    setForgotEmail((formData.email || '').trim());
+    setForgotFeedback('');
+    setForgotSuccess(false);
+    setForgotDialogOpen(true);
+  };
+
+  const handleForgotPassword = async () => {
+    const targetEmail = forgotEmail.trim();
+
+    if (!targetEmail) {
+      setForgotSuccess(false);
+      setForgotFeedback('Informe seu e-mail para receber o link de redefinição.');
+      return;
+    }
+
+    setForgotLoading(true);
+    const result = await requestPasswordReset(targetEmail);
+    setForgotLoading(false);
+
+    if (result.success) {
+      setForgotSuccess(true);
+      setForgotFeedback('Link de redefinição enviado. Verifique seu e-mail (inclusive spam).');
+      return;
+    }
+
+    setForgotSuccess(false);
+    setForgotFeedback(result.error || 'Não foi possível enviar o link de redefinição.');
   };
 
   return (
@@ -124,17 +208,29 @@ export default function Login() {
             {/* Senha */}
             <View>
               <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Senha</Label>
-              <Input
-                value={formData.password}
-                onChangeText={(text) => setFormData({ ...formData, password: text })}
-                placeholder="Digite sua senha"
-                secureTextEntry
-                editable={!loading}
-                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
-              />
+              <View style={styles.passwordRow}>
+                <Input
+                  value={formData.password}
+                  onChangeText={(text) => setFormData({ ...formData, password: text })}
+                  placeholder="Digite sua senha"
+                  secureTextEntry={!showPassword}
+                  editable={!loading}
+                  style={{ ...styles.passwordInput, backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+                />
+                <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} style={styles.passwordToggle} disabled={loading}>
+                  <Text style={{ color: colors.formLink, fontSize: fontSize.sm, fontWeight: '600' }}>
+                    {showPassword ? 'Ocultar' : 'Ver senha'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Botão login */}
+            <View style={styles.rememberRow}>
+              <Checkbox checked={rememberLogin} onCheckedChange={setRememberLogin} />
+              <Text style={{ color: colors.formLabel, fontSize: fontSize.sm }}>Lembrar de mim</Text>
+            </View>
+
             <Button
               onPress={handleSubmit}
               disabled={loading}
@@ -187,6 +283,11 @@ export default function Login() {
 
             {/* Link cadastro */}
             <View style={styles.footer}>
+              <TouchableOpacity onPress={openForgotPasswordDialog} disabled={loading}>
+                <Text style={{ color: colors.formLink, fontSize: fontSize.sm, textDecorationLine: 'underline' }}>
+                  Esqueci minha senha
+                </Text>
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => navigateTo('T2')} disabled={loading}>
                 <Text style={{ color: colors.formLink, fontSize: fontSize.sm, textDecorationLine: 'underline' }}>
                   Não tenho conta. Criar agora
@@ -196,6 +297,45 @@ export default function Login() {
           </View>
         </View>
       </View>
+
+      <Dialog open={forgotDialogOpen} onOpenChange={setForgotDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Redefinir senha</DialogTitle>
+            <DialogDescription>Digite seu e-mail para receber o link de redefinição.</DialogDescription>
+          </DialogHeader>
+
+          <View style={{ gap: spacing.md, marginTop: spacing.sm }}>
+            <View>
+              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>E-mail</Label>
+              <Input
+                value={forgotEmail}
+                onChangeText={setForgotEmail}
+                placeholder="seu@email.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!forgotLoading}
+                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+              />
+            </View>
+
+            {!!forgotFeedback && (
+              <Text style={{ color: forgotSuccess ? '#16A34A' : '#DC2626', fontSize: fontSize.sm, textAlign: 'center' }}>
+                {forgotFeedback}
+              </Text>
+            )}
+
+            <View style={{ gap: spacing.sm }}>
+              <Button onPress={() => setForgotDialogOpen(false)} variant="cancel" style={{ minHeight: 48 }}>
+                Cancelar
+              </Button>
+              <Button onPress={handleForgotPassword} variant="success" disabled={forgotLoading} style={{ minHeight: 48 }}>
+                {forgotLoading ? 'Enviando...' : 'Solicitar link de redefinição'}
+              </Button>
+            </View>
+          </View>
+        </DialogContent>
+      </Dialog>
     </LayoutRN>
   );
 }
@@ -223,5 +363,24 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: 'center', // Centraliza
     paddingTop: 12, // Espaço superior
+    gap: 10,
+  },
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  passwordInput: {
+    flex: 1,
+  },
+  passwordToggle: {
+    height: 48,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
   },
 });

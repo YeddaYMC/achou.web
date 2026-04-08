@@ -131,8 +131,8 @@ export default function T12Planos() {
       setIsLoading(true);
       const userRef = doc(db, 'users', currentUser.uid);
       await updateDoc(userRef, {
-        anuncianteLevel: nivelEmUpgrade,
-        updatedAt: new Date().toISOString(),
+        nivelAnunciante: nivelEmUpgrade,
+        atualizadoEm: new Date().toISOString(),
       });
 
       setUserProfile({
@@ -287,9 +287,9 @@ export default function T12Planos() {
               <View style={styles.modalButtons}>
                 <TouchableOpacity
                   onPress={handleCancelUpgrade}
-                  style={[styles.modalButton, styles.cancelButton, { borderColor: subtextColor }]}
+                  style={[styles.modalButton, styles.cancelButton]}
                 >
-                  <Text style={[styles.cancelButtonText, { color: textColor }]}>Cancelar</Text>
+                  <Text style={styles.cancelButtonText}>Cancelar</Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity
@@ -299,7 +299,7 @@ export default function T12Planos() {
                     styles.modalButton,
                     styles.confirmButton,
                     {
-                      backgroundColor: aceitouTermos && !isLoading ? planoUpgrade?.cor : '#D1D5DB',
+                      backgroundColor: aceitouTermos && !isLoading ? '#16a34a' : '#9ca3af',
                     },
                   ]}
                 >
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   containerDark: {
-    backgroundColor: '#111827',
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',
@@ -480,9 +480,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelButton: {
-    borderWidth: 1,
+    backgroundColor: '#d1d5db',
   },
   cancelButtonText: {
+    color: '#374151',
     fontSize: 14,
     fontWeight: '600',
   },

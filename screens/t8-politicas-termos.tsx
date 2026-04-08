@@ -48,8 +48,29 @@ export default function T8Politicas() {
                 <Text style={listItemStyle}>• Criação e gerenciamento de sua conta</Text>
                 <Text style={listItemStyle}>• Publicação de anúncios de negócios</Text>
                 <Text style={listItemStyle}>• Facilitação de contato entre usuários e empreendedores</Text>
+                <Text style={listItemStyle}>• Cálculo de distância, filtros por proximidade e rotas com base exclusivamente no endereço informado pelo usuário</Text>
+                <Text style={listItemStyle}>• Geração de coordenadas (latitude/longitude) e geohash somente a partir dos dados de endereço fornecidos pelo usuário</Text>
                 <Text style={listItemStyle}>• Melhorias na plataforma</Text>
               </View>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={sectionTitleStyle}>2.1 Dados de Localização</Text>
+              <Text style={textStyle}>
+                Para buscas por proximidade, o aplicativo pode converter o endereço cadastrado (CEP, rua,
+                número, bairro, cidade e estado) em coordenadas geográficas (latitude e longitude) e geohash.
+                Esses dados são utilizados para cálculo de distância entre usuário e negócios, ordenação por
+                relevância local e apoio à montagem de rotas.
+              </Text>
+              <Text style={[textStyle, { marginTop: 12 }]}>
+                A localização utilizada na plataforma é derivada exclusivamente das informações de endereço
+                prestadas pelo usuário. Não utilizamos GPS, geolocalização em tempo real, triangulação de rede,
+                IP ou outros meios automáticos de localização como requisito para funcionamento.
+              </Text>
+              <Text style={[textStyle, { marginTop: 12 }]}>
+                A precisão depende da qualidade do endereço informado. O usuário pode atualizar ou corrigir o
+                endereço a qualquer momento no perfil.
+              </Text>
             </View>
 
             <View style={styles.section}>
@@ -73,6 +94,7 @@ export default function T8Politicas() {
               <View style={styles.list}>
                 <Text style={listItemStyle}>• Acessar seus dados</Text>
                 <Text style={listItemStyle}>• Corrigir dados incompletos ou incorretos</Text>
+                <Text style={listItemStyle}>• Corrigir ou remover dados de localização vinculados ao perfil</Text>
                 <Text style={listItemStyle}>• Solicitar a exclusão de seus dados</Text>
                 <Text style={listItemStyle}>• Revogar o consentimento</Text>
                 <Text style={listItemStyle}>• Portabilidade dos dados</Text>
@@ -98,7 +120,7 @@ export default function T8Politicas() {
             </View>
 
             <View style={styles.section}>
-              <Text style={updateTextStyle}>Última atualização: Novembro de 2025</Text>
+              <Text style={updateTextStyle}>Última atualização: Abril de 2026</Text>
             </View>
           </View>
         </View>
@@ -114,7 +136,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   containerDark: {
-    backgroundColor: '#0f172a',
+    backgroundColor: 'transparent',
   },
   backButton: {
     marginBottom: 16,

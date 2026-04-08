@@ -1,96 +1,274 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Heart, MapPin, Menu, Moon, Sun, User, X } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import logoAchou from '../assets/images/LOGO-ACHOU.png';
 import { useAppContext } from '../context/AppContext';
+import { geocodeBusinessAddress } from '../src/services/geocodingService';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { toast } from './ui/sonner';
 
-const WALKING_SPEED_KMH = 5;
-const BIKE_SPEED_KMH = 15;
-const CAR_SPEED_KMH = 40;
-const DEFAULT_RADIUS_MINUTES = 15;
+const MIN_RADIUS_KM = 0.5;
+const MAX_RADIUS_KM = 8;
+const DEFAULT_RADIUS_KM = 1;
+const STEP_KM = 0.5; // Incremento de 500m
+
+type LocationMode = 'profile' | 'custom' | 'cep';
+
+const buildProfileAddressPayload = (userProfile: any, locationSettings: any) => ({
+  cep: userProfile?.cep || locationSettings?.cep || '',
+  street: userProfile?.street || locationSettings?.street || '',
+  number: userProfile?.number || locationSettings?.number || '',
+  neighborhood: userProfile?.neighborhood || locationSettings?.neighborhood || '',
+  city: userProfile?.city || locationSettings?.city || '',
+  state: userProfile?.state || locationSettings?.state || '',
+});
 
 function LocationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-  const { locationSettings, setLocationSettings } = useAppContext();
-  const [draft, setDraft] = useState({ ...locationSettings });
+  const { locationSettings, setLocationSettings, isDarkMode, userProfile } = useAppContext();
+  const { height } = useWindowDimensions();
 
-  React.useEffect(() => setDraft({ ...locationSettings }), [locationSettings, open]);
+  const normalizeMode = (mode: string | undefined): LocationMode => {
+    if (mode === 'profile' || mode === 'custom' || mode === 'cep') return mode;
+    if (mode === 'address') return 'custom';
+    return 'profile';
+  };
 
-  const save = () => {
-    const minutes = draft.radiusMinutes || DEFAULT_RADIUS_MINUTES;
-    const kmForWalking = parseFloat(((WALKING_SPEED_KMH * minutes) / 60).toFixed(2));
-    setLocationSettings({ ...draft, radius: kmForWalking, radiusMinutes: minutes });
+  const buildInitialDraft = () => ({
+    radiusKm: DEFAULT_RADIUS_KM,
+    ...locationSettings,
+    mode: normalizeMode(locationSettings?.mode),
+    ...buildProfileAddressPayload(userProfile, locationSettings),
+  });
+
+  const [draft, setDraft] = useState(buildInitialDraft());
+
+  React.useEffect(() => {
+    setDraft(buildInitialDraft());
+  }, [locationSettings, open, userProfile]);
+
+  const isProfileMode = draft.mode === 'profile';
+  const isCustomMode = draft.mode === 'custom';
+  const isCepMode = draft.mode === 'cep';
+
+  const profileAddressPayload = buildProfileAddressPayload(userProfile, locationSettings);
+
+  const save = async () => {
+    const nextSettings: any = {
+      ...locationSettings,
+      ...draft,
+      radiusKm: draft?.radiusKm || locationSettings?.radiusKm || DEFAULT_RADIUS_KM,
+    };
+
+    if (nextSettings.mode === 'profile') {
+      const addressPayload = profileAddressPayload;
+
+      nextSettings.cep = addressPayload.cep;
+      nextSettings.street = addressPayload.street;
+      nextSettings.number = addressPayload.number;
+      nextSettings.neighborhood = addressPayload.neighborhood;
+      nextSettings.city = addressPayload.city;
+      nextSettings.state = addressPayload.state;
+
+      const hasProfileAddress = Boolean(
+        addressPayload.cep ||
+          addressPayload.street ||
+          addressPayload.number ||
+          addressPayload.neighborhood ||
+          addressPayload.city ||
+          addressPayload.state
+      );
+
+      if (hasProfileAddress) {
+        try {
+          const geo = await geocodeBusinessAddress({
+            ...addressPayload,
+            country: 'Brasil',
+          });
+          if (geo) {
+            nextSettings.coords = { lat: geo.lat, lon: geo.lon };
+            nextSettings.geoSource = geo.source;
+          }
+        } catch {
+          // Mantém configuração e raio mesmo se geocodificação falhar.
+        }
+      } else if (!nextSettings?.coords) {
+        toast.error('Seu perfil ainda não tem endereço cadastrado.');
+        return;
+      }
+    } else if (nextSettings.mode === 'custom') {
+      const addressPayload = {
+        cep: draft?.cep || userProfile?.cep || locationSettings?.cep || '',
+        street: draft?.street || '',
+        number: draft?.number || '',
+        neighborhood: draft?.neighborhood || '',
+        city: draft?.city || '',
+        state: draft?.state || '',
+      };
+
+      nextSettings.cep = addressPayload.cep;
+      nextSettings.street = addressPayload.street;
+      nextSettings.number = addressPayload.number;
+      nextSettings.neighborhood = addressPayload.neighborhood;
+      nextSettings.city = addressPayload.city;
+      nextSettings.state = addressPayload.state;
+
+      const hasAddress = Boolean(
+        addressPayload.cep ||
+          addressPayload.street ||
+          addressPayload.number ||
+          addressPayload.neighborhood ||
+          addressPayload.city ||
+          addressPayload.state
+      );
+
+      if (hasAddress) {
+        try {
+          const geo = await geocodeBusinessAddress({
+            ...addressPayload,
+            country: 'Brasil',
+          });
+          if (geo) {
+            nextSettings.coords = { lat: geo.lat, lon: geo.lon };
+            nextSettings.geoSource = geo.source;
+          }
+        } catch {
+          // Mantém configuração e raio mesmo se geocodificação falhar.
+        }
+      } else if (!nextSettings?.coords) {
+        toast.error('Informe um endereço ou CEP para definir sua localização.');
+        return;
+      }
+    } else if (nextSettings.mode === 'cep') {
+      const cepToUse = String(draft?.cep || userProfile?.cep || locationSettings?.cep || '').trim();
+      nextSettings.cep = cepToUse;
+
+      if (cepToUse) {
+        try {
+          const geo = await geocodeBusinessAddress({ cep: cepToUse, country: 'Brasil' });
+          if (geo) {
+            nextSettings.coords = { lat: geo.lat, lon: geo.lon };
+            nextSettings.geoSource = geo.source;
+          }
+        } catch {
+          // Mantém configuração e raio mesmo se geocodificação falhar.
+        }
+      } else if (!nextSettings?.coords) {
+        toast.error('Informe um endereço ou CEP para definir sua localização.');
+        return;
+      }
+    }
+
+    setLocationSettings(nextSettings);
     onOpenChange(false);
     toast.success('Configuração de localização atualizada');
   };
 
-  const useGpsNow = () => {
-    if (navigator && 'geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setDraft((d: any) => ({ ...d, mode: 'gps', coords: { lat: pos.coords.latitude, lon: pos.coords.longitude } }));
-          toast.success('Posição obtida com sucesso');
-        },
-        () => toast.error('Não foi possível obter a posição'),
-        { enableHighAccuracy: true }
-      );
-    } else {
-      toast.error('Geolocalização não suportada neste navegador');
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent style={styles.dialogContent}>
+      <DialogContent style={{ ...styles.dialogContent, maxHeight: Math.min(640, Math.floor(height * 0.82)) }}>
         <DialogHeader>
-          <DialogTitle style={styles.dialogTitle}>Configurar Localização</DialogTitle>
-          <DialogDescription>Escolha como deseja localizar sua busca e o raio.</DialogDescription>
+          <DialogTitle style={isDarkMode ? styles.dialogTitleDark : undefined}>Configurar Localização</DialogTitle>
+          <DialogDescription style={isDarkMode ? styles.dialogDescriptionDark : undefined}>Escolha entre seu endereço cadastrado, outro endereço ou somente o CEP.</DialogDescription>
+          <Text style={isDarkMode ? styles.dialogInfoDark : styles.dialogInfo}>Usando o endereço informado no seu perfil como base padrão da busca.</Text>
         </DialogHeader>
         <View style={styles.dialogBody}>
-          <TouchableOpacity style={styles.radioRow} onPress={() => setDraft((d: any) => ({ ...d, mode: 'gps' }))}>
-            <View style={[styles.radio, draft.mode === 'gps' && styles.radioChecked]} />
-            <Text style={styles.radioLabel}>Usar localização GPS (padrão)</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.radioRow} onPress={() => setDraft((d: any) => ({ ...d, mode: 'cep' }))}>
-            <View style={[styles.radio, draft.mode === 'cep' && styles.radioChecked]} />
-            <Text style={styles.radioLabel}>Usar CEP</Text>
-          </TouchableOpacity>
-          {draft.mode === 'cep' && (
-            <View style={styles.inputField}>
-              <Label>CEP</Label>
-              <Input value={draft.cep} onChangeText={(v: string) => setDraft((d: any) => ({ ...d, cep: v }))} placeholder="00000-000" />
+          <View style={styles.sliderFieldTop}>
+            <Label style={isDarkMode ? styles.inputLabelDark : undefined}>Ajuste a distância: {(draft.radiusKm || DEFAULT_RADIUS_KM).toFixed(1)} km</Label>
+            <View style={styles.sliderControls}>
+              <TouchableOpacity
+                style={[styles.sliderBtn, (draft.radiusKm || DEFAULT_RADIUS_KM) <= MIN_RADIUS_KM && styles.sliderBtnDisabled]}
+                onPress={() => {
+                  const current = draft.radiusKm || DEFAULT_RADIUS_KM;
+                  if (current > MIN_RADIUS_KM) {
+                    setDraft((d: any) => ({ ...d, radiusKm: Math.round((current - STEP_KM) * 10) / 10 }));
+                  }
+                }}
+                disabled={(draft.radiusKm || DEFAULT_RADIUS_KM) <= MIN_RADIUS_KM}
+              >
+                <Text style={styles.sliderBtnText}>−</Text>
+              </TouchableOpacity>
+              <View style={styles.sliderDisplay}>
+                <Text style={styles.sliderValue}>{(draft.radiusKm || DEFAULT_RADIUS_KM).toFixed(1)} km</Text>
+                <Text style={[styles.sliderNote, isDarkMode && styles.sliderNoteDark]}>{Math.round((draft.radiusKm || DEFAULT_RADIUS_KM) * 1000)} metros</Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.sliderBtn, (draft.radiusKm || DEFAULT_RADIUS_KM) >= MAX_RADIUS_KM && styles.sliderBtnDisabled]}
+                onPress={() => {
+                  const current = draft.radiusKm || DEFAULT_RADIUS_KM;
+                  if (current < MAX_RADIUS_KM) {
+                    setDraft((d: any) => ({ ...d, radiusKm: Math.round((current + STEP_KM) * 10) / 10 }));
+                  }
+                }}
+                disabled={(draft.radiusKm || DEFAULT_RADIUS_KM) >= MAX_RADIUS_KM}
+              >
+                <Text style={styles.sliderBtnText}>+</Text>
+              </TouchableOpacity>
             </View>
-          )}
-          <TouchableOpacity style={styles.radioRow} onPress={() => setDraft((d: any) => ({ ...d, mode: 'address' }))}>
-            <View style={[styles.radio, draft.mode === 'address' && styles.radioChecked]} />
-            <Text style={styles.radioLabel}>Usar endereço</Text>
-          </TouchableOpacity>
-          {draft.mode === 'address' && (
-            <View style={styles.inputField}>
-              <Label>Endereço</Label>
-              <Input value={draft.address} onChangeText={(v: string) => setDraft((d: any) => ({ ...d, address: v }))} placeholder="Rua, número, bairro" />
-            </View>
-          )}
-          <View style={styles.sliderField}>
-            <Label>Tempo de alcance: {draft.radiusMinutes} min</Label>
-            <Text style={styles.sliderNote}>
-              Caminhada: {((WALKING_SPEED_KMH * draft.radiusMinutes) / 60).toFixed(2)} km • Bicicleta: {((BIKE_SPEED_KMH * draft.radiusMinutes) / 60).toFixed(2)} km • Carro: {((CAR_SPEED_KMH * draft.radiusMinutes) / 60).toFixed(2)} km
-            </Text>
+            <Text style={[styles.rangeNote, isDarkMode && styles.rangeNoteDark]}>Mínimo: {MIN_RADIUS_KM}km ({MIN_RADIUS_KM * 1000}m) • Máximo: {MAX_RADIUS_KM}km • Incremento: {STEP_KM * 1000}m</Text>
           </View>
+          <ScrollView
+            style={styles.dialogScroll}
+            contentContainerStyle={styles.dialogScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <TouchableOpacity style={styles.radioRow} onPress={() => setDraft((d: any) => ({ ...d, mode: 'profile' }))}>
+              <View style={[styles.radio, isDarkMode && styles.radioDark, isProfileMode && styles.radioChecked]} />
+              <Text style={[styles.radioLabel, isDarkMode && styles.radioLabelDark]}>Usar meu endereço</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.radioRow} onPress={() => setDraft((d: any) => ({ ...d, mode: 'custom' }))}>
+              <View style={[styles.radio, isDarkMode && styles.radioDark, isCustomMode && styles.radioChecked]} />
+              <Text style={[styles.radioLabel, isDarkMode && styles.radioLabelDark]}>Usar outro endereço</Text>
+            </TouchableOpacity>
+            {draft.mode === 'custom' && (
+              <>
+                <View style={styles.inputField}>
+                  <Label style={isDarkMode ? styles.inputLabelDark : undefined}>CEP</Label>
+                  <Input value={draft.cep} onChangeText={(v: string) => setDraft((d: any) => ({ ...d, cep: v }))} placeholder="00000-000" />
+                </View>
+                <View style={styles.inputField}>
+                  <Label style={isDarkMode ? styles.inputLabelDark : undefined}>Rua</Label>
+                  <Input value={draft.street} onChangeText={(v: string) => setDraft((d: any) => ({ ...d, street: v }))} placeholder="Rua, avenida, estrada" />
+                </View>
+                <View style={styles.inputField}>
+                  <Label style={isDarkMode ? styles.inputLabelDark : undefined}>Número</Label>
+                  <Input value={draft.number} onChangeText={(v: string) => setDraft((d: any) => ({ ...d, number: v }))} placeholder="123" />
+                </View>
+                <View style={styles.inputField}>
+                  <Label style={isDarkMode ? styles.inputLabelDark : undefined}>Bairro</Label>
+                  <Input value={draft.neighborhood} onChangeText={(v: string) => setDraft((d: any) => ({ ...d, neighborhood: v }))} placeholder="Centro" />
+                </View>
+                <View style={styles.inputField}>
+                  <Label style={isDarkMode ? styles.inputLabelDark : undefined}>Cidade</Label>
+                  <Input value={draft.city} onChangeText={(v: string) => setDraft((d: any) => ({ ...d, city: v }))} placeholder="Curitiba" />
+                </View>
+                <View style={styles.inputField}>
+                  <Label style={isDarkMode ? styles.inputLabelDark : undefined}>Estado</Label>
+                  <Input value={draft.state} onChangeText={(v: string) => setDraft((d: any) => ({ ...d, state: v }))} placeholder="PR" />
+                </View>
+              </>
+            )}
+            <TouchableOpacity style={styles.radioRow} onPress={() => setDraft((d: any) => ({ ...d, mode: 'cep' }))}>
+              <View style={[styles.radio, isDarkMode && styles.radioDark, isCepMode && styles.radioChecked]} />
+              <Text style={[styles.radioLabel, isDarkMode && styles.radioLabelDark]}>Usar somente o CEP</Text>
+            </TouchableOpacity>
+            {draft.mode === 'cep' && (
+              <View style={styles.inputField}>
+                <Label style={isDarkMode ? styles.inputLabelDark : undefined}>CEP</Label>
+                <Input value={draft.cep} onChangeText={(v: string) => setDraft((d: any) => ({ ...d, cep: v }))} placeholder="00000-000" />
+              </View>
+            )}
+          </ScrollView>
           <View style={styles.dialogActions}>
-            <Button onPress={useGpsNow} style={styles.btnFlex}>
-              <Text style={styles.btnText}>Usar GPS agora</Text>
+            <Button onPress={() => onOpenChange(false)} variant="cancel" style={styles.btnFlex}>
+              Cancelar
             </Button>
-            <Button onPress={() => onOpenChange(false)} variant="outline" style={styles.btnFlex}>
-              <Text style={styles.btnText}>Cancelar</Text>
-            </Button>
-            <Button onPress={save} style={styles.btnSave}>
-              <Text style={styles.btnText}>Salvar</Text>
+            <Button onPress={save} variant="success" style={styles.btnFlex}>
+              Salvar
             </Button>
           </View>
         </View>
@@ -100,23 +278,44 @@ function LocationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
 }
 
 export default function Header() {
-  const { isLoggedIn, navigateTo, isDarkMode, setIsDarkMode } = useAppContext();
+  const { isLoggedIn, navigateTo, isDarkMode, setIsDarkMode, userProfile, setSelectedBusiness } = useAppContext();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
+
+  const userInitials = useMemo(() => {
+    const name = userProfile?.name || '';
+    const names = name.trim().split(' ').filter(Boolean);
+    if (names.length === 0) return 'U';
+    if (names.length === 1) return names[0][0].toUpperCase();
+    return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+  }, [userProfile]);
 
   const handleNavigation = (target: string) => {
     if (!isLoggedIn && (target === 'anunciar' || target === 'perfil' || target === 'favoritos')) {
       toast.error('Você precisa fazer login para acessar esta área');
       navigateTo('T3');
     } else {
-      if (target === 'anunciar') navigateTo('T6');
-      else if (target === 'perfil') navigateTo('T5');
+      if (target === 'anunciar') {
+        setSelectedBusiness(null);
+        navigateTo('T6');
+      } else if (target === 'perfil') navigateTo('T5');
       else if (target === 'favoritos') navigateTo('T9');
       else if (target === 'contato') navigateTo('T10');
       else if (target === 'politicas') navigateTo('T8');
       else if (target === 'home') navigateTo('T1');
     }
     setMobileMenuOpen(false);
+  };
+
+  const handleOpenLocationDialog = () => {
+    if (!isLoggedIn) {
+      toast.error('Você precisa fazer login para configurar a localização');
+      navigateTo('T3');
+      setMobileMenuOpen(false);
+      return;
+    }
+
+    setLocationDialogOpen(true);
   };
 
   return (
@@ -151,9 +350,15 @@ export default function Header() {
               }} 
               style={styles.iconButton}
             >
-              <User size={20} color="#fff" />
+              {isLoggedIn ? (
+                <View style={styles.userInitialsCircle}>
+                  <Text style={styles.userInitialsText}>{userInitials}</Text>
+                </View>
+              ) : (
+                <User size={20} color="#fff" />
+              )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setLocationDialogOpen(true)} style={styles.iconButton}>
+            <TouchableOpacity onPress={handleOpenLocationDialog} style={styles.iconButton}>
               <MapPin size={20} color="#fff" />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setMobileMenuOpen(!mobileMenuOpen)} style={styles.iconButton}>
@@ -172,7 +377,7 @@ export default function Header() {
             <TouchableOpacity onPress={() => handleNavigation('home')} style={styles.mobileMenuItem}>
               <Text style={styles.mobileMenuText}>Início</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setLocationDialogOpen(true)} style={styles.mobileMenuItem}>
+            <TouchableOpacity onPress={handleOpenLocationDialog} style={styles.mobileMenuItem}>
               <Text style={styles.mobileMenuText}>Localização</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -187,7 +392,7 @@ export default function Header() {
               }}
               style={styles.mobileMenuItem}
             >
-              <Text style={styles.mobileMenuText}>Painel</Text>
+              <Text style={styles.mobileMenuText}>Gestão de Anúncios</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => handleNavigation('perfil')} style={styles.mobileMenuItem}>
               <Text style={styles.mobileMenuText}>Perfil</Text>
@@ -248,6 +453,21 @@ const styles = StyleSheet.create({
   iconButton: {
     padding: 8,
   },
+  userInitialsCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
+  },
+  userInitialsText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
   mobileMenu: {
     marginTop: 12,
     paddingTop: 12,
@@ -264,13 +484,39 @@ const styles = StyleSheet.create({
   },
   dialogContent: {
     maxWidth: '90%',
+    width: '100%',
+    overflow: 'hidden',
   },
   dialogTitle: {
     color: '#0ea5e9',
   },
+  dialogTitleDark: {
+    color: '#60a5fa',
+  },
+  dialogDescriptionDark: {
+    color: '#9ca3af',
+  },
+  dialogInfo: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#475569',
+  },
+  dialogInfoDark: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#cbd5e1',
+  },
   dialogBody: {
     marginTop: 16,
     gap: 12,
+    flexShrink: 1,
+  },
+  sliderFieldTop: {
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: 'rgba(14, 165, 233, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.2)',
   },
   radioRow: {
     flexDirection: 'row',
@@ -285,6 +531,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#cbd5e1',
   },
+  radioDark: {
+    borderColor: '#64748b',
+  },
   radioChecked: {
     backgroundColor: '#0ea5e9',
     borderColor: '#0ea5e9',
@@ -293,32 +542,84 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#0f172a',
   },
+  radioLabelDark: {
+    color: '#e5e7eb',
+  },
+  inputLabelDark: {
+    color: '#d1d5db',
+  },
   inputField: {
     marginTop: 8,
   },
   sliderField: {
     marginTop: 8,
   },
+  sliderControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 12,
+  },
+  sliderBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#0ea5e9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sliderBtnDisabled: {
+    backgroundColor: '#cbd5e1',
+    opacity: 0.5,
+  },
+  sliderBtnText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  sliderDisplay: {
+    alignItems: 'center',
+    minWidth: 120,
+  },
+  sliderValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0ea5e9',
+  },
   sliderNote: {
     fontSize: 12,
     color: '#64748b',
+    marginTop: 4,
+  },
+  sliderNoteDark: {
+    color: '#9ca3af',
+  },
+  rangeNote: {
+    fontSize: 11,
+    color: '#94a3b8',
     marginTop: 8,
+    textAlign: 'center',
+  },
+  rangeNoteDark: {
+    color: '#cbd5e1',
   },
   dialogActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 16,
+    flexDirection: 'column',
+    gap: 4,
+    marginTop: 8,
+    paddingBottom: 6,
+    flexShrink: 0,
+  },
+  dialogScroll: {
+    flexGrow: 0,
+  },
+  dialogScrollContent: {
+    gap: 12,
+    paddingBottom: 12,
   },
   btnFlex: {
-    flex: 1,
-  },
-  btnSave: {
-    flex: 1,
-    backgroundColor: '#16a34a',
-  },
-  btnText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    width: '100%',
+    minHeight: 40,
   },
 });

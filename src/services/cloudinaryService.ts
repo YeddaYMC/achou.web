@@ -53,25 +53,52 @@ export const uploadImage = async (
 
     // Criar FormData para o upload
     const formData = new FormData();
-    
-    // Adicionar o arquivo
-    // No web, fileUri é um blob URL. No mobile, é um file:// URI
-    const response = await fetch(fileUri);
-    const blob = await response.blob();
-    
-    formData.append('file', blob);
+
+    const isDataUri = String(fileUri).startsWith('data:image');
+
+    if (isDataUri) {
+      // Fallback robusto para Expo: upload direto de base64/data URI
+      formData.append('file', fileUri as any);
+    } else {
+      // Em React Native/Expo, usar uri direto é mais estável do que fetch(file://...)
+      const uriParts = String(fileUri).split('.');
+      const extension = (uriParts[uriParts.length - 1] || 'jpg').toLowerCase();
+      const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
+      const fileName = `${publicId}.${extension === 'png' || extension === 'webp' ? extension : 'jpg'}`;
+
+      formData.append('file', {
+        uri: fileUri,
+        type: mimeType,
+        name: fileName,
+      } as any);
+    }
     formData.append('upload_preset', uploadOptions.upload_preset);
     formData.append('public_id', publicId);
     formData.append('folder', 'ACHOU/ANUNCIOS');
 
     // Upload para Cloudinary
-    const uploadResponse = await fetch(
-      `https://api.cloudinary.com/v1_1/dkwhytmtk/image/upload`,
-      {
-        method: 'POST',
-        body: formData,
+    let uploadResponse: Response | null = null;
+    let lastError: any = null;
+
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        uploadResponse = await fetch(
+          `https://api.cloudinary.com/v1_1/dkwhytmtk/image/upload`,
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+        break;
+      } catch (err) {
+        lastError = err;
+        if (attempt === 2) throw err;
       }
-    );
+    }
+
+    if (!uploadResponse) {
+      throw lastError || new Error('Falha de rede no upload para Cloudinary');
+    }
 
     if (!uploadResponse.ok) {
       const errorText = await uploadResponse.text();
@@ -110,6 +137,85 @@ export const uploadMultipleImages = async (
   } catch (error) {
     console.error('Erro ao fazer upload de múltiplas imagens:', error);
     throw error;
+  }
+};
+
+// Extrai o public_id de uma URL do Cloudinary (ex.: pasta/arquivo sem extensão)
+const extractPublicIdFromUrl = (url: string): string | null => {
+  try {
+    if (!url || !url.includes('res.cloudinary.com')) return null;
+
+    const uploadIndex = url.indexOf('/upload/');
+    if (uploadIndex === -1) return null;
+
+    const afterUpload = url.substring(uploadIndex + '/upload/'.length);
+    const pathWithoutVersion = afterUpload.replace(/^v\d+\//, '');
+    const withoutQuery = pathWithoutVersion.split('?')[0];
+    const withoutExtension = withoutQuery.replace(/\.[a-zA-Z0-9]+$/, '');
+
+    return withoutExtension || null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Solicita exclusão de imagens no Cloudinary via endpoint backend seguro.
+ * Observação: exclusão direta no app não é segura (requer assinatura com API secret).
+ */
+export const deleteCloudinaryImagesByUrls = async (
+  imageUrls: string[]
+): Promise<{ success: boolean; deleted: number; skipped: number; error?: string }> => {
+  try {
+    const deleteEndpoint = process.env.EXPO_PUBLIC_CLOUDINARY_DELETE_ENDPOINT;
+
+    if (!deleteEndpoint) {
+      return {
+        success: false,
+        deleted: 0,
+        skipped: imageUrls.length,
+        error: 'Endpoint de exclusão Cloudinary não configurado.'
+      };
+    }
+
+    const publicIds = (imageUrls || [])
+      .map(extractPublicIdFromUrl)
+      .filter((id): id is string => Boolean(id));
+
+    if (publicIds.length === 0) {
+      return { success: true, deleted: 0, skipped: imageUrls.length };
+    }
+
+    const response = await fetch(deleteEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publicIds }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      return {
+        success: false,
+        deleted: 0,
+        skipped: imageUrls.length,
+        error: `Falha ao excluir imagens no Cloudinary: ${response.status} ${text}`,
+      };
+    }
+
+    const data = await response.json();
+    const deletedCount = Number(data?.deleted || publicIds.length || 0);
+    return {
+      success: true,
+      deleted: deletedCount,
+      skipped: Math.max(0, imageUrls.length - deletedCount),
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      deleted: 0,
+      skipped: imageUrls.length,
+      error: error?.message || 'Falha ao excluir imagens no Cloudinary.',
+    };
   }
 };
 

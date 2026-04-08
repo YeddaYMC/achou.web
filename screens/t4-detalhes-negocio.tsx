@@ -1,19 +1,17 @@
 import { ChevronLeft, Flag, Heart, MessageCircle, Navigation, Phone } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
 import { Button } from '../components/ui/button';
 import { Separator } from '../components/ui/separator';
 import { toast } from '../components/ui/sonner';
 import { useAppContext } from '../context/AppContext';
+import { geocodeBusinessAddress } from '../src/services/geocodingService';
 
-const WALKING_SPEED_KMH = 5;
-const BIKE_SPEED_KMH = 15;
-const CAR_SPEED_KMH = 40;
-
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+// Função para calcular distância em metros usando fórmula de Haversine
+function haversineM(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const toRad = (v: number) => (v * Math.PI) / 180;
-  const R = 6371; // km
+  const R = 6371000; // raio da Terra em metros
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -24,9 +22,12 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
 }
 
 export default function T4Detalhes() {
-  const { isLoggedIn, navigateTo, navigateBack, selectedBusiness, favorites, setFavorites, locationSettings, businesses, isDarkMode, setReturnTo, setReportBusiness } = useAppContext();
+  const { isLoggedIn, navigateTo, navigateBack, selectedBusiness, favorites, toggleFavorite, locationSettings, businesses, isDarkMode, setReturnTo, setReportBusiness } = useAppContext();
   const [reported, setReported] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [enderecoPorCep, setEnderecoPorCep] = useState('');
+  const [enderecoLoading, setEnderecoLoading] = useState(false);
+  const [searchCenter, setSearchCenter] = useState<null | { lat: number; lon: number }>(null);
   const { width, height } = useWindowDimensions();
   const imageHeight = Math.max(280, Math.floor(height * 0.55)); // Aumentado para 280px mínimo e 55% da altura
 
@@ -87,13 +88,8 @@ export default function T4Detalhes() {
       return;
     }
 
-    if (isFavorite) {
-      setFavorites(favorites.filter((id: number) => id !== selectedBusiness.id));
-      toast.success('Removido dos favoritos');
-    } else {
-      setFavorites([...(favorites || []), selectedBusiness.id]);
-      toast.success('Adicionado aos favoritos!');
-    }
+    toggleFavorite(selectedBusiness.id);
+    toast.success(isFavorite ? 'Removido dos favoritos' : 'Adicionado aos favoritos!');
   };
 
   const handleReport = () => {
@@ -108,22 +104,106 @@ export default function T4Detalhes() {
     navigateTo('T10');
   };
 
-  // Cálculo de distância
-  let center: null | { lat: number; lon: number } = null;
-  if (locationSettings?.mode === 'gps' && locationSettings?.coords) {
-    center = locationSettings.coords;
-  } else if (locationSettings?.mode === 'cep' && locationSettings?.cep) {
-    const cepPrefix = String(locationSettings.cep).replace(/\D/g, '').substring(0, 5);
-    const match = (businesses || []).find((b: any) => b.cep && String(b.cep).replace(/\D/g, '').substring(0, 5) === cepPrefix);
-    if (match && match.lat != null && match.lon != null) center = { lat: match.lat, lon: match.lon };
-  }
-  if (!center) {
-    if (selectedBusiness.lat != null && selectedBusiness.lon != null) center = { lat: selectedBusiness.lat, lon: selectedBusiness.lon };
-  }
+  useEffect(() => {
+    let active = true;
 
-  const distKm = center && typeof selectedBusiness.lat === 'number' && typeof selectedBusiness.lon === 'number'
-    ? haversineKm(center.lat, center.lon, selectedBusiness.lat, selectedBusiness.lon)
+    const resolveCenter = async () => {
+      if (locationSettings?.coords && typeof locationSettings.coords.lat === 'number' && typeof locationSettings.coords.lon === 'number') {
+        if (active) setSearchCenter(locationSettings.coords);
+        return;
+      }
+
+      if (locationSettings?.mode === 'cep' && locationSettings?.cep) {
+        try {
+          const geo = await geocodeBusinessAddress({ cep: locationSettings.cep, country: 'Brasil' });
+          if (!active) return;
+          setSearchCenter(geo ? { lat: geo.lat, lon: geo.lon } : null);
+          return;
+        } catch {
+          if (active) setSearchCenter(null);
+          return;
+        }
+      }
+
+      if (active) setSearchCenter(null);
+    };
+
+    void resolveCenter();
+
+    return () => {
+      active = false;
+    };
+  }, [locationSettings]);
+
+  // Cálculo de distância
+  const center = searchCenter;
+
+  const distM = center && typeof selectedBusiness.lat === 'number' && typeof selectedBusiness.lon === 'number'
+    ? haversineM(center.lat, center.lon, selectedBusiness.lat, selectedBusiness.lon)
     : null;
+
+  const sb: any = selectedBusiness;
+  const enderecoBasePartes = [
+    sb.street || sb.rua,
+    sb.number || sb.numero,
+    sb.neighborhood || sb.bairro,
+    sb.city || sb.cidade,
+    sb.state || sb.estado,
+  ].filter(Boolean);
+
+  const enderecoCompleto = [
+    ...enderecoBasePartes,
+    sb.cep,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  const hasEnderecoDetalhado = enderecoBasePartes.length > 0;
+
+  useEffect(() => {
+    let active = true;
+
+    const buscarEnderecoPorCep = async () => {
+      const cepDigits = String(sb.cep || '').replace(/\D/g, '');
+      if (!cepDigits || cepDigits.length !== 8 || hasEnderecoDetalhado) {
+        setEnderecoPorCep('');
+        setEnderecoLoading(false);
+        return;
+      }
+
+      setEnderecoLoading(true);
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`);
+        const data = await response.json();
+
+        if (!active) return;
+
+        if (!data?.erro) {
+          const resolved = [data.logradouro, data.bairro, data.localidade, data.uf, sb.cep]
+            .filter(Boolean)
+            .join(', ');
+          setEnderecoPorCep(resolved);
+        } else {
+          setEnderecoPorCep('');
+        }
+      } catch {
+        if (!active) return;
+        setEnderecoPorCep('');
+      } finally {
+        if (active) setEnderecoLoading(false);
+      }
+    };
+
+    void buscarEnderecoPorCep();
+
+    return () => {
+      active = false;
+    };
+  }, [sb.cep, hasEnderecoDetalhado]);
+
+  const enderecoExibicao = hasEnderecoDetalhado
+    ? enderecoCompleto
+    : (enderecoPorCep || (enderecoLoading ? 'Buscando endereço completo...' : 'Endereço completo não informado'));
 
   // Styles
   const containerStyle = isDarkMode ? { ...styles.container, ...styles.containerDark } : styles.container;
@@ -143,6 +223,11 @@ export default function T4Detalhes() {
         </TouchableOpacity>
 
         <View style={cardStyle}>
+          <View style={styles.titleAboveImageWrap}>
+            <View style={styles.badge}><Text style={styles.badgeText}>{selectedBusiness.category}</Text></View>
+            <Text style={titleStyle} numberOfLines={2}>{selectedBusiness.name}</Text>
+          </View>
+
           <View style={[styles.imageWrapper, { height: imageHeight }]}>
             {selectedBusiness.image ? (
               <Image
@@ -155,16 +240,14 @@ export default function T4Detalhes() {
                 <Text style={textMuted}>Imagem não disponível</Text>
               </View>
             )}
+
           </View>
 
           <View style={styles.headerRow}>
-            <View style={{ flex: 1 }}>
-              <View style={styles.badge}><Text style={styles.badgeText}>{selectedBusiness.category}</Text></View>
-              <Text style={titleStyle}>{selectedBusiness.name}</Text>
-            </View>
+            <View style={{ flex: 1 }} />
             <View style={styles.iconActions}>
               <TouchableOpacity onPress={handleFavorite} style={styles.iconButton} accessibilityLabel="Favoritar">
-                <Heart size={24 as any} color={isFavorite ? '#ef4444' : (isDarkMode ? '#93c5fd' : '#1e3a8a')} fill={isFavorite ? '#ef4444' : 'transparent'} />
+                <Heart size={22 as any} color={isFavorite ? '#ef4444' : (isDarkMode ? '#93c5fd' : '#1e3a8a')} fill={isFavorite ? '#ef4444' : 'transparent'} />
               </TouchableOpacity>
               <TouchableOpacity 
                 onPress={handleReport} 
@@ -190,18 +273,25 @@ export default function T4Detalhes() {
           </Text>
 
           <View style={{ marginTop: 16 }}>
-            <Text style={labelMuted}>📍 Localização: <Text style={{ color: isDarkMode ? '#e5e7eb' : '#111827' }}>{selectedBusiness.location || 'Não informada'}</Text></Text>
-            <Text style={labelMuted}>📞 Telefone: <Text style={{ color: isDarkMode ? '#e5e7eb' : '#111827' }}>{selectedBusiness.phone || 'Não informado'}</Text></Text>
+            <Text style={labelMuted}>📍 <Text style={{ color: isDarkMode ? '#e5e7eb' : '#111827' }}>{enderecoExibicao}</Text></Text>
+            {selectedBusiness.phone && selectedBusiness.contactVisibility?.phone && (
+              <Text style={labelMuted}>📞 <Text style={{ color: isDarkMode ? '#e5e7eb' : '#111827' }}>{selectedBusiness.phone}</Text></Text>
+            )}
 
             <View style={{ marginTop: 12 }}>
-              {center && distKm != null ? (
+              {center && distM != null ? (
                 <View style={styles.distanceRow}>
-                  <View style={styles.distanceBadge}><Text style={styles.distanceValue}>{distKm.toFixed(2)} km</Text><Text style={styles.distanceNote}>Caminhar ~ {Math.round((distKm / WALKING_SPEED_KMH) * 60)} min</Text></View>
-                  <View style={styles.distanceBadge}><Text style={styles.distanceValue}>{distKm.toFixed(2)} km</Text><Text style={styles.distanceNote}>Bicicleta ~ {Math.round((distKm / BIKE_SPEED_KMH) * 60)} min</Text></View>
-                  <View style={styles.distanceBadge}><Text style={styles.distanceValue}>{distKm.toFixed(2)} km</Text><Text style={styles.distanceNote}>Carro ~ {Math.round((distKm / CAR_SPEED_KMH) * 60)} min</Text></View>
+                  <View style={styles.distanceBadge}>
+                    <Text style={styles.distanceValue}>
+                      🎯 {distM < 1000 ? `${Math.round(distM)}m` : `${(distM / 1000).toFixed(2)}km`}
+                    </Text>
+                    <Text style={styles.distanceNote}>Distância até o local</Text>
+                  </View>
                 </View>
               ) : (
-                <Text style={textMuted}>Localização de busca não definida — permita GPS ou selecione um CEP.</Text>
+                <TouchableOpacity onPress={() => navigateTo('T3')} accessibilityRole="button">
+                  <Text style={[textMuted, { textDecorationLine: 'underline' }]}>Faça login ou entre com sua conta</Text>
+                </TouchableOpacity>
               )}
             </View>
 
@@ -228,15 +318,24 @@ export default function T4Detalhes() {
           <Separator style={{ marginVertical: 16 }} />
 
           <View style={styles.actionsGrid}>
-            <Button onPress={() => handleAction('phone')} style={styles.primaryBlueButton}>
-              <View style={styles.actionContent}><Phone size={20 as any} color="#fff" style={{ marginRight: 8 }} /><Text style={styles.actionText}>Ligar</Text></View>
-            </Button>
-            <Button onPress={() => handleAction('whatsapp')} style={styles.primaryGreenButton}>
-              <View style={styles.actionContent}><MessageCircle size={20 as any} color="#fff" style={{ marginRight: 8 }} /><Text style={styles.actionText}>WhatsApp</Text></View>
-            </Button>
-            <Button onPress={() => handleAction('route')} style={styles.primaryBlueButton}>
-              <View style={styles.actionContent}><Navigation size={20 as any} color="#fff" style={{ marginRight: 8 }} /><Text style={styles.actionText}>Traçar Rota</Text></View>
-            </Button>
+            <View style={styles.primaryActionRow}>
+              <Button onPress={() => handleAction('whatsapp')} style={styles.primaryGreenButton}>
+                <View style={styles.actionContent}><MessageCircle size={20 as any} color="#fff" style={{ marginRight: 8 }} /><Text style={styles.actionText}>WhatsApp</Text></View>
+              </Button>
+            </View>
+
+            <Separator style={styles.actionsSeparator} />
+
+            <View style={styles.actionsRow}>
+              {selectedBusiness.phone && selectedBusiness.contactVisibility?.phone && (
+                <Button onPress={() => handleAction('phone')} style={styles.smallBlueButton}>
+                  <View style={styles.actionContent}><Phone size={18 as any} color="#fff" /><Text style={styles.smallActionText}>Ligar</Text></View>
+                </Button>
+              )}
+              <Button onPress={() => handleAction('route')} style={styles.smallBlueButton}>
+                <View style={styles.actionContent}><Navigation size={18 as any} color="#fff" /><Text style={styles.smallActionText}>Rota</Text></View>
+              </Button>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -251,7 +350,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   containerDark: {
-    backgroundColor: '#0f172a',
+    backgroundColor: 'transparent',
   },
   backButton: {
     marginBottom: 16,
@@ -284,6 +383,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     overflow: 'hidden',
     justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  titleAboveImageWrap: {
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  imageTopOverlay: {
     alignItems: 'center',
   },
   image: {
@@ -321,10 +430,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#1e3a8a',
-    marginBottom: 8,
+    textAlign: 'center',
+    backgroundColor: 'rgba(255,255,255,0.84)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   titleDark: {
     color: '#93c5fd',
+    backgroundColor: 'rgba(17,24,39,0.82)',
   },
   iconActions: {
     flexDirection: 'row',
@@ -398,21 +512,44 @@ const styles = StyleSheet.create({
     color: '#e5e7eb',
   },
   actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
-  primaryBlueButton: {
-    height: 56,
+  primaryActionRow: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  actionsSeparator: {
+    marginVertical: 4,
+    opacity: 0.9,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 10,
+  },
+  smallBlueButton: {
+    minHeight: 48,
     backgroundColor: '#2563EB',
     flex: 1,
   },
   primaryGreenButton: {
-    height: 56,
+    minHeight: 48,
     backgroundColor: '#16A34A',
-    flex: 1,
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  favoriteInlineButton: {
+    height: 36,
+    width: 36,
+    borderWidth: 1.5,
+    borderColor: '#1e3a8a',
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   actionContent: {
     flexDirection: 'row',
@@ -423,5 +560,13 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+    lineHeight: 20,
+  },
+  smallActionText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+    marginLeft: 6,
   },
 });

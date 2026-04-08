@@ -1,3 +1,4 @@
+import { getAuth } from 'firebase/auth';
 import { ChevronLeft, User } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
@@ -12,6 +13,9 @@ import {
 import LayoutRN from '../components/Layout-RN';
 import { Button } from '../components/ui/button';
 import { useAppContext } from '../context/AppContext';
+import app from '../firebaseConfig';
+import { deleteAnuncio } from '../src/services/anuncioService';
+import { deleteCloudinaryImagesByUrls } from '../src/services/cloudinaryService';
 
 const { width } = Dimensions.get('window');
 
@@ -29,11 +33,24 @@ export default function T7PainelGestao() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [businessToDelete, setBusinessToDelete] = useState<any>(null);
   const [limitModalVisible, setLimitModalVisible] = useState(false);
+  const [isDeletingBusiness, setIsDeletingBusiness] = useState(false);
 
-  // Filtra apenas os negócios do usuário (por email)
-  const myBusinesses = userProfile?.email
-    ? businesses.filter((b: any) => b.owner && b.owner === userProfile.email)
-    : [];
+  const currentUid = getAuth(app).currentUser?.uid;
+
+  // Filtra apenas os anúncios do usuário (por email ou uid)
+  const myBusinesses = businesses.filter((b: any) => {
+    const byEmail = Boolean(userProfile?.email) && b.owner === userProfile?.email;
+    const byUid = Boolean(currentUid) && b.ownerId === currentUid;
+    return byEmail || byUid;
+  }).sort((a: any, b: any) =>
+    String(a?.name || '').localeCompare(String(b?.name || ''), 'pt-BR', { sensitivity: 'base' })
+  );
+
+  const formatAddress = (b: any) => {
+    const parts = [b?.street, b?.number, b?.neighborhood, b?.city, b?.state, b?.cep].filter(Boolean);
+    if (parts.length > 0) return parts.join(', ');
+    return b?.location || 'Endereço não informado';
+  };
 
   const handleViewBusiness = (business: any) => {
     setSelectedBusiness(business);
@@ -45,11 +62,33 @@ export default function T7PainelGestao() {
     setDeleteModalVisible(true);
   };
 
-  const handleDeleteConfirm = () => {
-    if (businessToDelete) {
+  const handleDeleteConfirm = async () => {
+    if (!businessToDelete || isDeletingBusiness) return;
+
+    setIsDeletingBusiness(true);
+    try {
+      const imageUrls: string[] = Array.isArray(businessToDelete.fotos)
+        ? businessToDelete.fotos
+        : (businessToDelete.image ? [businessToDelete.image] : []);
+
+      // Se tiver ID string de Firestore, remove no banco também
+      if (typeof businessToDelete.id === 'string' && businessToDelete.id.length > 0) {
+        await deleteAnuncio(businessToDelete.id);
+      }
+
+      const cloudinaryResult = await deleteCloudinaryImagesByUrls(imageUrls);
+
       setBusinesses(businesses.filter(b => b.id !== businessToDelete.id));
       setDeleteModalVisible(false);
       setBusinessToDelete(null);
+
+      if (!cloudinaryResult.success) {
+        console.warn('Imagens não removidas automaticamente do Cloudinary:', cloudinaryResult.error);
+      }
+    } catch (error) {
+      console.error('Erro ao excluir anúncio:', error);
+    } finally {
+      setIsDeletingBusiness(false);
     }
   };
 
@@ -125,7 +164,7 @@ export default function T7PainelGestao() {
           </TouchableOpacity>
 
           <View style={containerStyle}>
-            <Text style={titleStyle}>Painel de Gestão</Text>
+            <Text style={titleStyle}>Gestão de Anúncios</Text>
 
             <View style={styles.sections}>
               <View style={cardStyle}>
@@ -142,6 +181,7 @@ export default function T7PainelGestao() {
                           if (myBusinesses.length >= 1) {
                             setLimitModalVisible(true);
                           } else {
+                            setSelectedBusiness(null);
                             navigateTo('T6');
                           }
                         }}
@@ -158,12 +198,15 @@ export default function T7PainelGestao() {
                         <View style={styles.businessInfo}>
                           <Text style={businessNameStyle}>{mb.name}</Text>
                           <Text style={businessInfoStyle}>
-                            {mb.category} • {mb.location}
+                            {(mb.category || mb.categories?.[0] || 'Sem categoria')} • {formatAddress(mb)}
                           </Text>
                         </View>
                         <View style={styles.businessActions}>
                           <TouchableOpacity
-                            onPress={() => navigateTo('T6')}
+                            onPress={() => {
+                              setSelectedBusiness(mb);
+                              navigateTo('T6');
+                            }}
                             style={styles.actionButtonOutline}
                           >
                             <Text style={styles.actionButtonOutlineText}>Editar</Text>
@@ -194,6 +237,7 @@ export default function T7PainelGestao() {
                           if (!userProfile?.isPremium && myBusinesses.length >= 1) {
                             setLimitModalVisible(true);
                           } else {
+                            setSelectedBusiness(null);
                             navigateTo('T6');
                           }
                         }}
@@ -248,9 +292,10 @@ export default function T7PainelGestao() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleDeleteConfirm}
-                style={styles.modalConfirmButton}
+                style={[styles.modalConfirmButton, isDeletingBusiness && { opacity: 0.6 }]}
+                disabled={isDeletingBusiness}
               >
-                <Text style={styles.modalConfirmText}>Sim, excluir</Text>
+                <Text style={styles.modalConfirmText}>{isDeletingBusiness ? 'Excluindo...' : 'Sim, excluir'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -283,9 +328,9 @@ export default function T7PainelGestao() {
                   setLimitModalVisible(false);
                   // Futuro: navegar para tela de assinatura
                 }}
-                style={styles.modalConfirmButton}
+                style={styles.modalSuccessButton}
               >
-                <Text style={styles.modalConfirmText}>Assinar Premium</Text>
+                <Text style={styles.modalSuccessText}>Assinar Premium</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -494,8 +539,7 @@ const styles = StyleSheet.create({
   },
   modalCancelButton: {
     paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
+    backgroundColor: '#d1d5db',
     borderRadius: 8,
     alignItems: 'center',
   },
@@ -511,6 +555,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalConfirmText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  modalSuccessButton: {
+    paddingVertical: 12,
+    backgroundColor: '#16a34a',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalSuccessText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '500',

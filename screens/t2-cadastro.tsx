@@ -1,6 +1,6 @@
 import { useTheme } from '@/hooks/useTheme';
 import { ChevronLeft } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
 import { Button } from '../components/ui/button';
@@ -9,15 +9,72 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { useAppContext } from '../context/AppContext';
 import { registerWithEmail } from '../src/services/authService';
+import { fetchCepDetails } from '../src/services/geocodingService';
 
 // Tela de cadastro de novo usuário
 export default function T2Cadastro() {
   const { navigateTo, navigateBack, setUserProfile, setIsLoggedIn } = useAppContext();
   const { colors, spacing, fontSize, borderRadius } = useTheme();
-  const [formData, setFormData] = useState({ name: '', nickname: '', email: '', password: '', phone: '', cpf: '' });
+  const [formData, setFormData] = useState({
+    name: '',
+    nickname: '',
+    email: '',
+    password: '',
+    phone: '',
+    cpf: '',
+    cep: '',
+    street: '',
+    number: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+  });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [cepLookupLoading, setCepLookupLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const toUpperSafe = (value: string) => (value || '').toUpperCase();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const autoFillAddressFromCep = async () => {
+      const cepDigits = (formData.cep || '').replace(/\D/g, '');
+
+      if (cepDigits.length !== 8) {
+        setCepLookupLoading(false);
+        return;
+      }
+
+      setCepLookupLoading(true);
+
+      try {
+        const result = await fetchCepDetails(cepDigits);
+        if (cancelled || !result?.details) return;
+
+        setFormData((prev) => ({
+          ...prev,
+          street: prev.street || toUpperSafe(result.details.road || ''),
+          neighborhood: prev.neighborhood || toUpperSafe(result.details.suburb || ''),
+          city: prev.city || toUpperSafe(result.details.city || ''),
+          state: prev.state || toUpperSafe(result.details.state || ''),
+        }));
+      } catch (error) {
+        console.warn('Falha ao buscar endereço pelo CEP no cadastro:', error);
+      } finally {
+        if (!cancelled) {
+          setCepLookupLoading(false);
+        }
+      }
+    };
+
+    autoFillAddressFromCep();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.cep]);
 
   // Submete cadastro
   const handleSubmit = async () => {
@@ -25,33 +82,73 @@ export default function T2Cadastro() {
     
     if (!acceptedTerms) {
       setErrorMessage('Você precisa aceitar os termos e políticas');
+      Alert.alert('Atenção', 'Você precisa aceitar os termos e políticas.');
       return;
     }
 
     if (!formData.email || !formData.password || !formData.name) {
       setErrorMessage('Nome, e-mail e senha são obrigatórios');
+      Alert.alert('Atenção', 'Nome, e-mail e senha são obrigatórios.');
       return;
     }
 
     if (formData.password.length < 6) {
       setErrorMessage('Senha deve ter no mínimo 6 caracteres');
+      Alert.alert('Atenção', 'Senha deve ter no mínimo 6 caracteres.');
       return;
     }
 
     const onlyDigitsCpf = (formData.cpf || '').replace(/\D/g, '');
     if (onlyDigitsCpf.length !== 11) {
       setErrorMessage('CPF inválido. Informe 11 dígitos.');
+      Alert.alert('Atenção', 'CPF inválido. Informe 11 dígitos.');
+      return;
+    }
+
+    const cepDigits = (formData.cep || '').replace(/\D/g, '');
+    let currentFormData = formData;
+
+    if (cepDigits.length === 8 && (!currentFormData.street || !currentFormData.neighborhood || !currentFormData.city || !currentFormData.state)) {
+      setCepLookupLoading(true);
+      try {
+        const cepResult = await fetchCepDetails(cepDigits);
+        if (cepResult?.details) {
+          currentFormData = {
+            ...currentFormData,
+            street: currentFormData.street || toUpperSafe(cepResult.details.road || ''),
+            neighborhood: currentFormData.neighborhood || toUpperSafe(cepResult.details.suburb || ''),
+            city: currentFormData.city || toUpperSafe(cepResult.details.city || ''),
+            state: currentFormData.state || toUpperSafe(cepResult.details.state || ''),
+          };
+          setFormData(currentFormData);
+        }
+      } catch (error) {
+        console.warn('Falha ao completar endereço pelo CEP no envio do cadastro:', error);
+      } finally {
+        setCepLookupLoading(false);
+      }
+    }
+
+    if (cepDigits.length !== 8 || !currentFormData.street || !currentFormData.number || !currentFormData.neighborhood || !currentFormData.city || !currentFormData.state) {
+      setErrorMessage('Informe o endereço completo para definir a localização padrão');
+      Alert.alert('Atenção', 'Informe CEP, rua, número, bairro, cidade e estado.');
       return;
     }
 
     setLoading(true);
     try {
       const result = await registerWithEmail(formData.email, formData.password, {
-        name: formData.name.toUpperCase(),
-        nickname: formData.nickname || undefined,
+        name: toUpperSafe(formData.name),
+        nickname: formData.nickname ? toUpperSafe(formData.nickname) : undefined,
         phone: formData.phone,
         cpf: onlyDigitsCpf,
         anuncianteLevel: 1,
+        cep: currentFormData.cep,
+        street: toUpperSafe(currentFormData.street),
+        number: currentFormData.number,
+        neighborhood: toUpperSafe(currentFormData.neighborhood),
+        city: toUpperSafe(currentFormData.city),
+        state: toUpperSafe(currentFormData.state),
       });
       setLoading(false);
 
@@ -59,18 +156,25 @@ export default function T2Cadastro() {
 
       if (!result.success) {
         setErrorMessage(result.error || 'Tente novamente');
+        Alert.alert('Erro no cadastro', result.error || 'Não foi possível criar sua conta.');
         return;
       }
 
       // Cadastro bem-sucedido
       setUserProfile({ 
-        name: formData.name.toUpperCase(),
-        nickname: formData.nickname || undefined,
+        name: toUpperSafe(formData.name),
+        nickname: formData.nickname ? toUpperSafe(formData.nickname) : undefined,
         email: formData.email,
         phone: formData.phone,
         cpf: onlyDigitsCpf, 
         anuncianteLevel: 1, 
-        createdAt: new Date().toISOString() 
+        createdAt: new Date().toISOString(),
+        cep: currentFormData.cep,
+        street: toUpperSafe(currentFormData.street),
+        number: currentFormData.number,
+        neighborhood: toUpperSafe(currentFormData.neighborhood),
+        city: toUpperSafe(currentFormData.city),
+        state: toUpperSafe(currentFormData.state),
       });
       setIsLoggedIn(true);
       Alert.alert('Sucesso', 'Conta criada com sucesso!');
@@ -79,6 +183,7 @@ export default function T2Cadastro() {
       setLoading(false);
       console.error('Erro no cadastro:', error);
       setErrorMessage('Ocorreu um erro inesperado. Tente novamente.');
+      Alert.alert('Erro', 'Ocorreu um erro inesperado. Tente novamente.');
     }
   };
 
@@ -143,11 +248,22 @@ export default function T2Cadastro() {
               <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Nome Completo</Label>
               <Input
                 value={formData.name}
-                onChangeText={(text) => setFormData({ ...formData, name: text })}
+                onChangeText={(text) => setFormData({ ...formData, name: toUpperSafe(text) })}
                 placeholder="Digite seu nome"
                 editable={!loading}
                 style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
               />
+              <Text style={{ color: colors.formLabel, fontSize: fontSize.xs, marginTop: 6, opacity: 0.8 }}>
+                Informe o CEP para preencher automaticamente rua, bairro, cidade e estado.
+              </Text>
+              {cepLookupLoading ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                  <ActivityIndicator size="small" color={colors.success} />
+                  <Text style={{ color: colors.formLabel, fontSize: fontSize.xs }}>
+                    Buscando endereço pelo CEP...
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
             {/* Apelido (opcional) */}
@@ -157,7 +273,7 @@ export default function T2Cadastro() {
               </Label>
               <Input
                 value={formData.nickname}
-                onChangeText={(text) => setFormData({ ...formData, nickname: text })}
+                onChangeText={(text) => setFormData({ ...formData, nickname: toUpperSafe(text) })}
                 placeholder="Apelido ou como prefere ser chamado"
                 editable={!loading}
                 style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
@@ -204,6 +320,74 @@ export default function T2Cadastro() {
               />
             </View>
 
+            {/* Endereço padrão */}
+            <View>
+              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>CEP</Label>
+              <Input
+                value={formData.cep}
+                onChangeText={(text) => setFormData({ ...formData, cep: text })}
+                placeholder="00000-000"
+                keyboardType="numeric"
+                editable={!loading}
+                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+              />
+            </View>
+
+            <View>
+              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Rua</Label>
+              <Input
+                value={formData.street}
+                onChangeText={(text) => setFormData({ ...formData, street: toUpperSafe(text) })}
+                placeholder="Rua, avenida, estrada"
+                editable={!loading}
+                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+              />
+            </View>
+
+            <View>
+              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Número</Label>
+              <Input
+                value={formData.number}
+                onChangeText={(text) => setFormData({ ...formData, number: text })}
+                placeholder="123"
+                editable={!loading}
+                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+              />
+            </View>
+
+            <View>
+              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Bairro</Label>
+              <Input
+                value={formData.neighborhood}
+                onChangeText={(text) => setFormData({ ...formData, neighborhood: toUpperSafe(text) })}
+                placeholder="Centro"
+                editable={!loading}
+                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+              />
+            </View>
+
+            <View>
+              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Cidade</Label>
+              <Input
+                value={formData.city}
+                onChangeText={(text) => setFormData({ ...formData, city: toUpperSafe(text) })}
+                placeholder="Curitiba"
+                editable={!loading}
+                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+              />
+            </View>
+
+            <View>
+              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Estado</Label>
+              <Input
+                value={formData.state}
+                onChangeText={(text) => setFormData({ ...formData, state: toUpperSafe(text) })}
+                placeholder="PR"
+                editable={!loading}
+                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+              />
+            </View>
+
             {/* Senha */}
             <View>
               <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Senha</Label>
@@ -243,10 +427,10 @@ export default function T2Cadastro() {
             {/* Botão cadastrar */}
             <Button
               onPress={handleSubmit}
-              disabled={!acceptedTerms || loading}
+              disabled={!acceptedTerms || loading || cepLookupLoading}
               style={{
-                backgroundColor: acceptedTerms && !loading ? colors.success : colors.muted,
-                opacity: acceptedTerms && !loading ? 1 : 0.5,
+                backgroundColor: acceptedTerms && !loading && !cepLookupLoading ? colors.success : colors.muted,
+                opacity: acceptedTerms && !loading && !cepLookupLoading ? 1 : 0.5,
                 height: 48,
                 borderRadius: borderRadius.md,
                 flexDirection: 'row',
@@ -255,6 +439,8 @@ export default function T2Cadastro() {
               }}
             >
               {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : cepLookupLoading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={{ color: '#FFFFFF', fontSize: fontSize.base, fontWeight: '600' }}>CRIAR CONTA</Text>
@@ -272,6 +458,15 @@ export default function T2Cadastro() {
           </View>
         </View>
       </View>
+
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color={colors.success} />
+            <Text style={styles.loadingText}>Criando sua conta...</Text>
+          </View>
+        </View>
+      )}
     </LayoutRN>
   );
 }
@@ -311,5 +506,24 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: 'center', // Centraliza
     paddingTop: 12, // Espaço superior
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingBox: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    color: '#111827',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

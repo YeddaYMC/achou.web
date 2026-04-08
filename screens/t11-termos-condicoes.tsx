@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   containerDark: {
-    backgroundColor: '#0f172a',
+    backgroundColor: 'transparent',
   },
   backButton: {
     marginBottom: 16,

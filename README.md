@@ -65,7 +65,7 @@ interface UserProfile {
   name: string;
   email: string;
   cpf: string;
-  isPremium: boolean;
+  anuncianteLevel: 1 | 2 | 3 | 4;
   createdAt: string;
 }
 ```
@@ -96,7 +96,7 @@ AchouAppRN/
 │   └── AppContext.tsx       # Estado global + sincronização Firebase
 ├── hooks/                   # Custom hooks
 │   └── useTheme.ts
-├── screens/                 # Telas (t1-t11)
+├── screens/                 # Telas (t1-t12)
 │   ├── t1-tela-inicial.tsx
 │   ├── t2-cadastro.tsx      # Firebase: registerWithEmail()
 │   ├── t3-login.tsx         # Firebase: loginWithEmail()
@@ -149,7 +149,31 @@ Ver [ARCHITECTURE.md](ARCHITECTURE.md) para:
 ### Anotações para implementação futura
 - Garantir suporte consistente a “1 foto no feed e até 3/5 fotos em detalhes” nos fluxos de criação/edição e exibição.
 - Validar limites por nível tanto no app quanto nas regras do Firestore.
-- **Admin (futuro):** gestão de planos e pagamentos via BD SQL (modelo híbrido financeiro/contratos) complementando Firestore; listas de email marketing, contatos WhatsApp e redes sociais para comunicação segmentada.
+- Upgrade de plano é automático no app (sem aprovação manual de admin).
+- **Admin (futuro):** gestão financeira de planos/pagamentos pode ser feita em camada separada (SQL/Backoffice), sem alterar o fluxo atual de nível no Firestore.
+
+## 🔐 Regras Firestore (resumo atual)
+
+### 👤 Usuário comum
+- **Perfil (`/users/{userId}`):** lê, cria, edita e exclui apenas o próprio perfil (nível válido 1–4).
+- **Anúncios (`/anuncios/{anuncioId}`):** leitura pública; cria/edita/exclui apenas o dono logado e respeitando limites do plano.
+- **Negócios (`/businesses/{businessId}`):** mesmas regras de anúncios.
+- **Favoritos (`/users/{userId}/favoritos/{itemId}`):** leitura/lista/criação/exclusão apenas do próprio usuário.
+- **Denúncias (`/denuncias/{denunciaId}`):** criação por usuário logado (`denuncianteId` deve ser o próprio `uid`).
+- **Mensagens de contato (`/mensagensContato/{mensagemId}`):** envio liberado (`create`).
+
+### 🛡️ Administrador (somente moderação)
+- **Perfis de usuário:** não possui leitura de perfis em `/users`.
+- **Anúncios/Negócios:** pode atualizar apenas campos de moderação (`statusModeracao`, `motivoReprovacao`, `moderadoEm`, `moderadoPor`).
+- **Denúncias:** lê, atualiza e exclui; na atualização, aplica fluxo obrigatório:
+  - `decisaoDenuncia = aceita` -> `statusDenuncia = anuncio_removido`
+  - `decisaoDenuncia = nao_aceita` -> `statusDenuncia = denuncia_arquivada`
+  - `justificativa` obrigatória em ambos os casos.
+- **Mensagens de contato:** pode ler e atualizar status interno.
+
+### ⭐ Favoritos e contador público
+- O campo `totalFavoritos` em anúncios/negócios não pode ser alterado diretamente por usuários.
+- A atualização desse contador deve ser automática por Cloud Function.
 
 ## 🚢 Build & Deploy
 
@@ -181,4 +205,4 @@ eas build -p ios --release
 
 ---
 
-**Desenvolvido com React Native + Firebase** | Última atualização: 11/01/2026
+**Desenvolvido com React Native + Firebase** | Última atualização: 13/03/2026

@@ -6,7 +6,7 @@ import { StyleSheet, Text, TextStyle, TouchableOpacity, ViewStyle } from 'react-
 interface ButtonProps {
   children: ReactNode;
   onPress?: () => void;
-  variant?: 'default' | 'outline' | 'destructive' | 'secondary';
+  variant?: 'default' | 'outline' | 'destructive' | 'secondary' | 'success' | 'cancel';
   style?: ViewStyle;
   textStyle?: TextStyle;
   disabled?: boolean;
@@ -19,8 +19,10 @@ export function Button({ children, onPress, variant = 'default', style, textStyl
   const variantStyles = {
     default: { backgroundColor: colors.primary, textColor: colors.primaryForeground }, // Variante padrão
     outline: { backgroundColor: 'transparent', borderWidth: 2, borderColor: colors.border, textColor: colors.foreground }, // Variante outline
-    destructive: { backgroundColor: colors.destructive, textColor: colors.destructiveForeground }, // Variante destrutiva
+    destructive: { backgroundColor: colors.delete || colors.destructive, textColor: colors.deleteForeground || colors.destructiveForeground }, // Variante destrutiva
     secondary: { backgroundColor: colors.secondary, textColor: colors.secondaryForeground }, // Variante secundária
+    success: { backgroundColor: colors.success, textColor: colors.successForeground }, // Variante sucesso (verde)
+    cancel: { backgroundColor: colors.cancel, textColor: colors.cancelForeground }, // Variante cancelar (cinza)
   };
 
   const currentVariant = variantStyles[variant]; // Estilo atual
@@ -51,6 +53,7 @@ const styles = StyleSheet.create({
   button: {
     paddingHorizontal: 16, // Padding horizontal
     paddingVertical: 12, // Padding vertical
+    minHeight: 46, // Evita corte de texto em Android/Expo Go
     borderRadius: 8, // Borda arredondada
     alignItems: 'center', // Centraliza conteúdo
     justifyContent: 'center', // Centraliza conteúdo
@@ -58,5 +61,6 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 16, // Tamanho fonte
     fontWeight: '600', // Peso médio
+    lineHeight: 20,
   },
 });

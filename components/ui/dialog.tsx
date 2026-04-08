@@ -1,6 +1,6 @@
 import { useTheme } from '@/hooks/useTheme';
 import React, { ReactNode } from 'react';
-import { Modal, StyleSheet, Text, TextStyle, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { Modal, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
 
 // Props do Dialog
 interface DialogProps {
@@ -13,11 +13,11 @@ interface DialogProps {
 export function Dialog({ open, onOpenChange, children }: DialogProps) {
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={() => onOpenChange(false)}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => onOpenChange(false)}>
-        <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+      <View style={styles.overlay}>
+        <View>
           {children}
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </View>
+      </View>
     </Modal>
   );
 }
