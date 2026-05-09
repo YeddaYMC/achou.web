@@ -1,6 +1,6 @@
 import { useTheme } from '@/hooks/useTheme';
 import React, { ReactNode, createContext, useContext, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TextStyle, TouchableOpacity, View, ViewStyle } from 'react-native';
 
 // Contexto do Select
 interface SelectContextType {
@@ -63,14 +63,15 @@ export function SelectTrigger({ children, style }: SelectTriggerProps) {
 // Value do Select (texto exibido)
 interface SelectValueProps {
   placeholder: string;
+  style?: TextStyle;
 }
 
-export function SelectValue({ placeholder }: SelectValueProps) {
+export function SelectValue({ placeholder, style }: SelectValueProps) {
   const { value } = useSelectContext();
   const { colors } = useTheme();
 
   return (
-    <Text style={[styles.valueText, { color: value ? colors.foreground : colors.mutedForeground }]}>
+    <Text style={[styles.valueText, { color: value ? colors.foreground : colors.mutedForeground }, style]}>
       {value || placeholder}
     </Text>
   );

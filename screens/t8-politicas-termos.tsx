@@ -5,7 +5,7 @@ import LayoutRN from '../components/Layout-RN';
 import { useAppContext } from '../context/AppContext';
 
 export default function T8Politicas() {
-  const { isDarkMode, navigateTo } = useAppContext();
+  const { isDarkMode, navigateBack } = useAppContext();
   
   const ChevronLeftIcon: any = ChevronLeft;
   
@@ -21,7 +21,7 @@ export default function T8Politicas() {
   return (
     <LayoutRN>
       <ScrollView style={containerStyle}>
-        <TouchableOpacity onPress={() => navigateTo('T1')} style={styles.backButton}>
+        <TouchableOpacity onPress={navigateBack} style={styles.backButton}>
           <View style={styles.backContent}>
             <ChevronLeftIcon size={20} color={isDarkMode ? '#60A5FA' : '#2563EB'} />
             <Text style={backTextStyle}>Voltar</Text>

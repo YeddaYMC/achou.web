@@ -1,4 +1,5 @@
 import { Cloudinary } from '@cloudinary/url-gen';
+import { deleteCloudinaryImagesSecure } from './cloudinaryCloudFunctionService';
 
 // Configuração do Cloudinary
 const cld = new Cloudinary({
@@ -160,24 +161,13 @@ const extractPublicIdFromUrl = (url: string): string | null => {
 };
 
 /**
- * Solicita exclusão de imagens no Cloudinary via endpoint backend seguro.
- * Observação: exclusão direta no app não é segura (requer assinatura com API secret).
+ * Deleta imagens do Cloudinary de forma segura via Cloud Function Firebase.
+ * Observação: a Cloud Function cuida da autenticação e usa credenciais seguras do servidor.
  */
 export const deleteCloudinaryImagesByUrls = async (
   imageUrls: string[]
 ): Promise<{ success: boolean; deleted: number; skipped: number; error?: string }> => {
   try {
-    const deleteEndpoint = process.env.EXPO_PUBLIC_CLOUDINARY_DELETE_ENDPOINT;
-
-    if (!deleteEndpoint) {
-      return {
-        success: false,
-        deleted: 0,
-        skipped: imageUrls.length,
-        error: 'Endpoint de exclusão Cloudinary não configurado.'
-      };
-    }
-
     const publicIds = (imageUrls || [])
       .map(extractPublicIdFromUrl)
       .filter((id): id is string => Boolean(id));
@@ -186,28 +176,14 @@ export const deleteCloudinaryImagesByUrls = async (
       return { success: true, deleted: 0, skipped: imageUrls.length };
     }
 
-    const response = await fetch(deleteEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ publicIds }),
-    });
+    // Chama a Cloud Function segura
+    const result = await deleteCloudinaryImagesSecure(publicIds);
 
-    if (!response.ok) {
-      const text = await response.text();
-      return {
-        success: false,
-        deleted: 0,
-        skipped: imageUrls.length,
-        error: `Falha ao excluir imagens no Cloudinary: ${response.status} ${text}`,
-      };
-    }
-
-    const data = await response.json();
-    const deletedCount = Number(data?.deleted || publicIds.length || 0);
     return {
-      success: true,
-      deleted: deletedCount,
-      skipped: Math.max(0, imageUrls.length - deletedCount),
+      success: result.success,
+      deleted: result.deleted || 0,
+      skipped: result.skipped || 0,
+      error: result.errors?.join('; ') || undefined,
     };
   } catch (error: any) {
     return {

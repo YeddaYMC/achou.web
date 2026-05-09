@@ -19,7 +19,15 @@ const REMEMBER_PASSWORD_KEY = 'achou_login_password';
 // Tela de login
 export default function Login() {
   const { navigateTo, navigateBack, setIsLoggedIn, setUserProfile } = useAppContext();
-  const { colors, spacing, fontSize, borderRadius } = useTheme();
+  const { colors, spacing, fontSize, borderRadius, isDark } = useTheme();
+  const formTextColor = isDark ? '#FFFFFF' : colors.formLabel;
+  const formLinkTextColor = isDark ? '#BFDBFE' : colors.formLink;
+  const fieldStyle = isDark
+    ? { backgroundColor: '#374151', borderColor: '#60A5FA' }
+    : { backgroundColor: colors.formInputBg, borderColor: colors.formBorder };
+  const cardSurfaceStyle = isDark
+    ? { backgroundColor: '#111827', borderColor: '#1D4ED8' }
+    : { backgroundColor: colors.formBackground, borderColor: colors.formBorder };
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -151,8 +159,8 @@ export default function Login() {
           style={[
             styles.formCard,
             {
-              backgroundColor: colors.formBackground,
-              borderColor: colors.formBorder,
+              backgroundColor: cardSurfaceStyle.backgroundColor,
+              borderColor: cardSurfaceStyle.borderColor,
               borderRadius: borderRadius.lg,
               padding: spacing.lg,
             },
@@ -166,15 +174,15 @@ export default function Login() {
           {errorMessage ? (
             <View
               style={{
-                backgroundColor: '#FEE2E2',
-                borderColor: '#EF4444',
+                backgroundColor: isDark ? '#3f1d24' : '#FEE2E2',
+                borderColor: isDark ? '#ef4444' : '#EF4444',
                 borderWidth: 1,
                 borderRadius: borderRadius.md,
                 padding: spacing.md,
                 marginBottom: spacing.md,
               }}
             >
-              <Text style={{ color: '#DC2626', fontSize: fontSize.sm, textAlign: 'center' }}>
+              <Text style={{ color: isDark ? '#fecaca' : '#DC2626', fontSize: fontSize.sm, textAlign: 'center' }}>
                 ⚠️ {errorMessage}
               </Text>
               {errorMessage.includes('não encontrado') || errorMessage.includes('incorretos') ? (
@@ -182,7 +190,7 @@ export default function Login() {
                   onPress={() => navigateTo('T2')}
                   style={{ marginTop: spacing.sm, alignItems: 'center' }}
                 >
-                  <Text style={{ color: '#DC2626', fontSize: fontSize.sm, fontWeight: '600', textDecorationLine: 'underline' }}>
+                  <Text style={{ color: isDark ? '#fecaca' : '#DC2626', fontSize: fontSize.sm, fontWeight: '600', textDecorationLine: 'underline' }}>
                     Criar conta agora →
                   </Text>
                 </TouchableOpacity>
@@ -193,7 +201,7 @@ export default function Login() {
           <View style={{ gap: 20 }}>
             {/* E-mail */}
             <View>
-              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>E-mail</Label>
+              <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>E-mail</Label>
               <Input
                 value={formData.email}
                 onChangeText={(text) => setFormData({ ...formData, email: text })}
@@ -201,13 +209,13 @@ export default function Login() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 editable={!loading}
-                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+                style={fieldStyle}
               />
             </View>
 
             {/* Senha */}
             <View>
-              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Senha</Label>
+              <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>Senha</Label>
               <View style={styles.passwordRow}>
                 <Input
                   value={formData.password}
@@ -215,10 +223,10 @@ export default function Login() {
                   placeholder="Digite sua senha"
                   secureTextEntry={!showPassword}
                   editable={!loading}
-                  style={{ ...styles.passwordInput, backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+                  style={{ ...styles.passwordInput, ...fieldStyle }}
                 />
                 <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} style={styles.passwordToggle} disabled={loading}>
-                  <Text style={{ color: colors.formLink, fontSize: fontSize.sm, fontWeight: '600' }}>
+                  <Text style={{ color: formLinkTextColor, fontSize: fontSize.sm, fontWeight: '600' }}>
                     {showPassword ? 'Ocultar' : 'Ver senha'}
                   </Text>
                 </TouchableOpacity>
@@ -228,7 +236,7 @@ export default function Login() {
             {/* Botão login */}
             <View style={styles.rememberRow}>
               <Checkbox checked={rememberLogin} onCheckedChange={setRememberLogin} />
-              <Text style={{ color: colors.formLabel, fontSize: fontSize.sm }}>Lembrar de mim</Text>
+              <Text style={{ color: formTextColor, fontSize: fontSize.sm }}>Lembrar de mim</Text>
             </View>
 
             <Button
@@ -254,7 +262,7 @@ export default function Login() {
             {/* Separador OU */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               <View style={{ flex: 1, height: 1, backgroundColor: colors.formBorder }} />
-              <Text style={{ color: colors.formLabel, fontSize: fontSize.sm }}>OU</Text>
+              <Text style={{ color: formTextColor, fontSize: fontSize.sm }}>OU</Text>
               <View style={{ flex: 1, height: 1, backgroundColor: colors.formBorder }} />
             </View>
 
@@ -263,7 +271,7 @@ export default function Login() {
               onPress={() => setErrorMessage('Login com Google será implementado em breve')}
               disabled={loading}
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
                 borderWidth: 1,
                 borderColor: colors.formBorder,
                 height: 48,
@@ -276,7 +284,7 @@ export default function Login() {
               }}
             >
               <Text style={{ fontSize: 20 }}>🔐</Text>
-              <Text style={{ color: colors.formLabel, fontSize: fontSize.base, fontWeight: '600' }}>
+              <Text style={{ color: formTextColor, fontSize: fontSize.base, fontWeight: '600' }}>
                 Entrar com Google
               </Text>
             </Button>
@@ -284,12 +292,12 @@ export default function Login() {
             {/* Link cadastro */}
             <View style={styles.footer}>
               <TouchableOpacity onPress={openForgotPasswordDialog} disabled={loading}>
-                <Text style={{ color: colors.formLink, fontSize: fontSize.sm, textDecorationLine: 'underline' }}>
+                <Text style={{ color: formLinkTextColor, fontSize: fontSize.sm, textDecorationLine: 'underline' }}>
                   Esqueci minha senha
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => navigateTo('T2')} disabled={loading}>
-                <Text style={{ color: colors.formLink, fontSize: fontSize.sm, textDecorationLine: 'underline' }}>
+                <Text style={{ color: formLinkTextColor, fontSize: fontSize.sm, textDecorationLine: 'underline' }}>
                   Não tenho conta. Criar agora
                 </Text>
               </TouchableOpacity>
@@ -301,13 +309,13 @@ export default function Login() {
       <Dialog open={forgotDialogOpen} onOpenChange={setForgotDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Redefinir senha</DialogTitle>
-            <DialogDescription>Digite seu e-mail para receber o link de redefinição.</DialogDescription>
+            <DialogTitle style={{ color: formTextColor }}>Redefinir senha</DialogTitle>
+            <DialogDescription style={{ color: isDark ? '#E5E7EB' : colors.formLabel }}>Digite seu e-mail para receber o link de redefinição.</DialogDescription>
           </DialogHeader>
 
           <View style={{ gap: spacing.md, marginTop: spacing.sm }}>
             <View>
-              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>E-mail</Label>
+              <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>E-mail</Label>
               <Input
                 value={forgotEmail}
                 onChangeText={setForgotEmail}
@@ -320,7 +328,7 @@ export default function Login() {
             </View>
 
             {!!forgotFeedback && (
-              <Text style={{ color: forgotSuccess ? '#16A34A' : '#DC2626', fontSize: fontSize.sm, textAlign: 'center' }}>
+              <Text style={{ color: forgotSuccess ? '#86EFAC' : '#FCA5A5', fontSize: fontSize.sm, textAlign: 'center' }}>
                 {forgotFeedback}
               </Text>
             )}

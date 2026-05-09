@@ -86,7 +86,15 @@ export default function T6CriacaoEdicao() {
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [errosValidacao, setErrosValidacao] = useState<string[]>([]);
   const [geoFeedback, setGeoFeedback] = useState<{ type: 'success' | 'warning'; message: string } | null>(null);
+  const [hasPublishedSuccessfully, setHasPublishedSuccessfully] = useState(false);
   const lastCepLookup = useRef('');
+
+  // Reset do estado de publicação quando entra na tela sem selectedBusiness (novo anúncio)
+  useEffect(() => {
+    if (!selectedBusiness) {
+      setHasPublishedSuccessfully(false);
+    }
+  }, [selectedBusiness]);
 
   useEffect(() => {
     if (!selectedBusiness) return;
@@ -331,6 +339,14 @@ export default function T6CriacaoEdicao() {
 
   // Upload e Salvamento
   const handleSubmit = async () => {
+    if (hasPublishedSuccessfully && !isEditing) {
+      Alert.alert(
+        'Anúncio já publicado',
+        'Esse anúncio já foi salvo e publicado nesta tela. Volte ao painel para criar outro.'
+      );
+      return;
+    }
+
     console.log(`🚀 Iniciando ${isEditing ? 'edição' : 'publicação'} do anúncio...`);
     setGeoFeedback(null);
     
@@ -550,7 +566,10 @@ export default function T6CriacaoEdicao() {
         }
       } else {
         setBusinesses([...businesses, mergedBusiness]);
+        // Marca como publicado com sucesso apenas para criação (não para edição)
+        setHasPublishedSuccessfully(true);
       }
+      
       setIsLoading(false);
       setErrosValidacao([]); // Limpa erros de validação
       setEditingFirestoreId(null);
@@ -568,6 +587,7 @@ export default function T6CriacaoEdicao() {
           {
             text: 'Ir para Painel',
             onPress: () => {
+              setHasPublishedSuccessfully(false);
               console.log('Navegando para Painel de Gestão...');
               navigateTo('T7');
             }
@@ -602,7 +622,9 @@ export default function T6CriacaoEdicao() {
   const textareaStyle = isDarkMode ? { ...styles.textarea, ...styles.textareaDark } : styles.textarea;
   const backTextStyle = isDarkMode ? { ...styles.backText, ...styles.backTextDark } : styles.backText;
   const categoryButtonStyle = isDarkMode ? { ...styles.categoryButton, ...styles.categoryButtonDark } : styles.categoryButton;
+  const categoryValueStyle = isDarkMode ? styles.categoryButtonTextDark : styles.categoryButtonText;
   const checkboxTextStyle = isDarkMode ? { ...styles.checkboxText, ...styles.checkboxTextDark } : styles.checkboxText;
+  const checkboxStyle = isDarkMode ? { borderColor: '#60A5FA' } : { borderColor: '#1e3a8a' };
   const helperTextColor = isDarkMode ? '#D1D5DB' : '#6B7280';
 
   return (
@@ -639,7 +661,7 @@ export default function T6CriacaoEdicao() {
                 onValueChange={(category) => setFormData((prev) => ({ ...prev, category }))}
               >
                 <SelectTrigger style={categoryButtonStyle}>
-                  <SelectValue placeholder="Selecione uma categoria" />
+                  <SelectValue placeholder="Selecione uma categoria" style={categoryValueStyle} />
                 </SelectTrigger>
                 <SelectContent>
                   {CATEGORIES.map((category) => (
@@ -778,6 +800,7 @@ export default function T6CriacaoEdicao() {
                   <Checkbox
                     checked={contactVisibility.phone}
                     onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, phone: Boolean(v) })}
+                    style={checkboxStyle}
                   />
                   <Text style={checkboxTextStyle}>Mostrar no anúncio</Text>
                 </View>
@@ -796,6 +819,7 @@ export default function T6CriacaoEdicao() {
                   <Checkbox
                     checked={contactVisibility.whatsapp}
                     onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, whatsapp: Boolean(v) })}
+                    style={checkboxStyle}
                   />
                   <Text style={checkboxTextStyle}>Mostrar no anúncio</Text>
                 </View>
@@ -819,6 +843,7 @@ export default function T6CriacaoEdicao() {
                   <Checkbox
                     checked={contactVisibility.email}
                     onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, email: Boolean(v) })}
+                    style={checkboxStyle}
                   />
                   <Text style={checkboxTextStyle}>Mostrar no anúncio</Text>
                 </View>
@@ -837,6 +862,7 @@ export default function T6CriacaoEdicao() {
                   <Checkbox
                     checked={contactVisibility.site}
                     onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, site: Boolean(v) })}
+                    style={checkboxStyle}
                   />
                   <Text style={checkboxTextStyle}>Mostrar no anúncio</Text>
                 </View>
@@ -858,6 +884,7 @@ export default function T6CriacaoEdicao() {
                 <Checkbox
                   checked={contactVisibility.instagram}
                   onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, instagram: Boolean(v) })}
+                  style={checkboxStyle}
                 />
                 <Text style={checkboxTextStyle}>Mostrar Instagram no anúncio</Text>
               </View>
@@ -877,6 +904,7 @@ export default function T6CriacaoEdicao() {
                 <Checkbox
                   checked={contactVisibility.facebook}
                   onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, facebook: Boolean(v) })}
+                  style={checkboxStyle}
                 />
                 <Text style={checkboxTextStyle}>Mostrar Facebook no anúncio</Text>
               </View>
@@ -896,6 +924,7 @@ export default function T6CriacaoEdicao() {
                 <Checkbox
                   checked={contactVisibility.pinterest}
                   onCheckedChange={(v) => setContactVisibility({ ...contactVisibility, pinterest: Boolean(v) })}
+                  style={checkboxStyle}
                 />
                 <Text style={checkboxTextStyle}>Mostrar Pinterest no anúncio</Text>
               </View>
@@ -1027,9 +1056,9 @@ export default function T6CriacaoEdicao() {
 
             {/* Botão Salvar */}
             <Button 
-              onPress={handleSubmit} 
-              style={StyleSheet.flatten([styles.submitButton, { opacity: isLoading ? 0.6 : 1 }])}
-              disabled={isLoading}
+              onPress={handleSubmit}
+              style={StyleSheet.flatten([styles.submitButton, { opacity: isLoading || (hasPublishedSuccessfully && !isEditing) ? 0.5 : 1 }])}
+              disabled={isLoading || (hasPublishedSuccessfully && !isEditing)}
             >
               <View style={styles.buttonContent}>
                 {isLoading ? (
@@ -1038,6 +1067,11 @@ export default function T6CriacaoEdicao() {
                     <Text style={[styles.submitButtonText, { marginLeft: 8 }]}>
                       Publicando...
                     </Text>
+                  </>
+                ) : hasPublishedSuccessfully && !isEditing ? (
+                  <>
+                    <Check size={20} color="#fff" />
+                    <Text style={[styles.submitButtonText, { marginLeft: 8 }]}>Já Publicado</Text>
                   </>
                 ) : (
                   <>

@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e2e8f0',
     backgroundColor: '#fff',
-    paddingVertical: 10,
+    paddingVertical: 6,
     paddingHorizontal: 12,
     flexShrink: 0,
     alignItems: 'center',
@@ -40,11 +40,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
   },
   footerText: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#64748b',
     textAlign: 'center',
     width: '100%',
-    lineHeight: 15,
+    lineHeight: 13,
   },
   footerName: {
     fontWeight: '700',

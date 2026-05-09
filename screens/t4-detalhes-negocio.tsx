@@ -8,6 +8,21 @@ import { toast } from '../components/ui/sonner';
 import { useAppContext } from '../context/AppContext';
 import { geocodeBusinessAddress } from '../src/services/geocodingService';
 
+const buildAddressString = (parts: Array<string | undefined | null>) =>
+  parts.filter(Boolean).map((part) => String(part).trim()).filter(Boolean).join(', ');
+
+const buildMapsDirectionValue = (address: string | null, coords: { lat: number; lon: number } | null) => {
+  if (address) {
+    return encodeURIComponent(address);
+  }
+
+  if (coords) {
+    return `${coords.lat},${coords.lon}`;
+  }
+
+  return '';
+};
+
 // Função para calcular distância em metros usando fórmula de Haversine
 function haversineM(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const toRad = (v: number) => (v * Math.PI) / 180;
@@ -22,7 +37,7 @@ function haversineM(lat1: number, lon1: number, lat2: number, lon2: number): num
 }
 
 export default function T4Detalhes() {
-  const { isLoggedIn, navigateTo, navigateBack, selectedBusiness, favorites, toggleFavorite, locationSettings, businesses, isDarkMode, setReturnTo, setReportBusiness } = useAppContext();
+  const { isLoggedIn, navigateTo, navigateBack, selectedBusiness, favorites, toggleFavorite, locationSettings, businesses, isDarkMode, setReturnTo, setReportBusiness, userProfile } = useAppContext();
   const [reported, setReported] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [enderecoPorCep, setEnderecoPorCep] = useState('');
@@ -32,6 +47,15 @@ export default function T4Detalhes() {
   const imageHeight = Math.max(280, Math.floor(height * 0.55)); // Aumentado para 280px mínimo e 55% da altura
 
   const isFavorite = useMemo(() => favorites?.includes(selectedBusiness?.id ?? 0) ?? false, [favorites, selectedBusiness]);
+
+  const hasProfileAddress = Boolean(
+    userProfile?.cep ||
+    userProfile?.street ||
+    userProfile?.number ||
+    userProfile?.neighborhood ||
+    userProfile?.city ||
+    userProfile?.state
+  );
 
   if (!selectedBusiness) {
     return (
@@ -43,7 +67,57 @@ export default function T4Detalhes() {
     );
   }
 
-  const handleAction = (action: string) => {
+  const resolveOriginCoords = async (): Promise<null | { lat: number; lon: number }> => {
+    if (locationSettings?.coords && typeof locationSettings.coords.lat === 'number' && typeof locationSettings.coords.lon === 'number') {
+      return locationSettings.coords;
+    }
+
+    if (typeof userProfile?.lat === 'number' && typeof userProfile?.lon === 'number') {
+      return { lat: userProfile.lat, lon: userProfile.lon };
+    }
+
+    if (hasProfileAddress) {
+      const geo = await geocodeBusinessAddress({
+        cep: userProfile?.cep,
+        street: userProfile?.street,
+        number: userProfile?.number,
+        neighborhood: userProfile?.neighborhood,
+        city: userProfile?.city,
+        state: userProfile?.state,
+        country: 'Brasil',
+      });
+
+      if (geo) {
+        return { lat: geo.lat, lon: geo.lon };
+      }
+    }
+
+    return null;
+  };
+
+  const resolveDestinationCoords = async (): Promise<null | { lat: number; lon: number }> => {
+    if (typeof selectedBusiness.lat === 'number' && typeof selectedBusiness.lon === 'number') {
+      return { lat: selectedBusiness.lat, lon: selectedBusiness.lon };
+    }
+
+    const geo = await geocodeBusinessAddress({
+      cep: selectedBusiness.cep,
+      street: selectedBusiness.street,
+      number: selectedBusiness.number,
+      neighborhood: selectedBusiness.neighborhood,
+      city: selectedBusiness.city,
+      state: selectedBusiness.state,
+      country: 'Brasil',
+    });
+
+    if (geo) {
+      return { lat: geo.lat, lon: geo.lon };
+    }
+
+    return null;
+  };
+
+  const handleAction = async (action: string) => {
     if (!isLoggedIn) {
       toast.error('Você precisa fazer login para realizar esta ação');
       setReturnTo('T4');
@@ -70,12 +144,44 @@ export default function T4Detalhes() {
       Linking.openURL(`https://wa.me/${digits}`).catch(() => toast.error('Não foi possível abrir o WhatsApp'));
       toast.success('Abrindo WhatsApp...');
     } else if (action === 'route') {
-      const { lat, lon } = selectedBusiness;
-      if (typeof lat === 'number' && typeof lon === 'number') {
-        Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`).catch(() => toast.error('Não foi possível abrir os mapas'));
-        toast.success('Abrindo aplicativo de mapas...');
-      } else {
-        toast.error('Coordenadas do anúncio não disponíveis');
+      try {
+        const [origin, destination] = await Promise.all([resolveOriginCoords(), resolveDestinationCoords()]);
+
+        if (!origin) {
+          toast.error('Localização do seu perfil não encontrada');
+          return;
+        }
+
+        if (!destination) {
+          toast.error('Coordenadas do anúncio não disponíveis');
+          return;
+        }
+
+        const originAddress = buildAddressString([
+          userProfile?.street,
+          userProfile?.number,
+          userProfile?.neighborhood,
+          userProfile?.city,
+          userProfile?.state,
+          userProfile?.cep,
+          'Brasil',
+        ]);
+
+        const destinationAddress = buildAddressString([
+          selectedBusiness.street || selectedBusiness.rua,
+          selectedBusiness.number || selectedBusiness.numero,
+          selectedBusiness.neighborhood || selectedBusiness.bairro,
+          selectedBusiness.city || selectedBusiness.cidade,
+          selectedBusiness.state || selectedBusiness.estado,
+          selectedBusiness.cep,
+          'Brasil',
+        ]);
+
+        const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${buildMapsDirectionValue(originAddress, origin)}&destination=${buildMapsDirectionValue(destinationAddress, destination)}&travelmode=driving`;
+        await Linking.openURL(mapsUrl);
+        toast.success('Abrindo rota no Maps...');
+      } catch {
+        toast.error('Não foi possível abrir a rota no Maps');
       }
     }
   };
@@ -243,6 +349,29 @@ export default function T4Detalhes() {
 
           </View>
 
+          <Separator style={{ marginVertical: 10 }} />
+
+          <View style={styles.actionsGrid}>
+            <View style={styles.primaryActionRow}>
+              <Button onPress={() => handleAction('whatsapp')} style={styles.primaryGreenButton}>
+                <View style={styles.actionContent}><MessageCircle size={20 as any} color="#fff" style={{ marginRight: 8 }} /><Text style={styles.actionText}>WhatsApp</Text></View>
+              </Button>
+            </View>
+
+            <Separator style={styles.actionsSeparator} />
+
+            <View style={styles.actionsRow}>
+              {selectedBusiness.phone && selectedBusiness.contactVisibility?.phone && (
+                <Button onPress={() => handleAction('phone')} style={styles.smallBlueButton}>
+                  <View style={styles.actionContent}><Phone size={18 as any} color="#fff" /><Text style={styles.smallActionText}>Ligar</Text></View>
+                </Button>
+              )}
+              <Button onPress={() => handleAction('route')} style={styles.smallBlueButton}>
+                <View style={styles.actionContent}><Navigation size={18 as any} color="#fff" /><Text style={styles.smallActionText}>Rota</Text></View>
+              </Button>
+            </View>
+          </View>
+
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }} />
             <View style={styles.iconActions}>
@@ -272,20 +401,23 @@ export default function T4Detalhes() {
               : (selectedBusiness.description || '')}
           </Text>
 
-          <View style={{ marginTop: 16 }}>
+          <View style={{ marginTop: 12 }}>
             <Text style={labelMuted}>📍 <Text style={{ color: isDarkMode ? '#e5e7eb' : '#111827' }}>{enderecoExibicao}</Text></Text>
             {selectedBusiness.phone && selectedBusiness.contactVisibility?.phone && (
               <Text style={labelMuted}>📞 <Text style={{ color: isDarkMode ? '#e5e7eb' : '#111827' }}>{selectedBusiness.phone}</Text></Text>
             )}
 
-            <View style={{ marginTop: 12 }}>
+            <View style={{ marginTop: 10 }}>
               {center && distM != null ? (
                 <View style={styles.distanceRow}>
                   <View style={styles.distanceBadge}>
                     <Text style={styles.distanceValue}>
                       🎯 {distM < 1000 ? `${Math.round(distM)}m` : `${(distM / 1000).toFixed(2)}km`}
                     </Text>
-                    <Text style={styles.distanceNote}>Distância até o local</Text>
+                    <Text style={styles.distanceNote}>Distância em linha reta</Text>
+                    <TouchableOpacity onPress={() => handleAction('route')} accessibilityRole="button">
+                      <Text style={styles.routeLink}>Clique aqui para ver rota</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               ) : (
@@ -312,29 +444,6 @@ export default function T4Detalhes() {
                   <Text style={{ color: '#fff' }}>📌</Text>
                 </TouchableOpacity>
               )}
-            </View>
-          </View>
-
-          <Separator style={{ marginVertical: 16 }} />
-
-          <View style={styles.actionsGrid}>
-            <View style={styles.primaryActionRow}>
-              <Button onPress={() => handleAction('whatsapp')} style={styles.primaryGreenButton}>
-                <View style={styles.actionContent}><MessageCircle size={20 as any} color="#fff" style={{ marginRight: 8 }} /><Text style={styles.actionText}>WhatsApp</Text></View>
-              </Button>
-            </View>
-
-            <Separator style={styles.actionsSeparator} />
-
-            <View style={styles.actionsRow}>
-              {selectedBusiness.phone && selectedBusiness.contactVisibility?.phone && (
-                <Button onPress={() => handleAction('phone')} style={styles.smallBlueButton}>
-                  <View style={styles.actionContent}><Phone size={18 as any} color="#fff" /><Text style={styles.smallActionText}>Ligar</Text></View>
-                </Button>
-              )}
-              <Button onPress={() => handleAction('route')} style={styles.smallBlueButton}>
-                <View style={styles.actionContent}><Navigation size={18 as any} color="#fff" /><Text style={styles.smallActionText}>Rota</Text></View>
-              </Button>
             </View>
           </View>
         </View>
@@ -389,8 +498,8 @@ const styles = StyleSheet.create({
   titleAboveImageWrap: {
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   imageTopOverlay: {
     alignItems: 'center',
@@ -412,7 +521,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   badge: {
     alignSelf: 'flex-start',
@@ -477,6 +587,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
   },
+  routeLink: {
+    fontSize: 12,
+    color: '#1d4ed8',
+    textDecorationLine: 'underline',
+    fontWeight: '600',
+  },
   socialRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -514,7 +630,7 @@ const styles = StyleSheet.create({
   actionsGrid: {
     gap: 10,
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 12,
   },
   primaryActionRow: {
     width: '100%',

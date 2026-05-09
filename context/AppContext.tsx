@@ -5,6 +5,7 @@ import app from '../firebaseConfig';
 import { mockBusinesses } from '../mockData/mockBusinesses';
 import { getAllActiveAnuncios } from '../src/services/anuncioService';
 import { addFavorite, getFavorites, getUserProfile, removeFavorite, subscribeToAuthState } from '../src/services/authService';
+import { initCloudinaryService } from '../src/services/cloudinaryCloudFunctionService';
 import { geocodeBusinessAddress } from '../src/services/geocodingService';
 
 // Tipo para negócio
@@ -62,6 +63,22 @@ interface UserProfile {
     geohash?: string; // Geohash persistido no perfil
 }
 
+interface RegistrationDraft {
+  name: string;
+  nickname: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  phone: string;
+  cpf: string;
+  cep: string;
+  street: string;
+  number: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+}
+
 // Tipo para contexto
 interface AppContextType {
   navigateTo: (screen: string) => void; // Navegar para tela
@@ -91,10 +108,28 @@ interface AppContextType {
   setReportBusiness: (business: { id: number; name: string } | null) => void; // Define negócio para reportar
   showUpdateProfileDialog: boolean; // Exibir dialog de atualização de perfil
   setShowUpdateProfileDialog: (show: boolean) => void; // Define estado do dialog
+  registrationDraft: RegistrationDraft; // Rascunho do cadastro
+  setRegistrationDraft: React.Dispatch<React.SetStateAction<RegistrationDraft>>; // Atualiza rascunho do cadastro
 }
 
 // Contexto
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+const emptyRegistrationDraft: RegistrationDraft = {
+  name: '',
+  nickname: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+  phone: '',
+  cpf: '',
+  cep: '',
+  street: '',
+  number: '',
+  neighborhood: '',
+  city: '',
+  state: '',
+};
 
 // Provider do contexto
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -110,6 +145,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [businesses, setBusinesses] = useState<Business[]>([]); // Lista de negócios
   const [reportBusiness, setReportBusiness] = useState<{ id: number; name: string } | null>(null); // Negócio para reportar
   const [showUpdateProfileDialog, setShowUpdateProfileDialog] = useState(false); // Dialog atualização perfil
+  const [registrationDraft, setRegistrationDraft] = useState<RegistrationDraft>(emptyRegistrationDraft); // Rascunho cadastro
   const [isDarkMode, setIsDarkMode] = useState(false); // Modo escuro
   const colorScheme = useColorScheme(); // Esquema de cores do dispositivo
 
@@ -130,6 +166,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     return null;
   };
+
+  // Inicializa Cloud Functions para deleção segura de imagens
+  useEffect(() => {
+    try {
+      initCloudinaryService(app, false); // Sempre usar produção
+      console.log('✓ Cloud Functions inicializado para deleção de imagens');
+    } catch (error) {
+      console.warn('⚠️ Erro ao inicializar Cloud Functions:', error);
+    }
+  }, []);
 
   // Sincroniza com Firebase Auth State
   useEffect(() => {
@@ -429,6 +475,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setReportBusiness,
         showUpdateProfileDialog,
         setShowUpdateProfileDialog,
+        registrationDraft,
+        setRegistrationDraft,
       }}
     >
       {children}

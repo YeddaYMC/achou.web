@@ -18,6 +18,7 @@ import { deleteAnuncio } from '../src/services/anuncioService';
 import { deleteCloudinaryImagesByUrls } from '../src/services/cloudinaryService';
 
 const { width } = Dimensions.get('window');
+const TEST_UNLIMITED_BUSINESS_EMAIL = 'yedda2026@gmail.com';
 
 export default function T7PainelGestao() {
   const {
@@ -36,6 +37,9 @@ export default function T7PainelGestao() {
   const [isDeletingBusiness, setIsDeletingBusiness] = useState(false);
 
   const currentUid = getAuth(app).currentUser?.uid;
+  const canCreateUnlimitedBusinesses = Boolean(
+    userProfile?.email && userProfile.email.trim().toLowerCase() === TEST_UNLIMITED_BUSINESS_EMAIL
+  );
 
   // Filtra apenas os anúncios do usuário (por email ou uid)
   const myBusinesses = businesses.filter((b: any) => {
@@ -82,8 +86,15 @@ export default function T7PainelGestao() {
       setDeleteModalVisible(false);
       setBusinessToDelete(null);
 
-      if (!cloudinaryResult.success) {
-        console.warn('Imagens não removidas automaticamente do Cloudinary:', cloudinaryResult.error);
+      if (!cloudinaryResult.success && cloudinaryResult.error) {
+        console.warn('⚠️ Falha ao remover imagens do Cloudinary:', cloudinaryResult.error);
+        Alert.alert(
+          '⚠️ Aviso de Limpeza',
+          `Anúncio excluído do banco, mas não foi possível remover ${cloudinaryResult.skipped} imagem(ns) do servidor de armazenamento.\n\nDetalhes: ${cloudinaryResult.error}`,
+          [{ text: 'OK' }]
+        );
+      } else if (cloudinaryResult.deleted > 0) {
+        console.log(`✓ ${cloudinaryResult.deleted} imagem(ns) removida(s) do Cloudinary`);
       }
     } catch (error) {
       console.error('Erro ao excluir anúncio:', error);
@@ -178,7 +189,7 @@ export default function T7PainelGestao() {
                     <View style={styles.buttonContainer}>
                       <Button
                         onPress={() => {
-                          if (myBusinesses.length >= 1) {
+                          if (!canCreateUnlimitedBusinesses && myBusinesses.length >= 1) {
                             setLimitModalVisible(true);
                           } else {
                             setSelectedBusiness(null);
@@ -234,7 +245,7 @@ export default function T7PainelGestao() {
                     <View style={styles.buttonContainer}>
                       <Button
                         onPress={() => {
-                          if (!userProfile?.isPremium && myBusinesses.length >= 1) {
+                          if (!canCreateUnlimitedBusinesses && myBusinesses.length >= 1) {
                             setLimitModalVisible(true);
                           } else {
                             setSelectedBusiness(null);

@@ -1,4 +1,5 @@
 import { useTheme } from '@/hooks/useTheme';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { ChevronLeft } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -13,13 +14,22 @@ import { fetchCepDetails } from '../src/services/geocodingService';
 
 // Tela de cadastro de novo usuário
 export default function T2Cadastro() {
-  const { navigateTo, navigateBack, setUserProfile, setIsLoggedIn } = useAppContext();
-  const { colors, spacing, fontSize, borderRadius } = useTheme();
-  const [formData, setFormData] = useState({
+  const { navigateTo, navigateBack, setUserProfile, setIsLoggedIn, registrationDraft, setRegistrationDraft } = useAppContext();
+  const { colors, spacing, fontSize, borderRadius, isDark } = useTheme();
+  const formTextColor = isDark ? '#FFFFFF' : colors.formLabel;
+  const formLinkTextColor = isDark ? '#BFDBFE' : colors.formLink;
+  const fieldStyle = isDark
+    ? { backgroundColor: '#374151', borderColor: '#60A5FA' }
+    : { backgroundColor: colors.formInputBg, borderColor: colors.formBorder };
+  const cardSurfaceStyle = isDark
+    ? { backgroundColor: '#111827', borderColor: '#1D4ED8' }
+    : { backgroundColor: colors.formBackground, borderColor: colors.formBorder };
+  const initialFormData = {
     name: '',
     nickname: '',
     email: '',
     password: '',
+    confirmPassword: '',
     phone: '',
     cpf: '',
     cep: '',
@@ -28,13 +38,22 @@ export default function T2Cadastro() {
     neighborhood: '',
     city: '',
     state: '',
+  };
+  const [formData, setFormData] = useState({
+    ...initialFormData,
+    ...registrationDraft,
   });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [cepLookupLoading, setCepLookupLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  const [showPassword, setShowPassword] = useState(false);
   const toUpperSafe = (value: string) => (value || '').toUpperCase();
+
+  useEffect(() => {
+    setRegistrationDraft(formData);
+  }, [formData, setRegistrationDraft]);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,6 +117,12 @@ export default function T2Cadastro() {
       return;
     }
 
+    if (formData.password !== formData.confirmPassword) {
+      setErrorMessage('As senhas não conferem');
+      Alert.alert('Atenção', 'As senhas não conferem.');
+      return;
+    }
+
     const onlyDigitsCpf = (formData.cpf || '').replace(/\D/g, '');
     if (onlyDigitsCpf.length !== 11) {
       setErrorMessage('CPF inválido. Informe 11 dígitos.');
@@ -140,6 +165,7 @@ export default function T2Cadastro() {
       const result = await registerWithEmail(formData.email, formData.password, {
         name: toUpperSafe(formData.name),
         nickname: formData.nickname ? toUpperSafe(formData.nickname) : undefined,
+        email: formData.email,
         phone: formData.phone,
         cpf: onlyDigitsCpf,
         anuncianteLevel: 1,
@@ -159,6 +185,8 @@ export default function T2Cadastro() {
         Alert.alert('Erro no cadastro', result.error || 'Não foi possível criar sua conta.');
         return;
       }
+
+      setRegistrationDraft(initialFormData);
 
       // Cadastro bem-sucedido
       setUserProfile({ 
@@ -203,14 +231,14 @@ export default function T2Cadastro() {
           style={[
             styles.formCard,
             {
-              backgroundColor: colors.formBackground,
-              borderColor: colors.formBorder,
+              backgroundColor: cardSurfaceStyle.backgroundColor,
+              borderColor: cardSurfaceStyle.borderColor,
               borderRadius: borderRadius.lg,
               padding: spacing.lg,
             },
           ]}
         >
-          <Text style={[styles.title, { color: colors.formTitle, fontSize: fontSize['2xl'], marginBottom: spacing.lg }]}>
+          <Text style={[styles.title, { color: colors.formTitle, fontSize: fontSize['2xl'], marginBottom: spacing.lg }]}> 
             Criar Minha Conta
           </Text>
 
@@ -218,15 +246,15 @@ export default function T2Cadastro() {
           {errorMessage ? (
             <View
               style={{
-                backgroundColor: '#FEE2E2',
-                borderColor: '#EF4444',
+                backgroundColor: isDark ? '#3f1d24' : '#FEE2E2',
+                borderColor: isDark ? '#ef4444' : '#EF4444',
                 borderWidth: 1,
                 borderRadius: borderRadius.md,
                 padding: spacing.md,
                 marginBottom: spacing.md,
               }}
             >
-              <Text style={{ color: '#DC2626', fontSize: fontSize.sm, textAlign: 'center' }}>
+              <Text style={{ color: isDark ? '#fecaca' : '#DC2626', fontSize: fontSize.sm, textAlign: 'center' }}>
                 ⚠️ {errorMessage}
               </Text>
               {errorMessage.includes('já está cadastrado') ? (
@@ -234,7 +262,7 @@ export default function T2Cadastro() {
                   onPress={() => navigateTo('T3')}
                   style={{ marginTop: spacing.sm, alignItems: 'center' }}
                 >
-                  <Text style={{ color: '#DC2626', fontSize: fontSize.sm, fontWeight: '600', textDecorationLine: 'underline' }}>
+                  <Text style={{ color: isDark ? '#fecaca' : '#DC2626', fontSize: fontSize.sm, fontWeight: '600', textDecorationLine: 'underline' }}>
                     Fazer login →
                   </Text>
                 </TouchableOpacity>
@@ -245,21 +273,18 @@ export default function T2Cadastro() {
           <View style={{ gap: 20 }}>
             {/* Nome */}
             <View>
-              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Nome Completo</Label>
+              <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>Nome Completo</Label>
               <Input
                 value={formData.name}
                 onChangeText={(text) => setFormData({ ...formData, name: toUpperSafe(text) })}
                 placeholder="Digite seu nome"
                 editable={!loading}
-                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+                style={fieldStyle}
               />
-              <Text style={{ color: colors.formLabel, fontSize: fontSize.xs, marginTop: 6, opacity: 0.8 }}>
-                Informe o CEP para preencher automaticamente rua, bairro, cidade e estado.
-              </Text>
               {cepLookupLoading ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
                   <ActivityIndicator size="small" color={colors.success} />
-                  <Text style={{ color: colors.formLabel, fontSize: fontSize.xs }}>
+                  <Text style={{ color: formTextColor, fontSize: fontSize.xs }}>
                     Buscando endereço pelo CEP...
                   </Text>
                 </View>
@@ -268,7 +293,7 @@ export default function T2Cadastro() {
 
             {/* Apelido (opcional) */}
             <View>
-              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>
+              <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>
                 Como você quer ser chamado? <Text style={{ fontSize: fontSize.xs, opacity: 0.7 }}>(opcional)</Text>
               </Label>
               <Input
@@ -276,13 +301,13 @@ export default function T2Cadastro() {
                 onChangeText={(text) => setFormData({ ...formData, nickname: toUpperSafe(text) })}
                 placeholder="Apelido ou como prefere ser chamado"
                 editable={!loading}
-                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+                style={fieldStyle}
               />
             </View>
 
             {/* E-mail */}
             <View>
-              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>E-mail</Label>
+              <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>E-mail</Label>
               <Input
                 value={formData.email}
                 onChangeText={(text) => setFormData({ ...formData, email: text })}
@@ -290,114 +315,142 @@ export default function T2Cadastro() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 editable={!loading}
-                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+                style={fieldStyle}
               />
             </View>
 
             {/* CPF */}
             <View>
-              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>CPF</Label>
+              <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>CPF</Label>
               <Input
                 value={formData.cpf}
                 onChangeText={(text) => setFormData({ ...formData, cpf: text })}
                 placeholder="000.000.000-00"
                 keyboardType="numeric"
                 editable={!loading}
-                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+                style={fieldStyle}
               />
             </View>
 
             {/* Telefone */}
             <View>
-              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Telefone</Label>
+              <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>Telefone</Label>
               <Input
                 value={formData.phone}
                 onChangeText={(text) => setFormData({ ...formData, phone: text })}
                 placeholder="(11) 98765-4321"
                 keyboardType="phone-pad"
                 editable={!loading}
-                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+                style={fieldStyle}
               />
             </View>
 
             {/* Endereço padrão */}
             <View>
-              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>CEP</Label>
+              <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>CEP</Label>
+              <Text style={{ color: isDark ? '#E5E7EB' : colors.formLabel, fontSize: fontSize.xs, marginBottom: 6, opacity: 0.9 }}>
+                Informe o CEP para preencher automaticamente rua, bairro, cidade e estado.
+              </Text>
               <Input
                 value={formData.cep}
                 onChangeText={(text) => setFormData({ ...formData, cep: text })}
                 placeholder="00000-000"
                 keyboardType="numeric"
                 editable={!loading}
-                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+                style={fieldStyle}
               />
             </View>
 
             <View>
-              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Rua</Label>
+              <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>Rua</Label>
               <Input
                 value={formData.street}
                 onChangeText={(text) => setFormData({ ...formData, street: toUpperSafe(text) })}
                 placeholder="Rua, avenida, estrada"
                 editable={!loading}
-                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+                style={fieldStyle}
               />
             </View>
 
             <View>
-              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Número</Label>
+              <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>Número</Label>
               <Input
                 value={formData.number}
                 onChangeText={(text) => setFormData({ ...formData, number: text })}
                 placeholder="123"
                 editable={!loading}
-                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+                style={fieldStyle}
               />
             </View>
 
             <View>
-              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Bairro</Label>
+              <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>Bairro</Label>
               <Input
                 value={formData.neighborhood}
                 onChangeText={(text) => setFormData({ ...formData, neighborhood: toUpperSafe(text) })}
                 placeholder="Centro"
                 editable={!loading}
-                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+                style={fieldStyle}
               />
             </View>
 
             <View>
-              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Cidade</Label>
+              <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>Cidade</Label>
               <Input
                 value={formData.city}
                 onChangeText={(text) => setFormData({ ...formData, city: toUpperSafe(text) })}
                 placeholder="Curitiba"
                 editable={!loading}
-                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+                style={fieldStyle}
               />
             </View>
 
             <View>
-              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Estado</Label>
+              <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>Estado</Label>
               <Input
                 value={formData.state}
                 onChangeText={(text) => setFormData({ ...formData, state: toUpperSafe(text) })}
                 placeholder="PR"
                 editable={!loading}
-                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+                style={fieldStyle}
               />
             </View>
 
             {/* Senha */}
             <View>
-              <Label style={{ color: colors.formLabel, marginBottom: spacing.sm }}>Senha</Label>
+              <View style={styles.passwordLabelRow}>
+                <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>Senha</Label>
+                <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} disabled={loading} style={styles.passwordToggle}>
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={16}
+                    color={colors.formLink}
+                  />
+                  <Text style={{ color: formLinkTextColor, fontSize: fontSize.xs, marginLeft: 6 }}>
+                    {showPassword ? 'Ocultar' : 'Mostrar'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
               <Input
                 value={formData.password}
                 onChangeText={(text) => setFormData({ ...formData, password: text })}
                 placeholder="Mínimo 6 caracteres"
-                secureTextEntry
+                secureTextEntry={!showPassword}
                 editable={!loading}
-                style={{ backgroundColor: colors.formInputBg, borderColor: colors.formBorder }}
+                style={fieldStyle}
+              />
+            </View>
+
+            {/* Confirmar senha */}
+            <View>
+              <Label style={{ color: formTextColor, marginBottom: spacing.sm }}>Confirmar senha</Label>
+              <Input
+                value={formData.confirmPassword}
+                onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
+                placeholder="Repita a senha"
+                secureTextEntry={!showPassword}
+                editable={!loading}
+                style={fieldStyle}
               />
             </View>
 
@@ -409,15 +462,15 @@ export default function T2Cadastro() {
                 style={{ borderColor: colors.formBorder }}
               />
               <View style={styles.checkboxLabel}>
-                <Text style={{ color: colors.formLabel, fontSize: fontSize.sm }}>Aceito os </Text>
+                <Text style={{ color: formTextColor, fontSize: fontSize.sm }}>Aceito os </Text>
                 <TouchableOpacity onPress={() => navigateTo('T11')} disabled={loading}>
-                  <Text style={{ color: colors.formLink, fontSize: fontSize.sm, textDecorationLine: 'underline' }}>
+                  <Text style={{ color: formLinkTextColor, fontSize: fontSize.sm, textDecorationLine: 'underline' }}>
                     Termos de Uso
                   </Text>
                 </TouchableOpacity>
-                <Text style={{ color: colors.formLabel, fontSize: fontSize.sm }}> e as </Text>
+                <Text style={{ color: formTextColor, fontSize: fontSize.sm }}> e as </Text>
                 <TouchableOpacity onPress={() => navigateTo('T8')} disabled={loading}>
-                  <Text style={{ color: colors.formLink, fontSize: fontSize.sm, textDecorationLine: 'underline' }}>
+                  <Text style={{ color: formLinkTextColor, fontSize: fontSize.sm, textDecorationLine: 'underline' }}>
                     Políticas de Privacidade
                   </Text>
                 </TouchableOpacity>
@@ -426,11 +479,13 @@ export default function T2Cadastro() {
 
             {/* Botão cadastrar */}
             <Button
-              onPress={handleSubmit}
-              disabled={!acceptedTerms || loading || cepLookupLoading}
+              onPress={() => {
+                if (!acceptedTerms || loading || cepLookupLoading) return;
+                void handleSubmit();
+              }}
               style={{
                 backgroundColor: acceptedTerms && !loading && !cepLookupLoading ? colors.success : colors.muted,
-                opacity: acceptedTerms && !loading && !cepLookupLoading ? 1 : 0.5,
+                opacity: 1,
                 height: 48,
                 borderRadius: borderRadius.md,
                 flexDirection: 'row',
@@ -450,7 +505,7 @@ export default function T2Cadastro() {
             {/* Link login */}
             <View style={styles.footer}>
               <TouchableOpacity onPress={() => navigateTo('T3')} disabled={loading}>
-                <Text style={{ color: colors.formLink, fontSize: fontSize.sm, textDecorationLine: 'underline' }}>
+                <Text style={{ color: formLinkTextColor, fontSize: fontSize.sm, textDecorationLine: 'underline' }}>
                   Já tenho conta. Fazer login
                 </Text>
               </TouchableOpacity>
@@ -506,6 +561,16 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: 'center', // Centraliza
     paddingTop: 12, // Espaço superior
+  },
+  passwordLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  passwordToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
