@@ -1,7 +1,8 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { getAuth } from 'firebase/auth';
 import { geohashForLocation } from 'geofire-common';
-import { ChevronLeft, Edit, KeyRound, LogOut, Trash2 } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import { ChevronLeft, Edit, KeyRound, LogOut, MessageSquare, Trash2 } from 'lucide-react-native';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
 import { Button } from '../components/ui/button';
@@ -11,6 +12,7 @@ import { Label } from '../components/ui/label';
 import { useAppContext } from '../context/AppContext';
 import app from '../firebaseConfig';
 import { changePasswordWithCurrent, deleteAccountAndData, logout, updateUserProfile } from '../src/services/authService';
+import { Denuncia, getDenunciasDoDenunciante } from '../src/services/denunciaService';
 import { fetchCepDetails, geocodeBusinessAddress } from '../src/services/geocodingService';
 
 export default function T5Perfil() {
@@ -25,6 +27,7 @@ export default function T5Perfil() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [minhasDenuncias, setMinhasDenuncias] = useState<Denuncia[]>([]);
   const [formData, setFormData] = useState({ 
     name: userProfile?.name || '', 
     nickname: userProfile?.nickname || '',
@@ -105,6 +108,28 @@ export default function T5Perfil() {
     }
   }, [isLoggedIn, navigateTo]);
 
+  useEffect(() => {
+    let active = true;
+
+    const carregarMinhasDenuncias = async () => {
+      const uid = getAuth(app).currentUser?.uid;
+      if (!isLoggedIn || !uid) {
+        if (active) setMinhasDenuncias([]);
+        return;
+      }
+
+      const denuncias = await getDenunciasDoDenunciante(uid);
+      if (!active) return;
+      setMinhasDenuncias(denuncias);
+    };
+
+    void carregarMinhasDenuncias();
+
+    return () => {
+      active = false;
+    };
+  }, [isLoggedIn]);
+
   if (!isLoggedIn) {
     return null;
   }
@@ -126,6 +151,21 @@ export default function T5Perfil() {
 
     return 'usuário';
   }, [userProfile]);
+
+  const minhasDenunciasResumo = useMemo(() => {
+    const abertas = minhasDenuncias.filter((d) => d.status === 'aberta' || d.status === 'em_analise').length;
+    const resolvidas = minhasDenuncias.filter((d) => d.status === 'resolvida').length;
+    const procedentes = minhasDenuncias.filter((d) => d.status === 'resolvida' && d.decisao === 'aceita').length;
+    const naoProcedentes = minhasDenuncias.filter((d) => d.status === 'resolvida' && d.decisao === 'nao_aceita').length;
+
+    return {
+      total: minhasDenuncias.length,
+      abertas,
+      resolvidas,
+      procedentes,
+      naoProcedentes,
+    };
+  }, [minhasDenuncias]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Data não disponível';
@@ -294,7 +334,7 @@ export default function T5Perfil() {
 
   const containerStyle = isDarkMode ? { ...styles.container, ...styles.containerDark } : styles.container;
   const cardStyle = isDarkMode ? { ...styles.card, ...styles.cardDark } : styles.card;
-  const titleStyle = isDarkMode ? { ...styles.title, ...styles.titleDark } : styles.title;
+  const titleStyle = isDarkMode ? { color: '#E5E7EB' } : { color: '#1E3A8A' };
   const infoLabelStyle = isDarkMode ? { ...styles.infoLabel, ...styles.infoLabelDark } : styles.infoLabel;
   const infoTextStyle = isDarkMode ? { ...styles.infoText, ...styles.infoTextDark } : styles.infoText;
   const avatarTextStyle = isDarkMode ? { ...styles.avatarText, ...styles.avatarTextDark } : styles.avatarText;
@@ -311,12 +351,60 @@ export default function T5Perfil() {
         </TouchableOpacity>
 
         <View style={cardStyle}>
+          <LinearGradient
+            colors={isDarkMode ? ['#0f172a', '#1d4ed8', '#059669'] : ['#eff6ff', '#dbeafe', '#d1fae5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.profileGreetingBanner}
+          >
+            <Text style={[styles.profileGreetingText, isDarkMode && styles.profileGreetingTextDark]}>
+              Olá, {greetingName}!
+            </Text>
+          </LinearGradient>
+
+          {minhasDenunciasResumo.total > 0 && (
+            <LinearGradient
+              colors={isDarkMode ? ['#1f2937', '#065f46', '#0f766e'] : ['#ecfeff', '#dcfce7', '#e0f2fe']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.notificationBanner}
+            >
+              <View style={styles.notificationHeader}>
+                <MessageSquare width={18} height={18} color={isDarkMode ? '#86efac' : '#0f766e'} />
+                <Text style={[styles.notificationTitle, isDarkMode && styles.notificationTitleDark]}>
+                  Retorno das suas denúncias
+                </Text>
+              </View>
+
+              <Text style={[styles.notificationText, isDarkMode && styles.notificationTextDark]}>
+                {minhasDenunciasResumo.abertas > 0 && `${minhasDenunciasResumo.abertas} denúncia(s) em análise. `}
+                {minhasDenunciasResumo.procedentes > 0 && `${minhasDenunciasResumo.procedentes} procedente(s) por violação dos termos. `}
+                {minhasDenunciasResumo.naoProcedentes > 0 && `${minhasDenunciasResumo.naoProcedentes} não procedente(s).`}
+              </Text>
+
+              {minhasDenuncias.slice(0, 3).map((denuncia) => (
+                <View key={denuncia.id} style={[styles.denunciaFeedbackCard, isDarkMode && styles.denunciaFeedbackCardDark]}>
+                  <Text style={[styles.denunciaFeedbackStatus, isDarkMode && styles.denunciaFeedbackStatusDark]}>
+                    {denuncia.status === 'resolvida'
+                      ? denuncia.decisao === 'aceita'
+                        ? 'Procedente: viola termos de uso'
+                        : 'Não procedente: não viola termos de uso'
+                      : 'Em análise pela moderação'}
+                  </Text>
+                  {!!denuncia.justificativa && (
+                    <Text style={[styles.denunciaFeedbackJustificativa, isDarkMode && styles.denunciaFeedbackJustificativaDark]}>
+                      Justificativa: {denuncia.justificativa}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </LinearGradient>
+          )}
+
           <View style={styles.avatarContainer}>
             <View style={styles.avatarCircle}>
               <Text style={avatarTextStyle}>{initials}</Text>
             </View>
-
-            <Text style={titleStyle}>Olá, {greetingName}!</Text>
           </View>
 
           <View style={styles.infoList}>
@@ -368,19 +456,47 @@ export default function T5Perfil() {
           </View>
 
           <View style={styles.actions}>
-            <Button onPress={() => setShowUpdateProfileDialog(true)} variant="cancel" style={styles.actionButton}>
-              <View style={styles.buttonContent}>
-                <Edit width={20} height={20} color={isDarkMode ? '#374151' : '#374151'} />
-                <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Atualizar</Text>
-              </View>
-            </Button>
+            <TouchableOpacity onPress={() => setShowUpdateProfileDialog(true)} activeOpacity={0.85}>
+              <LinearGradient
+                colors={isDarkMode ? ['#1d4ed8', '#0ea5e9'] : ['#2563EB', '#16A34A']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.gradientActionButton}
+              >
+                <View style={styles.buttonContent}>
+                  <Edit width={20} height={20} color="#fff" />
+                  <Text style={styles.gradientButtonText}>Atualizar</Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
 
-            <Button onPress={() => setShowPasswordDialog(true)} variant="cancel" style={styles.actionButton}>
-              <View style={styles.buttonContent}>
-                <KeyRound width={20} height={20} color={isDarkMode ? '#374151' : '#374151'} />
-                <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Redefinir Senha</Text>
-              </View>
-            </Button>
+            <TouchableOpacity onPress={() => setShowPasswordDialog(true)} activeOpacity={0.85}>
+              <LinearGradient
+                colors={isDarkMode ? ['#0f766e', '#0ea5e9'] : ['#0EA5E9', '#14B8A6']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.gradientActionButton}
+              >
+                <View style={styles.buttonContent}>
+                  <KeyRound width={20} height={20} color="#fff" />
+                  <Text style={styles.gradientButtonText}>Redefinir Senha</Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={handleLogout} activeOpacity={0.85}>
+              <LinearGradient
+                colors={isDarkMode ? ['#334155', '#1d4ed8'] : ['#64748B', '#2563EB']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.gradientActionButton}
+              >
+                <View style={styles.buttonContent}>
+                  <LogOut width={20} height={20} color="#fff" />
+                  <Text style={styles.gradientButtonText}>Sair</Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
 
             <Button
               onPress={() => {
@@ -393,13 +509,6 @@ export default function T5Perfil() {
               <View style={styles.buttonContent}>
                 <Trash2 width={20} height={20} color="#fff" />
                 <Text style={styles.buttonText}>Excluir Conta</Text>
-              </View>
-            </Button>
-
-            <Button onPress={handleLogout} variant="cancel" style={styles.actionButton}>
-              <View style={styles.buttonContent}>
-                <LogOut width={20} height={20} color={isDarkMode ? '#374151' : '#374151'} />
-                <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Sair</Text>
               </View>
             </Button>
           </View>
@@ -676,6 +785,97 @@ const styles = StyleSheet.create({
     backgroundColor: '#1F2937',
     borderColor: '#0ea5e9',
   },
+  profileGreetingBanner: {
+    marginBottom: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  profileGreetingText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0f172a',
+    textAlign: 'center',
+  },
+  profileGreetingTextDark: {
+    color: '#e0f2fe',
+  },
+  notificationBanner: {
+    marginBottom: 16,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  notificationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  notificationTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  notificationTitleDark: {
+    color: '#e0f2fe',
+  },
+  notificationText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#0f172a',
+  },
+  notificationTextDark: {
+    color: '#dbeafe',
+  },
+  notificationBadgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  notificationBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  notificationBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  denunciaFeedbackCard: {
+    marginTop: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#99f6e4',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  denunciaFeedbackCardDark: {
+    borderColor: '#0f766e',
+    backgroundColor: 'rgba(15,23,42,0.55)',
+  },
+  denunciaFeedbackStatus: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#115e59',
+    marginBottom: 4,
+  },
+  denunciaFeedbackStatusDark: {
+    color: '#99f6e4',
+  },
+  denunciaFeedbackJustificativa: {
+    fontSize: 12,
+    color: '#134e4a',
+    lineHeight: 16,
+  },
+  denunciaFeedbackJustificativaDark: {
+    color: '#ccfbf1',
+  },
   avatarContainer: {
     alignItems: 'center',
     marginBottom: 16,
@@ -696,14 +896,6 @@ const styles = StyleSheet.create({
   },
   avatarTextDark: {
     color: '#ffffff',
-  },
-  title: {
-    fontSize: 18,
-    color: '#1e3a8a',
-    fontWeight: '700',
-  },
-  titleDark: {
-    color: '#60A5FA',
   },
   infoList: {
     marginTop: 12,
@@ -734,12 +926,26 @@ const styles = StyleSheet.create({
   },
   actions: {
     marginTop: 8,
+    gap: 8,
+  },
+  gradientActionButton: {
+    minHeight: 48,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gradientButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+    marginLeft: 8,
+    textAlign: 'center',
   },
   actionButton: {
     minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
   },
   buttonContent: {
     flexDirection: 'row',

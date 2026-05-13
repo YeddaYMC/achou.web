@@ -1,5 +1,10 @@
 import React from 'react';
 import { useAppContext } from '../context/AppContext';
+import AdminAcessos from '../screens/admin/AdminAcessos';
+import AdminAprovacao from '../screens/admin/AdminAprovacao';
+import AdminDenuncias from '../screens/admin/AdminDenuncias';
+import AdminPainel from '../screens/admin/AdminPainel';
+import AdminUsuarios from '../screens/admin/AdminUsuarios';
 import T1TelaInicial from '../screens/t1-tela-inicial';
 import T10Contato from '../screens/t10-contato';
 import T11Termo from '../screens/t11-termos-condicoes';
@@ -53,6 +58,16 @@ export default function RootNavigator() {
       return isLoggedIn ? <T12Planos /> : redirectToLogin('T12');
     case 'planos':
       return isLoggedIn ? <T12Planos /> : redirectToLogin('T12');
+    case 'AdminAcessos':
+      return isLoggedIn ? <AdminAcessos /> : redirectToLogin('AdminAcessos');
+    case 'AdminPainel':
+      return isLoggedIn ? <AdminPainel /> : redirectToLogin('AdminPainel');
+    case 'AdminAprovacao':
+      return isLoggedIn ? <AdminAprovacao /> : redirectToLogin('AdminAprovacao');
+    case 'AdminDenuncias':
+      return isLoggedIn ? <AdminDenuncias /> : redirectToLogin('AdminDenuncias');
+    case 'AdminUsuarios':
+      return isLoggedIn ? <AdminUsuarios /> : redirectToLogin('AdminUsuarios');
     default:
       return <T1TelaInicial />;
   }

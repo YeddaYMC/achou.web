@@ -1,7 +1,9 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { getAuth } from 'firebase/auth';
 import { ChevronLeft, User } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+    Alert,
     Dimensions,
     Modal,
     ScrollView,
@@ -14,7 +16,7 @@ import LayoutRN from '../components/Layout-RN';
 import { Button } from '../components/ui/button';
 import { useAppContext } from '../context/AppContext';
 import app from '../firebaseConfig';
-import { deleteAnuncio } from '../src/services/anuncioService';
+import { deleteAnuncio, getAnunciosDoUsuarioComModeracao } from '../src/services/anuncioService';
 import { deleteCloudinaryImagesByUrls } from '../src/services/cloudinaryService';
 
 const { width } = Dimensions.get('window');
@@ -35,20 +37,73 @@ export default function T7PainelGestao() {
   const [businessToDelete, setBusinessToDelete] = useState<any>(null);
   const [limitModalVisible, setLimitModalVisible] = useState(false);
   const [isDeletingBusiness, setIsDeletingBusiness] = useState(false);
+  const [myBusinesses, setMyBusinesses] = useState<any[]>([]);
 
   const currentUid = getAuth(app).currentUser?.uid;
   const canCreateUnlimitedBusinesses = Boolean(
     userProfile?.email && userProfile.email.trim().toLowerCase() === TEST_UNLIMITED_BUSINESS_EMAIL
   );
 
-  // Filtra apenas os anúncios do usuário (por email ou uid)
-  const myBusinesses = businesses.filter((b: any) => {
-    const byEmail = Boolean(userProfile?.email) && b.owner === userProfile?.email;
-    const byUid = Boolean(currentUid) && b.ownerId === currentUid;
-    return byEmail || byUid;
-  }).sort((a: any, b: any) =>
-    String(a?.name || '').localeCompare(String(b?.name || ''), 'pt-BR', { sensitivity: 'base' })
-  );
+  useEffect(() => {
+    let active = true;
+
+    const carregarAnunciosComModeracao = async () => {
+      if (!currentUid) {
+        if (active) setMyBusinesses([]);
+        return;
+      }
+
+      const anuncios = await getAnunciosDoUsuarioComModeracao(currentUid, userProfile?.email || undefined);
+
+      if (!active) return;
+
+      const mapped = anuncios
+        .map((anuncio: any) => ({
+          id: anuncio.id,
+          firestoreId: anuncio.id,
+          name: anuncio.name,
+          category: anuncio.category,
+          categories: [anuncio.category].filter(Boolean),
+          location: anuncio.location,
+          street: anuncio.street,
+          neighborhood: anuncio.neighborhood,
+          city: anuncio.city,
+          state: anuncio.state,
+          number: anuncio.number,
+          phone: anuncio.phone,
+          whatsapp: anuncio.whatsapp,
+          description: anuncio.description,
+          image: anuncio.fotos?.[0] || null,
+          fotos: anuncio.fotos || [],
+          status: anuncio.status,
+          motivoReprovacao: anuncio.motivoReprovacao || null,
+          owner: anuncio.userEmail || null,
+          ownerId: anuncio.userId || null,
+        }))
+        .sort((a: any, b: any) => String(a?.name || '').localeCompare(String(b?.name || ''), 'pt-BR', { sensitivity: 'base' }));
+
+      setMyBusinesses(mapped);
+    };
+
+    void carregarAnunciosComModeracao();
+
+    return () => {
+      active = false;
+    };
+  }, [currentUid, userProfile?.email]);
+
+  const notificacoes = useMemo(() => {
+    const pendentes = myBusinesses.filter((business: any) => business?.status === 'pendente').length;
+    const aprovados = myBusinesses.filter((business: any) => business?.status === 'aprovado').length;
+    const reprovados = myBusinesses.filter((business: any) => business?.status === 'reprovado').length;
+
+    return {
+      total: myBusinesses.length,
+      pendentes,
+      aprovados,
+      reprovados,
+    };
+  }, [myBusinesses]);
 
   const formatAddress = (b: any) => {
     const parts = [b?.street, b?.number, b?.neighborhood, b?.city, b?.state, b?.cep].filter(Boolean);
@@ -82,6 +137,7 @@ export default function T7PainelGestao() {
 
       const cloudinaryResult = await deleteCloudinaryImagesByUrls(imageUrls);
 
+      setMyBusinesses((prev) => prev.filter((b) => b.id !== businessToDelete.id));
       setBusinesses(businesses.filter(b => b.id !== businessToDelete.id));
       setDeleteModalVisible(false);
       setBusinessToDelete(null);
@@ -116,11 +172,6 @@ export default function T7PainelGestao() {
   const cardStyle = {
     ...styles.card,
     ...(isDarkMode && styles.cardDark),
-  };
-
-  const titleStyle = {
-    ...styles.title,
-    ...(isDarkMode && styles.titleDark),
   };
 
   const sectionTitleStyle = {
@@ -175,7 +226,16 @@ export default function T7PainelGestao() {
           </TouchableOpacity>
 
           <View style={containerStyle}>
-            <Text style={titleStyle}>Gestão de Anúncios</Text>
+            <LinearGradient
+              colors={isDarkMode ? ['#0f172a', '#1d4ed8', '#059669'] : ['#eff6ff', '#dbeafe', '#d1fae5']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.managementHeaderBanner}
+            >
+              <Text style={[styles.managementHeaderTitle, isDarkMode && styles.managementHeaderTitleDark]}>
+                Gestão de Anúncios
+              </Text>
+            </LinearGradient>
 
             <View style={styles.sections}>
               <View style={cardStyle}>
@@ -212,6 +272,20 @@ export default function T7PainelGestao() {
                             {(mb.category || mb.categories?.[0] || 'Sem categoria')} • {formatAddress(mb)}
                           </Text>
                         </View>
+                        <View style={styles.itemStatusRow}>
+                          <View style={[styles.itemStatusDot, styles[`itemStatusDot_${mb.status || 'pendente'}`]]} />
+                          <Text style={[styles.itemStatusText, isDarkMode && styles.itemStatusTextDark]}>
+                            {mb.status === 'pendente' && 'Em análise'}
+                            {mb.status === 'aprovado' && 'Aprovado'}
+                            {mb.status === 'reprovado' && 'Retorno da equipe'}
+                            {mb.status === 'arquivado' && 'Arquivado'}
+                          </Text>
+                        </View>
+                        {(mb.status === 'reprovado' || mb.status === 'arquivado') && !!mb.motivoReprovacao && (
+                          <Text style={[styles.itemModerationReason, isDarkMode && styles.itemModerationReasonDark]}>
+                            Justificativa: {mb.motivoReprovacao}
+                          </Text>
+                        )}
                         <View style={styles.businessActions}>
                           <TouchableOpacity
                             onPress={() => {
@@ -238,6 +312,21 @@ export default function T7PainelGestao() {
                               Excluir
                             </Text>
                           </TouchableOpacity>
+                        </View>
+                        <View style={styles.statusRow}>
+                          <Text style={[styles.statusText, isDarkMode && styles.statusTextDark]}>
+                            {(() => {
+                              // Se existir um campo de statusDenuncia use-o para mensagens específicas
+                              const statusDenuncia = (mb as any).statusDenuncia;
+                              if (statusDenuncia === 'anuncio_removido') return 'Removido por denúncia';
+
+                              if (mb.status === 'pendente') return 'Pendente — aguardando aprovação';
+                              if (mb.status === 'aprovado') return 'Aprovado';
+                              if (mb.status === 'reprovado') return `Reprovado${mb.motivoReprovacao ? ' — ' + mb.motivoReprovacao : ''}`;
+                              if (mb.status === 'arquivado') return `Arquivado${mb.motivoReprovacao ? ' — ' + mb.motivoReprovacao : ''}`;
+                              return mb.status ? String(mb.status) : 'Status desconhecido';
+                            })()}
+                          </Text>
                         </View>
                       </View>
                     ))}
@@ -378,14 +467,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827',
     borderColor: '#1d4ed8',
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#2563eb',
-    marginBottom: 32,
+  managementHeaderBanner: {
+    marginBottom: 16,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
-  titleDark: {
-    color: '#60a5fa',
+  managementHeaderTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  managementHeaderTitleDark: {
+    color: '#e0f2fe',
   },
   sections: {
     gap: 16,
@@ -462,6 +557,53 @@ const styles = StyleSheet.create({
   },
   businessInfoDark: {
     color: '#9ca3af',
+  },
+  itemStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  itemStatusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+  },
+  itemStatusDot_pendente: {
+    backgroundColor: '#f59e0b',
+  },
+  itemStatusDot_aprovado: {
+    backgroundColor: '#16a34a',
+  },
+  itemStatusDot_reprovado: {
+    backgroundColor: '#dc2626',
+  },
+  itemStatusDot_arquivado: {
+    backgroundColor: '#6b7280',
+  },
+  itemStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1e3a8a',
+  },
+  itemStatusTextDark: {
+    color: '#bfdbfe',
+  },
+  itemModerationReason: {
+    fontSize: 12,
+    color: '#7c2d12',
+    backgroundColor: '#fff7ed',
+    borderColor: '#fed7aa',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  itemModerationReasonDark: {
+    color: '#fed7aa',
+    backgroundColor: '#3b1d0f',
+    borderColor: '#7c2d12',
   },
   businessActions: {
     flexDirection: 'row',

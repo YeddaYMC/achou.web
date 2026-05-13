@@ -6,6 +6,7 @@ import {
     endAt,
     getDocs,
     getFirestore,
+    limit,
     orderBy,
     query,
     startAt,
@@ -79,6 +80,7 @@ function mapAnuncioFromFirestore(docData: any): Omit<Anuncio, 'id'> {
       pinterest: true,
     },
     status: docData?.status,
+    motivoReprovacao: docData?.motivoReprovacao ?? null,
     reportCount: docData?.totalDenuncias ?? docData?.reportCount ?? 0,
     anuncianteLevel: docData?.nivelAnunciante ?? docData?.anuncianteLevel ?? 1,
     createdAt: docData?.criadoEm ?? docData?.createdAt,
@@ -126,6 +128,7 @@ function mapAnuncioToFirestore(anuncio: Partial<Anuncio>): Record<string, any> {
   if (anuncio.contactVisibility !== undefined) mapped.visibilidadeContato = anuncio.contactVisibility;
 
   if (anuncio.status !== undefined) mapped.status = anuncio.status;
+  if (anuncio.motivoReprovacao !== undefined) mapped.motivoReprovacao = anuncio.motivoReprovacao;
   if (anuncio.reportCount !== undefined) mapped.totalDenuncias = anuncio.reportCount;
   if (anuncio.anuncianteLevel !== undefined) mapped.nivelAnunciante = anuncio.anuncianteLevel;
 
@@ -214,7 +217,8 @@ export interface Anuncio {
   };
   
   // Metadados
-  status: 'active' | 'inactive' | 'reported' | 'deleted';
+  status: 'pendente' | 'aprovado' | 'reprovado' | 'arquivado';
+  motivoReprovacao?: string | null;
   reportCount: number;
   anuncianteLevel: 1 | 2 | 3 | 4;
   createdAt: Timestamp;
@@ -286,6 +290,162 @@ export const deleteAnuncio = async (anuncioId: string): Promise<void> => {
 };
 
 /**
+ * Aprova um anúncio (muda status para 'aprovado')
+ * @param anuncioId - ID do anúncio
+ * @param moderadorId - ID do moderador
+ */
+export const aprovarAnuncio = async (anuncioId: string, moderadorId: string): Promise<void> => {
+  try {
+    const anuncioRef = doc(firestore, 'anuncios', anuncioId);
+    await updateDoc(anuncioRef, {
+      status: 'aprovado',
+      moderadoPor: moderadorId,
+      moderadoEm: Timestamp.now(),
+      motivoReprovacao: null, // Limpar motivo se houver
+    });
+    
+    console.log('Anúncio aprovado:', anuncioId);
+  } catch (error) {
+    console.error('Erro ao aprovar anúncio:', error);
+    throw error;
+  }
+};
+
+/**
+ * Reprova um anúncio (muda status para 'reprovado')
+ * @param anuncioId - ID do anúncio
+ * @param moderadorId - ID do moderador
+ * @param motivo - Motivo da reprovação
+ */
+export const reprovarAnuncio = async (anuncioId: string, moderadorId: string, motivo: string): Promise<void> => {
+  try {
+    const anuncioRef = doc(firestore, 'anuncios', anuncioId);
+    await updateDoc(anuncioRef, {
+      status: 'reprovado',
+      moderadoPor: moderadorId,
+      moderadoEm: Timestamp.now(),
+      motivoReprovacao: motivo,
+    });
+    
+    console.log('Anúncio reprovado:', anuncioId);
+  } catch (error) {
+    console.error('Erro ao reprovar anúncio:', error);
+    throw error;
+  }
+};
+
+/**
+ * Arquiva um anúncio (muda status para 'arquivado')
+ * @param anuncioId - ID do anúncio
+ * @param moderadorId - ID do moderador
+ * @param motivo - Motivo do arquivamento
+ */
+export const arquivarAnuncio = async (anuncioId: string, moderadorId: string, motivo: string): Promise<void> => {
+  try {
+    const anuncioRef = doc(firestore, 'anuncios', anuncioId);
+    await updateDoc(anuncioRef, {
+      status: 'arquivado',
+      moderadoPor: moderadorId,
+      moderadoEm: Timestamp.now(),
+      motivoReprovacao: motivo,
+    });
+    
+    console.log('Anúncio arquivado:', anuncioId);
+  } catch (error) {
+    console.error('Erro ao arquivar anúncio:', error);
+    throw error;
+  }
+};
+
+/**
+ * Busca anúncios pendentes para moderação
+ */
+export const getAnunciosPendentes = async (): Promise<Anuncio[]> => {
+  try {
+    const baseQuery = query(
+      collection(firestore, 'anuncios'),
+      where('status', '==', 'pendente'),
+      limit(50)
+    );
+
+    const querySnapshot = await getDocs(baseQuery);
+
+    const anuncios = querySnapshot.docs
+      .map((docSnap) => ({
+        id: docSnap.id,
+        ...mapAnuncioFromFirestore(docSnap.data()),
+      }))
+      .sort((a, b) => {
+        const aMillis = typeof (a.createdAt as any)?.toMillis === 'function'
+          ? (a.createdAt as any).toMillis()
+          : 0;
+        const bMillis = typeof (b.createdAt as any)?.toMillis === 'function'
+          ? (b.createdAt as any).toMillis()
+          : 0;
+        return bMillis - aMillis;
+      });
+
+    return anuncios;
+  } catch (error) {
+    if (isMissingIndexError(error)) {
+      console.warn('Indice composto ausente para pendentes; usando fallback sem ordenacao no servidor.');
+    }
+    console.error('Erro ao buscar anúncios pendentes:', error);
+    return [];
+  }
+};
+
+/**
+ * Conta anúncios pendentes
+ */
+export const getContagemAnunciosPendentes = async (): Promise<number> => {
+  try {
+    const anuncios = await getAnunciosPendentes();
+    return anuncios.length;
+  } catch (error) {
+    console.error('Erro ao contar anúncios pendentes:', error);
+    return 0;
+  }
+};
+
+export interface ResumoModeracaoAnuncios {
+  total: number;
+  pendente: number;
+  aprovado: number;
+  reprovado: number;
+  arquivado: number;
+}
+
+export const getResumoModeracaoAnuncios = async (): Promise<ResumoModeracaoAnuncios> => {
+  try {
+    const snapshot = await getDocs(collection(firestore, 'anuncios'));
+
+    const resumo: ResumoModeracaoAnuncios = {
+      total: 0,
+      pendente: 0,
+      aprovado: 0,
+      reprovado: 0,
+      arquivado: 0,
+    };
+
+    snapshot.forEach((docSnap) => {
+      resumo.total += 1;
+      const status = String(docSnap.data()?.status || 'pendente');
+
+      if (status === 'aprovado') resumo.aprovado += 1;
+      else if (status === 'reprovado') resumo.reprovado += 1;
+      else if (status === 'arquivado') resumo.arquivado += 1;
+      else resumo.pendente += 1;
+    });
+
+    return resumo;
+  } catch (error) {
+    console.error('Erro ao resumir moderação de anúncios:', error);
+    return { total: 0, pendente: 0, aprovado: 0, reprovado: 0, arquivado: 0 };
+  }
+};
+
+/**
  * Busca todos os anúncios de um usuário
  * @param userId - UID do usuário
  * @returns Array de anúncios
@@ -316,14 +476,54 @@ export const getAnunciosByUser = async (userId: string): Promise<Anuncio[]> => {
 };
 
 /**
+ * Busca anúncios do usuário com todos os status de moderação.
+ */
+export const getAnunciosDoUsuarioComModeracao = async (userId: string, userEmail?: string): Promise<Anuncio[]> => {
+  try {
+    const snapshots = await Promise.all([
+      getDocs(query(collection(firestore, 'anuncios'), where('usuarioId', '==', userId))),
+      getDocs(query(collection(firestore, 'anuncios'), where('userId', '==', userId))),
+      userEmail
+        ? getDocs(query(collection(firestore, 'anuncios'), where('emailUsuario', '==', userEmail)))
+        : Promise.resolve(null as any),
+      userEmail
+        ? getDocs(query(collection(firestore, 'anuncios'), where('userEmail', '==', userEmail)))
+        : Promise.resolve(null as any),
+    ]);
+
+    const unique = new Map<string, Anuncio>();
+
+    snapshots.forEach((snap: any) => {
+      if (!snap) return;
+      snap.forEach((docSnap: any) => {
+        unique.set(docSnap.id, {
+          id: docSnap.id,
+          ...mapAnuncioFromFirestore(docSnap.data()),
+        });
+      });
+    });
+
+    return Array.from(unique.values()).sort((a, b) => {
+      const aMs = (a.createdAt as any)?.toMillis?.() ?? 0;
+      const bMs = (b.createdAt as any)?.toMillis?.() ?? 0;
+      return bMs - aMs;
+    });
+  } catch (error) {
+    console.error('Erro ao buscar anúncios do usuário com moderação:', error);
+    return [];
+  }
+};
+
+/**
  * Busca todos os anúncios ativos (público)
  * @returns Array de anúncios
  */
 export const getAllActiveAnuncios = async (): Promise<Anuncio[]> => {
   try {
+    // Aceita tanto 'aprovado' (PT-BR) quanto 'active' (código legado/EN)
     const activeQuery = query(
       collection(firestore, 'anuncios'),
-      where('status', '==', 'active')
+      where('status', 'in', ['aprovado', 'active'])
     );
 
     const querySnapshot = await getDocs(activeQuery);
@@ -337,15 +537,19 @@ export const getAllActiveAnuncios = async (): Promise<Anuncio[]> => {
     });
 
     // Compatibilidade com documentos antigos sem campo status.
+    // Ao usar fallback, incluir apenas anúncios aprovados ('aprovado' ou 'active')
+    // para evitar expor anúncios pendentes publicamente.
     if (anuncios.length === 0) {
       const allDocs = await getDocs(collection(firestore, 'anuncios'));
       allDocs.forEach((doc) => {
         const mapped = mapAnuncioFromFirestore(doc.data());
-        if (mapped.status === 'deleted') return;
-        anuncios.push({
-          id: doc.id,
-          ...mapped,
-        });
+        const status = String(mapped.status || '').toLowerCase();
+        if (status === 'aprovado' || status === 'active') {
+          anuncios.push({
+            id: doc.id,
+            ...mapped,
+          });
+        }
       });
     }
 
@@ -374,7 +578,7 @@ export const getNearbyActiveAnuncios = async ({ center, radiusKm }: NearbySearch
         bounds.map(([start, end]) => {
           const constraints = [orderBy('geohash'), startAt(start), endAt(end)] as any[];
           if (includeStatusFilter) {
-            constraints.unshift(where('status', '==', 'active'));
+            constraints.unshift(where('status', 'in', ['aprovado', 'active']));
           }
 
           const q = query(collection(firestore, 'anuncios'), ...constraints);
@@ -413,7 +617,7 @@ export const getNearbyActiveAnuncios = async ({ center, radiusKm }: NearbySearch
 
     // Refino circular pelo raio real para remover "quinas" do bounding box.
     const inRadius = Array.from(uniqueById.values()).filter((anuncio) => {
-      if (anuncio.status !== 'active') return false;
+      if (anuncio.status !== 'active' && anuncio.status !== 'aprovado') return false;
       if (typeof anuncio.lat !== 'number' || typeof anuncio.lon !== 'number') return false;
       const distanceM = haversineM(center.lat, center.lon, anuncio.lat, anuncio.lon);
       return distanceM <= effectiveRadiusKm * 1000;
@@ -448,7 +652,7 @@ export const getAnunciosByCategory = async (category: string): Promise<Anuncio[]
     const q = query(
       collection(firestore, 'anuncios'),
       where('categoria', '==', category),
-      where('status', '==', 'active')
+      where('status', 'in', ['aprovado', 'active'])
     );
     
     const querySnapshot = await getDocs(q);
@@ -479,7 +683,7 @@ export const searchAnuncios = async (keyword: string): Promise<Anuncio[]> => {
     // Para busca mais robusta, usar Algolia ou similar no futuro
     const q = query(
       collection(firestore, 'anuncios'),
-      where('status', '==', 'active')
+      where('status', 'in', ['aprovado', 'active'])
     );
     
     const querySnapshot = await getDocs(q);
@@ -489,8 +693,8 @@ export const searchAnuncios = async (keyword: string): Promise<Anuncio[]> => {
     querySnapshot.forEach((doc) => {
       const data = mapAnuncioFromFirestore(doc.data());
       if (
-        data.name.toLowerCase().includes(keywordLower) ||
-        data.description.toLowerCase().includes(keywordLower)
+        (data.name && data.name.toLowerCase().includes(keywordLower)) ||
+        (data.description && data.description.toLowerCase().includes(keywordLower))
       ) {
         anuncios.push({
           id: doc.id,

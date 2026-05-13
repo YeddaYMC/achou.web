@@ -1,21 +1,61 @@
+import { getAuth } from 'firebase/auth';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
 import { useAppContext } from '../context/AppContext';
+import { criarDenuncia } from '../src/services/denunciaService';
 
 export default function T10Contato() {
-  const { isDarkMode, navigateTo, reportBusiness, setReportBusiness } = useAppContext();
+  const { isDarkMode, navigateTo, reportBusiness, setReportBusiness, userProfile, businesses } = useAppContext();
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!message.trim()) {
       Alert.alert('Atenção', 'Por favor, escreva sua mensagem');
       return;
     }
-    
-    Alert.alert('Sucesso', 'Sua mensagem foi enviada com sucesso!');
-    setMessage('');
-    setReportBusiness(null); // Limpar denúncia após envio
+
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+
+    if (!currentUser?.uid) {
+      Alert.alert('Erro', 'Usuário não identificado. Faça login novamente.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      if (reportBusiness) {
+        // Se é uma denúncia, salvar no Firestore
+        const resolvedAnuncioId = reportBusiness.firestoreId
+          ? reportBusiness.firestoreId
+          : businesses.find((b: any) => b.id === reportBusiness.id || b.name === reportBusiness.name)?.firestoreId
+            ?? String(reportBusiness.id);
+
+        await criarDenuncia({
+          anuncioId: resolvedAnuncioId,
+          denuncianteId: currentUser.uid,
+          motivo: 'Denúncia de anúncio',
+          descricao: message.trim(),
+        });
+
+        Alert.alert('Sucesso', 'Sua denúncia foi enviada com sucesso! Nossa equipe irá analisar.');
+      } else {
+        // Se é apenas contato, mostrar mensagem genérica
+        Alert.alert('Sucesso', 'Sua mensagem foi enviada com sucesso!');
+      }
+
+      setMessage('');
+      setReportBusiness(null);
+      navigateTo('T1'); // Voltar para tela inicial
+    } catch (error) {
+      console.error('Erro ao enviar:', error);
+      Alert.alert('Erro', error instanceof Error ? error.message : 'Ocorreu um erro inesperado');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Limpa a denúncia ao sair da tela (abandono sem envio)
@@ -58,10 +98,13 @@ export default function T10Contato() {
         </View>
 
         <TouchableOpacity 
-          style={styles.submitButton}
+          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
           onPress={handleSubmit}
+          disabled={loading}
         >
-          <Text style={styles.submitButtonText}>Enviar Mensagem</Text>
+          <Text style={styles.submitButtonText}>
+            {loading ? 'Enviando...' : 'Enviar Mensagem'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -152,6 +195,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#9CA3AF',
   },
   submitButtonText: {
     color: '#FFFFFF',

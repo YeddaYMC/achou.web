@@ -63,7 +63,7 @@ src/services/authService.ts
 ```
 context/AppContext.tsx
   ├─ Estado global
-  ├─ Sincronização Firebase Auth
+  ├─ Sincronização Firebase
   ├─ Navegação
   └─ Tema
 ```
@@ -189,8 +189,6 @@ feat: integrar Firebase Auth + documentação padrão indústria + checkpoint pr
 - 4.604 linhas adicionadas (+)
 - 96 linhas removidas (-)
 
-**Branch**: main
-
 **Arquivos Novos**:
 - API.md
 - ARCHITECTURE.md
@@ -210,4 +208,8 @@ feat: integrar Firebase Auth + documentação padrão indústria + checkpoint pr
 git checkout 36a7219
 ```
 
-**Data do Commit**: 12/01/2026
+---
+
+## 🧪 Notas Finais
+
+Checkpoint salvo antes de implementação de moderação. Use este arquivo como referência.

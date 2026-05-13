@@ -355,23 +355,6 @@ Fixes #123
 Relates to #456
 ```
 
-### 2. Checklist de PR
-
-- [ ] Código segue padrões do projeto
-- [ ] TypeScript sem erros (`npx tsc --noEmit`)
-- [ ] Sem console.logs de debug
-- [ ] Tests passam (se houver)
-- [ ] Documentação atualizada
-- [ ] Branch sincronizado com main
-- [ ] Commits bem estruturados
-
-### 3. Responder Reviews
-
-- Seja aberto a feedback
-- Explique decisões técnicas
-- Faça mudanças incrementalmente
-- Marque conversas como resolvidas após corrigir
-
 ---
 
 ## ✅ Checklists
@@ -461,7 +444,6 @@ Qualquer outra informação útil?
 - [Semantic Versioning](https://semver.org/)
 - [React Best Practices](https://react.dev/learn)
 - [React Native Docs](https://reactnative.dev/docs/getting-started)
-- [Firebase Docs](https://firebase.google.com/docs)
 
 ---
 

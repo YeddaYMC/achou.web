@@ -53,34 +53,6 @@ npm run ios      # iOS simulator (macOS)
 | UI Components | React Native + Custom |
 | Styling | theme.ts (colors, spacing) |
 
-### Padrões de Código
-
-**TypeScript**
-```typescript
-// Tipos explícitos sempre
-const handleLogin = async (email: string, password: string): Promise<void> => { }
-
-// Interfaces para dados estruturados
-interface UserProfile {
-  name: string;
-  email: string;
-  cpf: string;
-  anuncianteLevel: 1 | 2 | 3 | 4;
-  createdAt: string;
-}
-```
-
-**React Components**
-- Functional components com hooks
-- Props tipadas com interface
-- Componentes pequenos e reutilizáveis
-
-**Convenções**
-- Variáveis: `camelCase`
-- Tipos: `PascalCase`
-- Constantes: `UPPER_SNAKE_CASE`
-- Telas: `t{numero}-descricao.tsx`
-
 ## 📁 Estrutura de Diretórios
 
 ```

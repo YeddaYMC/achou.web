@@ -1,14 +1,17 @@
 import { useTheme } from '@/hooks/useTheme';
 import React from 'react';
-import { StyleSheet, TextInput, TextInputProps, TextStyle } from 'react-native';
+import { Platform, StyleProp, StyleSheet, TextInput, TextInputProps, TextStyle } from 'react-native';
 
 // Props do Input
 interface InputProps extends TextInputProps {
-  style?: TextStyle;
+  style?: StyleProp<TextStyle>;
+  // atributos opcionais úteis para web accessibility/autocomplete
+  name?: string;
+  id?: string;
 }
 
 // Input de texto reutilizável
-export function Input({ style, ...props }: InputProps) {
+export function Input({ style, name, id, ...props }: InputProps) {
   const { colors, borderRadius, spacing } = useTheme(); // Tema
 
   return (
@@ -26,6 +29,8 @@ export function Input({ style, ...props }: InputProps) {
       ]}
       placeholderTextColor={colors.mutedForeground} // Cor placeholder
       {...props}
+      // Em web, expor `name` e `id` para ajudar autocompletar e acessibilidade
+      {...(Platform.OS === 'web' ? ({ name, id } as any) : {})}
     />
   );
 }

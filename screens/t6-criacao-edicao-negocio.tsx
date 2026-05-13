@@ -2,7 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { getAuth } from 'firebase/auth';
 import { Check, ChevronLeft } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
 import { Button } from '../components/ui/button';
 import { Checkbox } from '../components/ui/checkbox';
@@ -330,6 +330,13 @@ export default function T6CriacaoEdicao() {
 
   // Selecionar imagem com escolha entre câmera e galeria
   const handleSelectImages = async () => {
+    // No web o Alert pode não apresentar opções de forma consistente;
+    // para evitar problemas, abrimos diretamente a galeria no web.
+    if (Platform.OS === 'web') {
+      void pickFromGallery();
+      return;
+    }
+
     Alert.alert('Selecionar foto', 'Escolha a origem da imagem:', [
       { text: 'Câmera', onPress: () => { void pickFromCamera(); } },
       { text: 'Galeria', onPress: () => { void pickFromGallery(); } },
@@ -483,7 +490,7 @@ export default function T6CriacaoEdicao() {
             entregaRapida: normalizedForm.entregaRapida,
             isImperdivel: normalizedForm.isImperdivel,
             contactVisibility,
-            status: 'active',
+            status: 'pendente',
             reportCount: 0,
             anuncianteLevel: userProfile?.anuncianteLevel || 1,
           } as any);
@@ -517,7 +524,7 @@ export default function T6CriacaoEdicao() {
             entregaRapida: normalizedForm.entregaRapida,
             isImperdivel: normalizedForm.isImperdivel,
             contactVisibility,
-            status: 'active',
+            status: 'pendente',
             reportCount: 0,
             anuncianteLevel: userProfile?.anuncianteLevel || 1,
           });
@@ -544,7 +551,7 @@ export default function T6CriacaoEdicao() {
         owner: userProfile?.email || (existingBusinessRecord as any)?.owner || null,
         ownerId: currentUser.uid,
         updatedAt: new Date().toISOString(),
-        status: 'active',
+        status: 'pendente',
         reportCount: 0,
       };
 
@@ -565,8 +572,12 @@ export default function T6CriacaoEdicao() {
           }
         }
       } else {
-        setBusinesses([...businesses, mergedBusiness]);
-        // Marca como publicado com sucesso apenas para criação (não para edição)
+        // Não adiciona anúncios pendentes à lista pública em memória.
+        // Apenas anúncios aprovados/active devem aparecer no feed público.
+        if ((mergedBusiness.status === 'aprovado') || (mergedBusiness.status === 'active')) {
+          setBusinesses([...businesses, mergedBusiness]);
+        }
+        // Marca como solicitacao enviada para moderação
         setHasPublishedSuccessfully(true);
       }
       
@@ -579,10 +590,10 @@ export default function T6CriacaoEdicao() {
       
       // Mostrar alerta de sucesso com navegação explícita (sem redirecionamento automático)
       Alert.alert(
-        isEditing ? '✅ Anúncio Atualizado com Sucesso!' : '✅ Anúncio Publicado com Sucesso!',
+        isEditing ? '✅ Anúncio Atualizado' : '✅ Solicitação enviada para moderação',
         isEditing
-          ? `Seu anúncio "${normalizedForm.name}" foi atualizado com sucesso.`
-          : `Seu anúncio "${normalizedForm.name}" foi criado e está ativo.`,
+          ? `Seu anúncio "${normalizedForm.name}" foi atualizado e a solicitação foi enviada para moderação.`
+          : `Seu anúncio "${normalizedForm.name}" foi criado e sua solicitação foi enviada para moderação. Ele ficará visível ao público apenas após aprovação.`,
         [
           {
             text: 'Ir para Painel',
@@ -1071,7 +1082,7 @@ export default function T6CriacaoEdicao() {
                 ) : hasPublishedSuccessfully && !isEditing ? (
                   <>
                     <Check size={20} color="#fff" />
-                    <Text style={[styles.submitButtonText, { marginLeft: 8 }]}>Já Publicado</Text>
+                    <Text style={[styles.submitButtonText, { marginLeft: 8 }]}>Solicitação enviada</Text>
                   </>
                 ) : (
                   <>

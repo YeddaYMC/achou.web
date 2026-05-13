@@ -144,14 +144,19 @@ export default function T9Favoritos() {
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <View style={{ flex: 1 }}>
                       {business.categories && business.categories.length > 0 && (
-                        <Text style={[styles.businessCategory, { color: secondaryTextColor }]}>
+                        <Text style={[styles.businessCategory, { color: secondaryTextColor }]}> 
                           {business.categories.join(', ')}
                         </Text>
                       )}
                     </View>
-                    <TouchableOpacity onPress={() => handleRemoveFavorite(business.id)} style={{ padding: 8 }}>
-                      <Heart size={24} color="#EF4444" fill="#EF4444" />
-                    </TouchableOpacity>
+                    <View style={{ alignItems: 'center', padding: 8 }}>
+                      <TouchableOpacity onPress={() => handleRemoveFavorite(business.id)} style={{ padding: 8 }}>
+                        <Heart size={24} color="#EF4444" fill="#EF4444" />
+                      </TouchableOpacity>
+                      <Text style={{ fontSize: 12, color: secondaryTextColor, marginTop: 4 }}>
+                        {business.totalFavoritos ?? 0}
+                      </Text>
+                    </View>
                   </View>
 
                   {/* Localização */}

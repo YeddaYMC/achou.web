@@ -13,8 +13,31 @@ service cloud.firestore {
 
     // Retorna true se o usuario logado tem a claim "admin" definida como true
     // (essa claim é definida via Admin SDK ou Cloud Function)
+    // Ou se o documento /usuarios/{uid} contém um campo `papel` com valor de administrador
     function administrador() {
-      return logado() && request.auth.token.admin == true;
+      return logado() && (
+        // claims custom via Admin SDK (aceita 'admin', 'moderador' ou 'super_admin')
+        request.auth.token.admin == true
+        || request.auth.token.moderador == true
+        || request.auth.token.super_admin == true
+        // OU papel salvo no documento de usuário: 'admin', 'moderador' ou 'super_admin'
+        || (
+          // Compatibilidade com campos legados: papel / permissao / PERMISSAO
+          (get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.papel in ['admin', 'moderador', 'super_admin'])
+          || (get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.permissao in ['admin', 'moderador', 'super_admin'])
+          || (get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.PERMISSAO in ['admin', 'moderador', 'super_admin'])
+        )
+      );
+    }
+
+    // Retorna true se o usuario logado é super_admin (claim ou campo no doc)
+    function superAdmin() {
+      return logado() && (
+        request.auth.token.super_admin == true
+        || get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.papel == 'super_admin'
+        || get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.permissao == 'super_admin'
+        || get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.PERMISSAO == 'super_admin'
+      );
     }
 
     // Modo de teste: sem bloqueio por plano, exigindo exatamente 1 foto por anuncio
@@ -30,14 +53,33 @@ service cloud.firestore {
     // O administrador NAO tem acesso de leitura a perfis.
     // ============================================================
     match /usuarios/{userId} {
-      // Somente o proprio usuario pode ler o proprio perfil
-      allow read: if logado() && request.auth.uid == userId;
+       // Permitir leitura: próprio usuário ou administrador (para listagem/gestão)
+       allow read: if logado() && (request.auth.uid == userId || administrador());
 
-      // Somente o proprio usuario pode criar ou editar o proprio perfil
-      // O nivel do plano deve ser um valor valido (1, 2, 3 ou 4)
-      allow create, update: if logado()
-                            && request.auth.uid == userId
-                            && request.resource.data.nivelAnunciante in [1, 2, 3, 4];
+       // Somente o proprio usuario pode criar o proprio perfil
+       // O nivel do plano deve ser um valor valido (1, 2, 3 ou 4)
+       allow create: if logado()
+                && request.auth.uid == userId
+                && request.resource.data.nivelAnunciante in [1, 2, 3, 4];
+
+       // Atualização: o próprio usuário pode atualizar seu perfil normalmente;
+       // administradores podem alterar somente os campos de papel/permissão;
+       // super_admin tem permissão total para atualizar qualquer campo do documento.
+       allow update: if (
+                   // Dono atualizando seu próprio perfil
+                   logado()
+                   && request.auth.uid == userId
+                   && request.resource.data.nivelAnunciante in [1, 2, 3, 4]
+                 ) || (
+                   // Admins (admin/moderador) podem alterar somente os campos de papel/permissão
+                   administrador()
+                   && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                    'PERMISSAO', 'permissao', 'papel'
+                   ])
+                 ) || (
+                   // Super admin pode alterar qualquer campo do documento de usuário
+                   superAdmin()
+                 );
 
       // Somente o proprio usuario pode excluir a propria conta
       allow delete: if logado() && request.auth.uid == userId;
@@ -45,39 +87,40 @@ service cloud.firestore {
 
     // ============================================================
     // ANÚNCIOS (colecao "anuncios")
-    // Qualquer pessoa pode ver. Somente o dono pode criar/editar.
-    // O conteudo deve respeitar os limites do plano contratado.
-    // O administrador pode aprovar/reprovar anuncio.
+    // Qualquer pessoa pode ver anúncios aprovados.
+    // Usuários logados podem criar anúncios com status 'pendente'.
+    // Moderadores/admin podem aprovar/reprovar anúncios.
     // ============================================================
     match /anuncios/{anuncioId} {
-      // Qualquer pessoa (ate sem login) pode ver os anuncios
+      // Qualquer pessoa pode ver os anúncios
       allow read: if true;
 
-      // Somente o dono do anuncio pode criar
-      // Em teste: exige exatamente 1 foto
+      // Usuários logados podem criar anúncios com status 'pendente'
       allow create: if logado()
                     && request.resource.data.usuarioId == request.auth.uid
+                    && request.resource.data.status == 'pendente'
                     && validarConteudoAnuncioTeste();
 
-      // O dono pode editar o proprio anuncio
-      // O campo totalFavoritos e atualizado automaticamente por Cloud Function
+      // Dono pode editar seu anúncio (exceto campos de moderação)
+      // Admin/moderador pode alterar status e campos de moderação
       allow update: if (
+                      // Dono editando seu anúncio
                       logado()
                       && request.resource.data.usuarioId == request.auth.uid
                       && validarConteudoAnuncioTeste()
-                      && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['totalFavoritos'])
+                      && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+                        'totalFavoritos', 'status', 'moderadoPor', 'moderadoEm', 'motivoReprovacao'
+                      ])
                     ) || (
-                      // Admin so pode moderar aprovacao do anuncio
+                      // Admin/moderador moderando anúncio
                       administrador()
                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-                        'statusModeracao',
-                        'motivoReprovacao',
-                        'moderadoEm',
-                        'moderadoPor'
+                        'status', 'moderadoPor', 'moderadoEm', 'motivoReprovacao', 'atualizadoEm'
                       ])
+                      && request.resource.data.status in ['aprovado', 'reprovado', 'arquivado']
                     );
 
-      // Dono ou administrador pode excluir anuncio
+      // Dono ou administrador pode excluir anúncio
       allow delete: if (logado() && resource.data.usuarioId == request.auth.uid)
             || administrador();
     }
@@ -120,49 +163,28 @@ service cloud.firestore {
 
     // ============================================================
     // DENÚNCIAS (colecao "denuncias")
-    // Qualquer usuario logado pode registrar uma denuncia.
-    // Somente o administrador pode ler, atualizar ou excluir denuncias.
-    // Moderacao segue dois cenarios, sempre com justificativa:
-    // 1) aceita -> anuncio_removido
-    // 2) nao_aceita -> denuncia_arquivada
+    // Usuários logados podem criar denúncias.
+    // Moderadores/admin podem resolver denúncias.
     // ============================================================
     match /denuncias/{denunciaId} {
-      // Somente o administrador ve as denuncias
-      allow read: if administrador();
+      // Qualquer usuário logado pode ver denúncias (para moderação)
+      allow read: if logado();
 
-      // Qualquer usuario logado pode enviar uma denuncia
-      // O campo "denuncianteId" deve corresponder ao uid do usuario logado
+      // Usuários logados podem criar denúncias
       allow create: if logado()
-                    && request.resource.data.denuncianteId == request.auth.uid;
+                    && request.resource.data.denuncianteId == request.auth.uid
+                    && request.resource.data.status == 'aberta';
 
-      // Somente o administrador pode atualizar o resultado da analise
-      // Campos permitidos na moderacao:
-      // - decisaoDenuncia: "aceita" ou "nao_aceita"
-      // - statusDenuncia: "anuncio_removido" ou "denuncia_arquivada"
-      // - justificativa: texto obrigatorio nos dois casos
-      // - analisadaEm, analisadaPor
+      // Moderadores/admin podem resolver denúncias
       allow update: if administrador()
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-                      'decisaoDenuncia',
-                      'statusDenuncia',
-                      'justificativa',
-                      'analisadaEm',
-                      'analisadaPor'
+                      'status', 'moderadoPor', 'moderadoEm', 'decisao', 'justificativa'
                     ])
-                    && request.resource.data.decisaoDenuncia in ['aceita', 'nao_aceita']
-                    && request.resource.data.statusDenuncia in ['anuncio_removido', 'denuncia_arquivada']
-                    && (
-                      (request.resource.data.decisaoDenuncia == 'aceita'
-                       && request.resource.data.statusDenuncia == 'anuncio_removido')
-                      ||
-                      (request.resource.data.decisaoDenuncia == 'nao_aceita'
-                       && request.resource.data.statusDenuncia == 'denuncia_arquivada')
-                    )
-                    && request.resource.data.justificativa is string
-                    && request.resource.data.justificativa.size() > 0;
+                    && request.resource.data.status == 'resolvida'
+                    && request.resource.data.decisao in ['aceita', 'nao_aceita'];
 
-      // Somente o administrador pode excluir denuncias
-      allow delete: if administrador();
+      // Ninguém pode excluir denúncias (auditoria)
+      allow delete: if false;
     }
 
   }
