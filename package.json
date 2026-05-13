@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@cloudinary/url-gen": "^1.22.0",
+    "@emailjs/browser": "^4.4.1",
     "@expo/vector-icons": "^15.0.3",
     "@google-cloud/firestore": "^8.3.0",
     "@react-native-async-storage/async-storage": "^3.0.2",

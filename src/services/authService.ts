@@ -30,6 +30,8 @@ const toFiniteNumber = (value: unknown): number | undefined => {
 };
 
 function mapUserFromFirestore(data: any): UserProfile {
+  const permissao = data?.PERMISSAO ?? data?.permissao ?? data?.papel;
+
   return {
     name: data?.nome ?? data?.name ?? '',
     nickname: data?.apelido ?? data?.nickname,
@@ -47,6 +49,9 @@ function mapUserFromFirestore(data: any): UserProfile {
     lat: toFiniteNumber(data?.lat ?? data?.latitude),
     lon: toFiniteNumber(data?.lon ?? data?.longitude),
     geohash: data?.geohash ?? data?.geoHash,
+    PERMISSAO: permissao,
+    permissao,
+    papel: permissao,
   };
 }
 
@@ -91,6 +96,9 @@ export interface UserProfile {
   lat?: number;
   lon?: number;
   geohash?: string;
+  PERMISSAO?: string;
+  permissao?: string;
+  papel?: string;
 }
 
 // Registrar novo usuário com email/senha
@@ -234,44 +242,58 @@ export async function loginWithEmail(email: string, password: string) {
 
     // Buscar dados do usuário no Firestore (coleção PT-BR)
     const userRef = doc(db, 'usuarios', user.uid);
-    const userDoc = await getDoc(userRef);
-    if (!userDoc.exists()) {
-      // Recupera automaticamente perfil órfão quando houver conta no Auth sem doc em /usuarios
-      try {
-        const fallbackName = (user.email || normalizedEmail || '').split('@')[0] || 'USUARIO';
-        const recoveredPayload = {
-          nome: fallbackName.toUpperCase(),
-          apelido: '',
-          email: user.email || normalizedEmail,
-          telefone: '',
-          cpf: '',
-          nivelAnunciante: 1,
-          criadoEm: new Date().toISOString(),
-          favoritos: [],
-        };
+    try {
+      const userDoc = await getDoc(userRef);
+      if (!userDoc.exists()) {
+        // Recupera automaticamente perfil órfão quando houver conta no Auth sem doc em /usuarios
+        try {
+          const fallbackName = (user.email || normalizedEmail || '').split('@')[0] || 'USUARIO';
+          const recoveredPayload = {
+            nome: fallbackName.toUpperCase(),
+            apelido: '',
+            email: user.email || normalizedEmail,
+            telefone: '',
+            cpf: '',
+            nivelAnunciante: 1,
+            criadoEm: new Date().toISOString(),
+            favoritos: [],
+          };
 
-        await setDoc(userRef, recoveredPayload);
-        const recoveredDoc = await getDoc(userRef);
+          await setDoc(userRef, recoveredPayload);
+          const recoveredDoc = await getDoc(userRef);
 
-        if (recoveredDoc.exists()) {
-          const recoveredUserData = mapUserFromFirestore(recoveredDoc.data());
-          return { success: true, user, userData: recoveredUserData, recoveredProfile: true };
+          if (recoveredDoc.exists()) {
+            const recoveredUserData = mapUserFromFirestore(recoveredDoc.data());
+            return { success: true, user, userData: recoveredUserData, recoveredProfile: true };
+          }
+        } catch (recoveryError: any) {
+          console.error('Falha ao recuperar perfil ausente no login:', recoveryError);
         }
-      } catch (recoveryError: any) {
-        console.error('Falha ao recuperar perfil ausente no login:', recoveryError);
+
+        // Se não conseguiu recuperar, encerra sessão parcial
+        await signOut(auth);
+        return {
+          success: false,
+          error: 'Perfil não encontrado e não foi possível recuperar automaticamente. Tente criar a conta novamente.'
+        };
       }
 
-      // Se não conseguiu recuperar, encerra sessão parcial
-      await signOut(auth);
-      return {
-        success: false,
-        error: 'Perfil não encontrado e não foi possível recuperar automaticamente. Tente criar a conta novamente.'
+      const userData = mapUserFromFirestore(userDoc.data());
+      return { success: true, user, userData };
+    } catch (firestoreReadError: any) {
+      // Se a leitura do Firestore falhar (por exemplo regras negando leitura), permitimos o login
+      // usando dados do Auth para não bloquear usuários legítimos.
+      console.warn('Não foi possível ler perfil no Firestore durante o login:', firestoreReadError);
+      const fallbackUserData: UserProfile = {
+        name: (user.email || normalizedEmail || '').split('@')[0] || 'USUARIO',
+        email: user.email || normalizedEmail,
+        phone: '',
+        cpf: '',
+        anuncianteLevel: 1,
+        createdAt: new Date().toISOString(),
       };
+      return { success: true, user, userData: fallbackUserData };
     }
-
-    const userData = mapUserFromFirestore(userDoc.data());
-
-    return { success: true, user, userData };
   } catch (error: any) {
     console.error('Erro no loginWithEmail:', error);
     
@@ -402,12 +424,71 @@ export async function updateUserProfile(uid: string, data: Partial<UserProfile>)
   }
 }
 
+// Atualiza apenas os campos de permissão/papel de um usuário (usado por Admins)
+export async function setUserPermission(uid: string, papel: string) {
+  try {
+    const payload: Record<string, any> = {
+      PERMISSAO: papel,
+      permissao: papel,
+      papel: papel,
+    };
+    await setDoc(doc(db, 'usuarios', uid), payload, { merge: true });
+    return { success: true };
+  } catch (error: any) {
+    console.error('Erro ao atualizar permissão do usuário:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Buscar todos os usuários cadastrados
+export async function getAllUsers(): Promise<(UserProfile & { id: string })[]> {
+  try {
+    const collectionCandidates = ['usuarios', 'Usuarios', 'users', 'Users'];
+    console.log('getAllUsers: iniciando tentativa de leitura de coleções candidatas', collectionCandidates);
+    for (const col of collectionCandidates) {
+      try {
+        console.log(`getAllUsers: tentando ler coleção '${col}'`);
+        const snap = await getDocs(collection(db, col));
+        console.log(`getAllUsers: leitura '${col}' completa, documentos:`, snap.size);
+        if (snap && snap.size > 0) {
+          const users = snap.docs.map((docSnap) => ({
+            id: docSnap.id,
+            ...mapUserFromFirestore(docSnap.data()),
+          }));
+          console.log(`getAllUsers: encontrou usuários em '${col}', retornando ${users.length} registros`);
+          return users;
+        }
+        // no documents in this collection
+      } catch (innerErr) {
+        console.warn(`getAllUsers: failed reading collection '${col}':`, innerErr);
+      }
+    }
+    // no users found in any candidate collection
+    return [];
+  } catch (error) {
+    console.error('Erro ao buscar usuários (outer):', error);
+    return [];
+  }
+}
+
 // Buscar favoritos do usuário
 export async function getFavorites(uid: string): Promise<number[]> {
   try {
     const userDoc = await getDoc(doc(db, 'usuarios', uid));
     const data = userDoc.data();
-    return (data?.favoritos as number[]) || (data?.favorites as number[]) || [];
+    const raw = (data?.favoritos ?? data?.favorites ?? []) as any[];
+    const normalized: number[] = (raw || [])
+      .map((v) => {
+        if (typeof v === 'number' && Number.isFinite(v)) return v;
+        if (typeof v === 'string' && v.trim()) {
+          const parsed = Number(v);
+          if (Number.isFinite(parsed)) return parsed;
+        }
+        return null;
+      })
+      .filter((v): v is number => v !== null);
+
+    return normalized;
   } catch (error) {
     console.error('Erro ao buscar favoritos:', error);
     return [];
@@ -455,6 +536,18 @@ export async function removeFavorite(uid: string, businessId: number): Promise<{
   } catch (error: any) {
     console.error('Erro ao remover favorito:', error);
     return { success: false, error: error.message };
+  }
+}
+
+// Retorna a contagem de favoritos para um negócio
+export async function getFavoriteCount(businessId: number): Promise<number> {
+  try {
+    const q = query(collection(db, 'usuarios'), where('favoritos', 'array-contains', businessId));
+    const snap = await getDocs(q);
+    return snap.size;
+  } catch (error) {
+    console.error('Erro ao obter contagem de favoritos:', error);
+    return 0;
   }
 }
 

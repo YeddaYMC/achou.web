@@ -1,11 +1,11 @@
 import { useTheme } from '@/hooks/useTheme';
 import React, { ReactNode } from 'react';
-import { StyleSheet, Text, TextStyle } from 'react-native';
+import { StyleProp, StyleSheet, Text, TextStyle } from 'react-native';
 
 // Props do componente Label
 interface LabelProps {
   children: ReactNode;
-  style?: TextStyle;
+  style?: StyleProp<TextStyle>;
 }
 
 // Label para campos de formulário

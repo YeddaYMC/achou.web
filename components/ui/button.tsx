@@ -1,14 +1,14 @@
 import { useTheme } from '@/hooks/useTheme';
 import React, { ReactNode } from 'react';
-import { StyleSheet, Text, TextStyle, TouchableOpacity, ViewStyle } from 'react-native';
+import { StyleProp, StyleSheet, Text, TextStyle, TouchableOpacity, ViewStyle } from 'react-native';
 
 // Props do componente Button
 interface ButtonProps {
   children: ReactNode;
   onPress?: () => void;
   variant?: 'default' | 'outline' | 'destructive' | 'secondary' | 'success' | 'cancel';
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
   disabled?: boolean;
 }
 

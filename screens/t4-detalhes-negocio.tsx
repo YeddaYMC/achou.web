@@ -168,11 +168,11 @@ export default function T4Detalhes() {
         ]);
 
         const destinationAddress = buildAddressString([
-          selectedBusiness.street || selectedBusiness.rua,
-          selectedBusiness.number || selectedBusiness.numero,
-          selectedBusiness.neighborhood || selectedBusiness.bairro,
-          selectedBusiness.city || selectedBusiness.cidade,
-          selectedBusiness.state || selectedBusiness.estado,
+          selectedBusiness.street,
+          selectedBusiness.number,
+          selectedBusiness.neighborhood,
+          selectedBusiness.city,
+          selectedBusiness.state,
           selectedBusiness.cep,
           'Brasil',
         ]);
@@ -206,7 +206,7 @@ export default function T4Detalhes() {
       return;
     }
     // Setar o anúncio a denunciar e navegar para T10
-    setReportBusiness({ id: selectedBusiness.id, name: selectedBusiness.name });
+    setReportBusiness({ id: selectedBusiness.id, firestoreId: selectedBusiness.firestoreId ?? undefined, name: selectedBusiness.name });
     navigateTo('T10');
   };
 
@@ -361,7 +361,7 @@ export default function T4Detalhes() {
             <Separator style={styles.actionsSeparator} />
 
             <View style={styles.actionsRow}>
-              {selectedBusiness.phone && selectedBusiness.contactVisibility?.phone && (
+              {selectedBusiness.phone && (
                 <Button onPress={() => handleAction('phone')} style={styles.smallBlueButton}>
                   <View style={styles.actionContent}><Phone size={18 as any} color="#fff" /><Text style={styles.smallActionText}>Ligar</Text></View>
                 </Button>
@@ -375,9 +375,18 @@ export default function T4Detalhes() {
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }} />
             <View style={styles.iconActions}>
-              <TouchableOpacity onPress={handleFavorite} style={styles.iconButton} accessibilityLabel="Favoritar">
-                <Heart size={22 as any} color={isFavorite ? '#ef4444' : (isDarkMode ? '#93c5fd' : '#1e3a8a')} fill={isFavorite ? '#ef4444' : 'transparent'} />
-              </TouchableOpacity>
+              <View style={styles.favoriteButtonContainer}>
+                <TouchableOpacity onPress={handleFavorite} style={styles.iconButton} accessibilityLabel="Favoritar">
+                  <Heart size={22 as any} color={isFavorite ? '#ef4444' : (isDarkMode ? '#93c5fd' : '#1e3a8a')} fill={isFavorite ? '#ef4444' : 'transparent'} />
+                </TouchableOpacity>
+                {selectedBusiness?.totalFavoritos !== undefined && (
+                  <View style={styles.favoriteBadge}>
+                    <Text style={styles.favoriteBadgeText}>
+                      {selectedBusiness.totalFavoritos > 99 ? '99+' : selectedBusiness.totalFavoritos}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <TouchableOpacity 
                 onPress={handleReport} 
                 style={styles.iconButton} 
@@ -403,7 +412,7 @@ export default function T4Detalhes() {
 
           <View style={{ marginTop: 12 }}>
             <Text style={labelMuted}>📍 <Text style={{ color: isDarkMode ? '#e5e7eb' : '#111827' }}>{enderecoExibicao}</Text></Text>
-            {selectedBusiness.phone && selectedBusiness.contactVisibility?.phone && (
+            {selectedBusiness.phone && (
               <Text style={labelMuted}>📞 <Text style={{ color: isDarkMode ? '#e5e7eb' : '#111827' }}>{selectedBusiness.phone}</Text></Text>
             )}
 
@@ -565,6 +574,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'transparent',
     position: 'relative' as any,
+  },
+  favoriteButtonContainer: {
+    position: 'relative' as any,
+    alignItems: 'center',
+  },
+  favoriteBadge: {
+    position: 'absolute' as any,
+    top: -8,
+    right: -8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#ef4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  favoriteBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
   },
   distanceRow: {
     flexDirection: 'row',

@@ -35,6 +35,7 @@ interface Business {
   owner?: string | null;
   ownerId?: string | null;
   entregaRapida?: boolean; // Tag para entrega rápida na região
+  totalFavoritos?: number; // Total de vezes que foi favoritado
   contactVisibility?: {
     instagram?: boolean;
     facebook?: boolean;
@@ -61,6 +62,9 @@ interface UserProfile {
     lat?: number; // Latitude persistida no perfil
     lon?: number; // Longitude persistida no perfil
     geohash?: string; // Geohash persistido no perfil
+    PERMISSAO?: string; // Campo principal de permissão (maiúsculo)
+    permissao?: string; // Compatibilidade
+    papel?: string; // Papel do usuário (usuario, moderador, admin, super_admin)
 }
 
 interface RegistrationDraft {
@@ -84,6 +88,7 @@ interface AppContextType {
   navigateTo: (screen: string) => void; // Navegar para tela
   navigateBack: () => void; // Voltar para tela anterior
   currentScreen: string; // Tela atual
+  setCurrentScreen: (screen: string) => void; // Define tela atual
   setSelectedBusiness: (business: Business | null) => void; // Define negócio selecionado
   selectedBusiness: Business | null; // Negócio selecionado
   favorites: number[]; // Lista de favoritos
@@ -104,8 +109,8 @@ interface AppContextType {
   setLocationSettings: (settings: any) => void; // Define configurações de localização
   businesses: Business[]; // Lista de negócios
   setBusinesses: (businesses: Business[]) => void; // Define lista de negócios
-  reportBusiness: { id: number; name: string } | null; // Negócio para reportar
-  setReportBusiness: (business: { id: number; name: string } | null) => void; // Define negócio para reportar
+  reportBusiness: { id: number; firestoreId?: string; name: string } | null; // Negócio para reportar
+  setReportBusiness: (business: { id: number; firestoreId?: string; name: string } | null) => void; // Define negócio para reportar
   showUpdateProfileDialog: boolean; // Exibir dialog de atualização de perfil
   setShowUpdateProfileDialog: (show: boolean) => void; // Define estado do dialog
   registrationDraft: RegistrationDraft; // Rascunho do cadastro
@@ -143,7 +148,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [returnTo, setReturnTo] = useState<string | null>(null); // Tela de retorno após login
   const [locationSettings, setLocationSettings] = useState<any>(null); // Configurações de localização
   const [businesses, setBusinesses] = useState<Business[]>([]); // Lista de negócios
-  const [reportBusiness, setReportBusiness] = useState<{ id: number; name: string } | null>(null); // Negócio para reportar
+  const [reportBusiness, setReportBusiness] = useState<{ id: number; firestoreId?: string; name: string } | null>(null); // Negócio para reportar
   const [showUpdateProfileDialog, setShowUpdateProfileDialog] = useState(false); // Dialog atualização perfil
   const [registrationDraft, setRegistrationDraft] = useState<RegistrationDraft>(emptyRegistrationDraft); // Rascunho cadastro
   const [isDarkMode, setIsDarkMode] = useState(false); // Modo escuro
@@ -451,6 +456,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         navigateTo,
         navigateBack,
         currentScreen,
+        setCurrentScreen,
         setSelectedBusiness,
         selectedBusiness,
         favorites,

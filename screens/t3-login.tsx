@@ -2,7 +2,7 @@ import { useTheme } from '@/hooks/useTheme';
 import * as SecureStore from 'expo-secure-store';
 import { ChevronLeft } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
 import { Button } from '../components/ui/button';
 import { Checkbox } from '../components/ui/checkbox';
@@ -39,17 +39,61 @@ export default function Login() {
   const [rememberLogin, setRememberLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Wrappers seguros para SecureStore que fazem fallback para localStorage (web)
+  const safeGetItemAsync = async (key: string) => {
+    try {
+      if (Platform.OS !== 'web' && SecureStore && typeof (SecureStore as any).getItemAsync === 'function') {
+        return await (SecureStore as any).getItemAsync(key);
+      }
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage.getItem(key);
+      }
+      return null;
+    } catch (err) {
+      console.warn('safeGetItemAsync fallback error:', err);
+      return null;
+    }
+  };
+
+  const safeSetItemAsync = async (key: string, value: string) => {
+    try {
+      if (Platform.OS !== 'web' && SecureStore && typeof (SecureStore as any).setItemAsync === 'function') {
+        return await (SecureStore as any).setItemAsync(key, value);
+      }
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(key, value);
+        return;
+      }
+    } catch (err) {
+      console.warn('safeSetItemAsync fallback error:', err);
+    }
+  };
+
+  const safeDeleteItemAsync = async (key: string) => {
+    try {
+      if (Platform.OS !== 'web' && SecureStore && typeof (SecureStore as any).deleteItemAsync === 'function') {
+        return await (SecureStore as any).deleteItemAsync(key);
+      }
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(key);
+        return;
+      }
+    } catch (err) {
+      console.warn('safeDeleteItemAsync fallback error:', err);
+    }
+  };
+
   useEffect(() => {
     const loadRememberedCredentials = async () => {
       try {
-        const remember = await SecureStore.getItemAsync(REMEMBER_LOGIN_KEY);
+        const remember = await safeGetItemAsync(REMEMBER_LOGIN_KEY);
         const shouldRemember = remember === 'true';
         setRememberLogin(shouldRemember);
 
         if (shouldRemember) {
           const [savedEmail, savedPassword] = await Promise.all([
-            SecureStore.getItemAsync(REMEMBER_EMAIL_KEY),
-            SecureStore.getItemAsync(REMEMBER_PASSWORD_KEY),
+            safeGetItemAsync(REMEMBER_EMAIL_KEY),
+            safeGetItemAsync(REMEMBER_PASSWORD_KEY),
           ]);
 
           setFormData({
@@ -90,15 +134,15 @@ export default function Login() {
       // Login bem-sucedido
       if (rememberLogin) {
         await Promise.all([
-          SecureStore.setItemAsync(REMEMBER_LOGIN_KEY, 'true'),
-          SecureStore.setItemAsync(REMEMBER_EMAIL_KEY, formData.email.trim()),
-          SecureStore.setItemAsync(REMEMBER_PASSWORD_KEY, formData.password),
+          safeSetItemAsync(REMEMBER_LOGIN_KEY, 'true'),
+          safeSetItemAsync(REMEMBER_EMAIL_KEY, formData.email.trim()),
+          safeSetItemAsync(REMEMBER_PASSWORD_KEY, formData.password),
         ]);
       } else {
         await Promise.all([
-          SecureStore.setItemAsync(REMEMBER_LOGIN_KEY, 'false'),
-          SecureStore.deleteItemAsync(REMEMBER_EMAIL_KEY),
-          SecureStore.deleteItemAsync(REMEMBER_PASSWORD_KEY),
+          safeSetItemAsync(REMEMBER_LOGIN_KEY, 'false'),
+          safeDeleteItemAsync(REMEMBER_EMAIL_KEY),
+          safeDeleteItemAsync(REMEMBER_PASSWORD_KEY),
         ]);
       }
 

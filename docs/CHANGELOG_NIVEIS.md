@@ -85,7 +85,6 @@ interface UserProfile {
 - ✅ Destaque visual do plano atual
 - ✅ Botões de upgrade/downgrade
 - ✅ Alert para downgrade (contato com suporte)
-- ✅ Funcionalidade DEMO de upgrade (simulação)
 - ✅ Lista detalhada de recursos por nível
 - ✅ Box de informações adicionais
 - ✅ Modo escuro completo
@@ -94,13 +93,6 @@ interface UserProfile {
 - ✅ Import de T12Planos
 - ✅ Rotas 'T12' e 'planos' adicionadas
 - ✅ Proteção de autenticação habilitada
-
-#### **NIVEIS_ANUNCIANTES.md** ⭐ NOVO ARQUIVO
-- ✅ Documentação completa do sistema
-- ✅ Tabela de regras por nível
-- ✅ Especificações de tooltips
-- ✅ Checklist de implementação
-- ✅ Informações de git checkpoint
 
 ---
 
@@ -157,7 +149,9 @@ getNivelPermissoes().maxFotos
 - Badge "Plano Atual" no card ativo
 - Botões contextuais (Plano Atual / Fazer Upgrade / Fazer Downgrade)
 - Sistema DEMO de upgrade (sem integração de pagamento)
-- Navegação integrada com T5 (Perfil)
+- Lista detalhada de recursos por nível
+- Box de informações adicionais
+- Modo escuro completo
 
 ### Botão no Perfil (T5)
 - "⭐ Ver Planos e Fazer Upgrade"
@@ -211,7 +205,6 @@ getNivelPermissoes().maxFotos
 
 **Commit Checkpoint:** `f5ed324`  
 **Mensagem:** "Estado antes da implementação de níveis 1, 2, 3, 4"  
-**Remote:** https://github.com/YeddaYMC/ACHOU_ANDROID_RN  
 
 **Para restaurar:**
 ```bash
@@ -265,7 +258,7 @@ git reset --hard f5ed324
 1. **Integração com Firebase:**
    - Atualizar Firestore rules para validar `anuncianteLevel`
    - Criar campo `anuncianteLevel` em todos os documentos de usuários
-   - Script de migração de `isPremium` → `anuncianteLevel`
+   - Script de migração para converter `isPremium` → `anuncianteLevel`
 
 2. **Sistema de Pagamento:**
    - Integrar gateway de pagamento (Stripe, PagSeguro, Mercado Pago)

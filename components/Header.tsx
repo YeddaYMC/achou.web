@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, MapPin, Menu, Moon, Sun, User, X } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import { Heart, MapPin, Menu, Moon, Shield, Sun, User, X } from 'lucide-react-native';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import logoAchou from '../assets/images/LOGO-ACHOU.png';
 import { useAppContext } from '../context/AppContext';
@@ -169,7 +169,7 @@ function LocationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent style={{ ...styles.dialogContent, maxHeight: Math.min(640, Math.floor(height * 0.82)) }}>
+      <DialogContent style={{ ...styles.dialogContent, ...(isDarkMode ? styles.dialogContentDark : {}), maxHeight: Math.min(640, Math.floor(height * 0.82)) }}>
         <DialogHeader>
           <DialogTitle style={isDarkMode ? styles.dialogTitleDark : undefined}>Configurar Localização</DialogTitle>
           <DialogDescription style={isDarkMode ? styles.dialogDescriptionDark : undefined}>Escolha entre seu endereço cadastrado, outro endereço ou somente o CEP.</DialogDescription>
@@ -281,6 +281,8 @@ export default function Header() {
   const { isLoggedIn, navigateTo, isDarkMode, setIsDarkMode, userProfile, setSelectedBusiness } = useAppContext();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
+  const perfilPermissao = userProfile?.PERMISSAO || userProfile?.permissao || userProfile?.papel;
 
   const userInitials = useMemo(() => {
     const name = userProfile?.name || '';
@@ -291,7 +293,7 @@ export default function Header() {
   }, [userProfile]);
 
   const handleNavigation = (target: string) => {
-    if (!isLoggedIn && (target === 'anunciar' || target === 'perfil' || target === 'favoritos')) {
+    if (!isLoggedIn && (target === 'anunciar' || target === 'perfil' || target === 'favoritos' || target === 'admin')) {
       toast.error('Você precisa fazer login para acessar esta área');
       navigateTo('T3');
     } else {
@@ -302,6 +304,7 @@ export default function Header() {
       else if (target === 'favoritos') navigateTo('T9');
       else if (target === 'contato') navigateTo('T10');
       else if (target === 'politicas') navigateTo('T8');
+      else if (target === 'admin') navigateTo('AdminAcessos');
       else if (target === 'home') navigateTo('T1');
     }
     setMobileMenuOpen(false);
@@ -318,6 +321,11 @@ export default function Header() {
     setLocationDialogOpen(true);
   };
 
+  // Tenta recarregar a logo quando o tema ou o menu móvel mudarem — evita ficar presa em estado "failed"
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [isDarkMode, mobileMenuOpen]);
+
   return (
     <>
       <LinearGradient
@@ -328,10 +336,21 @@ export default function Header() {
       >
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => handleNavigation('home')} style={styles.logoButton}>
-            <View style={styles.logoCircle}>
-              <Image source={logoAchou} style={styles.logoImage} resizeMode="contain" />
+            <View style={[styles.logoCircle, isDarkMode ? { backgroundColor: '#0f172a' } : { backgroundColor: '#fff' }]}>
+              {logoFailed ? (
+                <Text style={[styles.logoFallbackText, isDarkMode && { color: '#60A5FA' }]}>A</Text>
+              ) : (
+                <Image
+                  source={logoAchou}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                  onError={() => setLogoFailed(true)}
+                  onLoad={() => setLogoFailed(false)}
+                  accessibilityLabel="Logo Achou"
+                />
+              )}
             </View>
-            <Text style={styles.logoText}>Achou!</Text>
+            <Text style={[styles.logoText, isDarkMode && { color: '#e5e7eb' }]}>Achou!</Text>
           </TouchableOpacity>
           <View style={styles.headerActions}>
             <TouchableOpacity onPress={() => setIsDarkMode(!isDarkMode)} style={styles.iconButton}>
@@ -361,6 +380,11 @@ export default function Header() {
             <TouchableOpacity onPress={handleOpenLocationDialog} style={styles.iconButton}>
               <MapPin size={20} color="#fff" />
             </TouchableOpacity>
+            {isLoggedIn && (perfilPermissao === 'admin' || perfilPermissao === 'moderador' || perfilPermissao === 'super_admin') && (
+              <TouchableOpacity onPress={() => handleNavigation('admin')} style={styles.iconButton}>
+                <Shield size={20} color="#fff" />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity onPress={() => setMobileMenuOpen(!mobileMenuOpen)} style={styles.iconButton}>
               {mobileMenuOpen ? <X size={24} color="#fff" /> : <Menu size={24} color="#fff" />}
             </TouchableOpacity>
@@ -441,6 +465,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
   },
+  logoFallbackText: {
+    color: '#1e3a8a',
+    fontSize: 24,
+    fontWeight: '900',
+  },
   logoText: {
     color: '#fff',
     fontSize: 18,
@@ -486,6 +515,13 @@ const styles = StyleSheet.create({
     maxWidth: '90%',
     width: '100%',
     overflow: 'hidden',
+  },
+  dialogContentDark: {
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)'
   },
   dialogTitle: {
     color: '#0ea5e9',
