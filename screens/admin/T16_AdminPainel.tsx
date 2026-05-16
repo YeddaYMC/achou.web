@@ -3,7 +3,6 @@ import { ChevronLeft } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import LayoutRN from '../../components/Layout-RN';
-import { Card } from '../../components/ui/card';
 import { useAppContext } from '../../context/AppContext';
 import { getContagemAnunciosPendentes, getResumoModeracaoAnuncios } from '../../src/services/anuncioService';
 import { getContagemDenunciasPendentes, getResumoModeracaoDenuncias } from '../../src/services/denunciaService';
@@ -121,11 +120,15 @@ export default function AdminPainel() {
           Gerencie anúncios e denúncias pendentes
         </Text>
 
-        {/* Cards de Tarefas */}
+        {/* Cards de Tarefas — mesmo degradê dos blocos de resumo Anúncios / Denúncias */}
         <View style={styles.tasksContainer}>
-          {/* Anúncios Pendentes */}
           <TouchableOpacity onPress={handleIrParaAprovacao} style={styles.taskCardTouchable}>
-            <Card style={[styles.taskCard, styles.taskCardAnuncios]}>
+            <LinearGradient
+              colors={isDarkMode ? ['#0f172a', '#1d4ed8'] : ['#eff6ff', '#dbeafe']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.taskCardGradient, styles.taskCardAnuncios]}
+            >
               <View style={styles.taskCardContent}>
                 <View style={styles.taskInfo}>
                   <Text style={styles.taskTitle}>📋 Anúncios Pendentes</Text>
@@ -133,21 +136,25 @@ export default function AdminPainel() {
                     Aprove ou rejeite anúncios
                   </Text>
                 </View>
-                <View style={styles.counterBadge}>
-                  <Text style={styles.counterNumber}>
+                <View style={[styles.counterBadge, isDarkMode && styles.counterBadgeOnGradient]}>
+                  <Text style={[styles.counterNumber, isDarkMode && styles.counterNumberOnGradient]}>
                     {loading ? '...' : tarefas.anuncios}
                   </Text>
                 </View>
               </View>
-              <View style={styles.taskFooter}>
-                <Text style={styles.taskAction}>Clique para gerenciar →</Text>
+              <View style={[styles.taskFooter, isDarkMode && styles.taskFooterOnGradient]}>
+                <Text style={[styles.taskAction, isDarkMode && styles.taskActionOnGradient]}>Clique para gerenciar →</Text>
               </View>
-            </Card>
+            </LinearGradient>
           </TouchableOpacity>
 
-          {/* Denúncias Pendentes */}
           <TouchableOpacity onPress={handleIrParaDenuncias} style={styles.taskCardTouchable}>
-            <Card style={[styles.taskCard, styles.taskCardDenuncias]}>
+            <LinearGradient
+              colors={isDarkMode ? ['#0f172a', '#059669'] : ['#ecfdf5', '#d1fae5']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.taskCardGradient, styles.taskCardDenuncias]}
+            >
               <View style={styles.taskCardContent}>
                 <View style={styles.taskInfo}>
                   <Text style={styles.taskTitle}>🚨 Denúncias Pendentes</Text>
@@ -155,16 +162,16 @@ export default function AdminPainel() {
                     Moderacione denúncias reportadas
                   </Text>
                 </View>
-                <View style={styles.counterBadge}>
-                  <Text style={styles.counterNumber}>
+                <View style={[styles.counterBadge, isDarkMode && styles.counterBadgeOnGradientDen]}>
+                  <Text style={[styles.counterNumberDen, isDarkMode && styles.counterNumberOnGradientDen]}>
                     {loading ? '...' : tarefas.denuncias}
                   </Text>
                 </View>
               </View>
-              <View style={styles.taskFooter}>
-                <Text style={styles.taskAction}>Clique para moderar →</Text>
+              <View style={[styles.taskFooter, isDarkMode && styles.taskFooterOnGradient]}>
+                <Text style={[styles.taskActionDen, isDarkMode && styles.taskActionOnGradientDen]}>Clique para moderar →</Text>
               </View>
-            </Card>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
 
@@ -253,17 +260,18 @@ function getStyles(isDarkMode: boolean) {
       borderRadius: 12,
       overflow: 'hidden',
     },
-    taskCard: {
+    taskCardGradient: {
       padding: 16,
       borderRadius: 12,
-      backgroundColor: isDarkMode ? '#1a1a1a' : '#f9f9f9',
       borderLeftWidth: 5,
+      borderWidth: 1,
+      borderColor: isDarkMode ? 'rgba(255,255,255,0.14)' : 'rgba(15,23,42,0.1)',
     },
     taskCardAnuncios: {
-      borderLeftColor: '#2196f3',
+      borderLeftColor: '#38bdf8',
     },
     taskCardDenuncias: {
-      borderLeftColor: '#ff9800',
+      borderLeftColor: '#34d399',
     },
     taskCardContent: {
       flexDirection: 'row',
@@ -288,25 +296,56 @@ function getStyles(isDarkMode: boolean) {
       width: 56,
       height: 56,
       borderRadius: 28,
-      backgroundColor: isDarkMode ? '#333' : '#e3f2fd',
+      backgroundColor: isDarkMode ? 'rgba(15,23,42,0.45)' : '#e3f2fd',
       justifyContent: 'center',
       alignItems: 'center',
       marginLeft: 12,
+    },
+    counterBadgeOnGradient: {
+      backgroundColor: 'rgba(15,23,42,0.35)',
+    },
+    counterBadgeOnGradientDen: {
+      backgroundColor: 'rgba(15,23,42,0.35)',
     },
     counterNumber: {
       fontSize: 24,
       fontWeight: 'bold',
       color: '#1976d2',
     },
+    counterNumberDen: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: '#047857',
+    },
+    counterNumberOnGradient: {
+      color: '#e0f2fe',
+    },
+    counterNumberOnGradientDen: {
+      color: '#d1fae5',
+    },
     taskFooter: {
       borderTopWidth: 1,
       borderTopColor: isDarkMode ? '#333' : '#e0e0e0',
       paddingTop: 12,
     },
+    taskFooterOnGradient: {
+      borderTopColor: 'rgba(255,255,255,0.2)',
+    },
     taskAction: {
       fontSize: 12,
       color: isDarkMode ? '#88d3f0' : '#1976d2',
       fontWeight: '500',
+    },
+    taskActionDen: {
+      fontSize: 12,
+      color: isDarkMode ? '#6ee7b7' : '#047857',
+      fontWeight: '500',
+    },
+    taskActionOnGradient: {
+      color: '#bae6fd',
+    },
+    taskActionOnGradientDen: {
+      color: '#a7f3d0',
     },
     summaryContainer: {
       marginTop: 16,

@@ -1,17 +1,18 @@
 // Sistema de cores e design tokens para React Native
 export const colors = {
   light: {
-    background: '#ffffff', // Fundo principal
+    // Cinza-azulado suave (harmoniza com #1e3a8a / sky; mais confortável que branco puro)
+    background: '#f0f4f8',
     foreground: '#252525', // Texto principal
-    card: '#ffffff', // Fundo cards
+    card: '#ffffff', // Cards levemente mais claros que o canvas
     cardForeground: '#252525', // Texto cards
     popover: '#ffffff', // Fundo popover
     popoverForeground: '#252525', // Texto popover
     primary: '#030213', // Cor primária
     primaryForeground: '#ffffff', // Texto primário
-    secondary: '#f2f2f5', // Cor secundária
+    secondary: '#e8eef4', // Cor secundária (tom do canvas)
     secondaryForeground: '#030213', // Texto secundário
-    muted: '#ececf0', // Cor suave
+    muted: '#e2e8f0', // Cor suave
     mutedForeground: '#717182', // Texto suave
     accent: '#e9ebef', // Cor destaque
     accentForeground: '#030213', // Texto destaque
@@ -27,7 +28,7 @@ export const colors = {
     chart3: '#4d5d70', // Gráfico 3
     chart4: '#ead45b', // Gráfico 4
     chart5: '#e0a04c', // Gráfico 5
-    sidebar: '#fbfbfb', // Fundo sidebar
+    sidebar: '#f4f6f9', // Fundo sidebar
     sidebarForeground: '#252525', // Texto sidebar
     sidebarPrimary: '#030213', // Primário sidebar
     sidebarPrimaryForeground: '#fbfbfb', // Texto primário sidebar

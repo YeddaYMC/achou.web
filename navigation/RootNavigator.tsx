@@ -1,10 +1,10 @@
 import React from 'react';
 import { useAppContext } from '../context/AppContext';
-import AdminAcessos from '../screens/admin/AdminAcessos';
-import AdminAprovacao from '../screens/admin/AdminAprovacao';
-import AdminDenuncias from '../screens/admin/AdminDenuncias';
-import AdminPainel from '../screens/admin/AdminPainel';
-import AdminUsuarios from '../screens/admin/AdminUsuarios';
+import AdminAcessos from '../screens/admin/T13_AdminAcessos';
+import AdminAprovacao from '../screens/admin/T14_AdminAprovacao';
+import AdminDenuncias from '../screens/admin/T15_AdminDenuncias';
+import AdminPainel from '../screens/admin/T16_AdminPainel';
+import AdminUsuarios from '../screens/admin/T17_AdminUsuarios';
 import T1TelaInicial from '../screens/t1-tela-inicial';
 import T10Contato from '../screens/t10-contato';
 import T11Termo from '../screens/t11-termos-condicoes';

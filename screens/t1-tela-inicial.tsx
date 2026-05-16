@@ -1,16 +1,30 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { Heart, Truck, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Image, Platform, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import LayoutRN from '../components/Layout-RN';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-import { Card } from '../components/ui/card';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from '../components/ui/sonner';
 import { useAppContext } from '../context/AppContext';
 import { getAllActiveAnuncios, getNearbyActiveAnuncios } from '../src/services/anuncioService';
 import { geocodeBusinessAddress } from '../src/services/geocodingService';
+
+/** Degradê da barra superior — transição suave azul → verde (paradas intermediárias + locations). */
+const HEADER_GRADIENT = {
+  light: {
+    colors: ['#38bdf8', '#22d3ee', '#14b8a6', '#2dd4bf', '#4ade80'] as const,
+    locations: [0, 0.22, 0.48, 0.72, 1] as const,
+  },
+  dark: {
+    colors: ['#0f172a', '#152a4a', '#1a3378', '#1e3a8a'] as const,
+    locations: [0, 0.33, 0.66, 1] as const,
+  },
+};
+const HEADER_GRADIENT_START = { x: 0, y: 0 };
+const HEADER_GRADIENT_END = { x: 1, y: 0 };
 
 // Constantes de raio
 const MIN_RADIUS_KM = 0.5;
@@ -242,13 +256,25 @@ export default function T1TelaInicial() {
     };
   }, [locationSettings, userProfile]);
   
-  // Layout responsivo
+  // Layout responsivo: largura em px evita desalinhamento no web (% + min/max conflitantes)
   const { width } = useWindowDimensions();
-  const numColumns = width > 1024 ? 3 : width > 768 ? 2 : 1;
-  const cardWidth = width > 768 
-    ? `${(100 - (1.6 * (numColumns - 1))) / numColumns}%` // 1.6% gap entre cards
-    : '100%';
-  
+  const GRID_GAP = 16;
+  const H_PADDING = 32; // paddingHorizontal 16 * 2 do container
+  const contentW = Math.max(280, width - H_PADDING);
+  // Largura da janela: mobile (<768) = 1 col | médias 768–1199 = 2 | grande (>=1200) = 3
+  const numColumns = width >= 1200 ? 3 : width >= 768 ? 2 : 1;
+  /** Web larga: chips em linha; mobile / web estreita: dropdown Select */
+  const showCategoryChipRow = Platform.OS === 'web' && width >= 768;
+  const cardWidth =
+    numColumns === 1
+      ? Math.min(contentW, Platform.OS === 'web' ? 640 : 560)
+      : Math.max(280, Math.floor((contentW - GRID_GAP * (numColumns - 1)) / numColumns));
+
+  const cardOuterStyle = {
+    width: cardWidth,
+    minWidth: cardWidth,
+    maxWidth: cardWidth,
+  };
   // Aplica filtros quando categorias mudam e calcula distância
   useEffect(() => {
     if (!searchCenter) {
@@ -422,26 +448,103 @@ export default function T1TelaInicial() {
         {/* Filtros de Busca */}
         <View style={[styles.filtersCard, isDarkMode && styles.filtersCardDark]}>
           <View style={styles.filterGroup}>
-            <Label>Categorias (selecione múltiplas)</Label>
-            <Select value="" onValueChange={toggleCategory}>
-              <SelectTrigger style={styles.selectTrigger}>
-                <SelectValue placeholder="Adicionar categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category === 'Entrega Rápida na Região' ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Truck size={16} color="#10b981" />
-                        <Text>{category}</Text>
-                      </View>
-                    ) : (
-                      category
-                    )}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {showCategoryChipRow ? (
+              <View style={styles.categoryWebRow}>
+                <Label style={[styles.categoryLabelInline, isDarkMode && styles.categoryLabelInlineDark]}>
+                  Categorias
+                </Label>
+                <View style={styles.categoryChipsWrap}>
+                  {CATEGORIES.map((category) => {
+                    const selected = selectedCategories.includes(category);
+                    return (
+                      <TouchableOpacity
+                        key={category}
+                        onPress={() => toggleCategory(category)}
+                        activeOpacity={0.85}
+                        style={[
+                          styles.categoryChip,
+                          isDarkMode && styles.categoryChipDark,
+                          category === 'Imperdíveis' && styles.categoryChipImperdiveis,
+                          category === 'Imperdíveis' && isDarkMode && styles.categoryChipImperdiveisDark,
+                          selected && styles.categoryChipSelected,
+                          selected && isDarkMode && styles.categoryChipSelectedDark,
+                          category === 'Imperdíveis' && styles.categoryChipImperdiveisGlow,
+                        ]}
+                      >
+                        {category === 'Entrega Rápida na Região' ? (
+                          <View style={styles.categoryChipInner}>
+                            <Truck size={18} color={selected ? '#fff' : '#10b981'} style={styles.categoryChipIcon} />
+                            <Text
+                              style={[
+                                styles.categoryChipText,
+                                isDarkMode && styles.categoryChipTextDark,
+                                selected && styles.categoryChipTextSelected,
+                              ]}
+                            >
+                              {category}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text
+                            style={[
+                              styles.categoryChipText,
+                              isDarkMode && styles.categoryChipTextDark,
+                              selected && styles.categoryChipTextSelected,
+                            ]}
+                          >
+                            {category}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <TouchableOpacity
+                    onPress={handleClearFilters}
+                    disabled={selectedCategories.length === 0}
+                    activeOpacity={0.85}
+                    style={[
+                      styles.categoryClearChip,
+                      isDarkMode && styles.categoryClearChipDark,
+                      selectedCategories.length === 0 && styles.categoryClearChipDisabled,
+                    ]}
+                  >
+                    <X size={18} color={isDarkMode ? '#fecaca' : '#b91c1c'} />
+                    <Text
+                      style={[
+                        styles.categoryClearChipText,
+                        isDarkMode && styles.categoryClearChipTextDark,
+                        selectedCategories.length === 0 && styles.categoryClearChipTextDisabled,
+                      ]}
+                    >
+                      Limpar filtros
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <>
+                <Label>Categorias (selecione múltiplas)</Label>
+                <Select value="" onValueChange={toggleCategory}>
+                  <SelectTrigger style={styles.selectTrigger}>
+                    <SelectValue placeholder="Adicionar categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category === 'Entrega Rápida na Região' ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Truck size={20} color="#10b981" />
+                            <Text>{category}</Text>
+                          </View>
+                        ) : (
+                          category
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
           </View>
 
           {/* Badges de filtros ativos */}
@@ -454,7 +557,7 @@ export default function T1TelaInicial() {
                     <Badge variant="default" style={styles.filterBadge}>
                       <View style={styles.badgeContent}>
                         <Text style={styles.filterBadgeText}>{category}</Text>
-                        <X size={14} color="#fff" />
+                        <X size={17} color="#fff" />
                       </View>
                     </Badge>
                   </TouchableOpacity>
@@ -463,6 +566,7 @@ export default function T1TelaInicial() {
             </View>
           )}
 
+          {!showCategoryChipRow && (
           <View style={styles.filterButtonRow}>
             <Button 
               onPress={handleClearFilters} 
@@ -471,11 +575,12 @@ export default function T1TelaInicial() {
               disabled={selectedCategories.length === 0}
             >
               <View style={styles.buttonContent}>
-                <X size={18} color={isDarkMode ? '#fff' : '#000'} />
+                <X size={21} color={isDarkMode ? '#fff' : '#000'} />
                 <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Remover Todos os Filtros</Text>
               </View>
             </Button>
           </View>
+          )}
         </View>
 
         {/* Resultados - Grid de Cards */}
@@ -487,27 +592,52 @@ export default function T1TelaInicial() {
             Buscando por proximidade...
           </Text>
         )}
-        <View style={styles.cardGrid}>
+        <View
+          style={[
+            styles.cardGrid,
+            numColumns === 1 && contentW > cardWidth + 8 && styles.cardGridSingleCentered,
+          ]}
+        >
           {filteredBusinesses.map((business) => (
             <TouchableOpacity 
               key={business.id} 
               onPress={() => handleCardClick(business)} 
-              style={[styles.cardWrapper, { width: cardWidth as any }]}
+              style={[
+                styles.cardWrapper,
+                cardOuterStyle,
+                numColumns > 1 && styles.cardWrapperGrid,
+              ]}
             >
-              <Card style={StyleSheet.flatten([styles.businessCard, isDarkMode && styles.businessCardDark])}>
+              <LinearGradient
+                colors={isDarkMode ? ['#0f172a', '#1d4ed8'] : ['#eff6ff', '#dbeafe']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[
+                  styles.businessCardGradient,
+                  isDarkMode ? styles.businessCardGradientBorderDark : styles.businessCardGradientBorderLight,
+                  numColumns > 1 && styles.businessCardGradientUniform,
+                ]}
+              >
                 <View style={styles.titleAboveImageWrap}>
                   <Text style={StyleSheet.flatten([styles.businessNameTop, isDarkMode && styles.businessNameTopDark])} numberOfLines={2}>
                     {business.name}
                   </Text>
                 </View>
-                <View style={styles.imageContainer}>
+                <LinearGradient
+                  colors={[...HEADER_GRADIENT[isDarkMode ? 'dark' : 'light'].colors]}
+                  locations={[...HEADER_GRADIENT[isDarkMode ? 'dark' : 'light'].locations]}
+                  start={HEADER_GRADIENT_START}
+                  end={HEADER_GRADIENT_END}
+                  style={styles.imageContainer}
+                >
                   <Image
                     source={typeof business.image === 'string' ? { uri: business.image } : business.image}
                     style={styles.cardImage}
                     resizeMode="contain"
                   />
-                </View>
+                </LinearGradient>
                 <View style={styles.cardContent}>
+                  <View style={styles.badgesRowMin}>
                   <View style={styles.badgesRow}>
                     {business.categories.map((category: string, idx: number) => (
                       <Badge 
@@ -532,28 +662,36 @@ export default function T1TelaInicial() {
                       </Badge>
                     )}
                   </View>
+                  </View>
                   <Text style={[styles.businessDesc, isDarkMode && styles.businessDescDark]} numberOfLines={2}>
                     {business.description}
                   </Text>
-                  <Text style={[styles.businessLocation, isDarkMode && styles.businessLocationDark]}>
+                  <Text
+                    style={[styles.businessLocation, isDarkMode && styles.businessLocationDark]}
+                    numberOfLines={2}
+                  >
                     📍 {business.location} • {business.cep}
                   </Text>
-                  {business.distanceM != null && (
-                    <Text style={[styles.businessDistance, isDarkMode && styles.businessDistanceDark]}>
-                      🎯 {business.distanceM < 1000 ? `${Math.round(business.distanceM)}m` : `${(business.distanceM / 1000).toFixed(2)}km`}
-                    </Text>
-                  )}
+                  <View style={styles.distanceRow}>
+                    {business.distanceM != null ? (
+                      <Text style={[styles.businessDistance, isDarkMode && styles.businessDistanceDark]}>
+                        🎯 {business.distanceM < 1000 ? `${Math.round(business.distanceM)}m` : `${(business.distanceM / 1000).toFixed(2)}km`}
+                      </Text>
+                    ) : (
+                      <View style={styles.distancePlaceholder} />
+                    )}
+                  </View>
                 </View>
 
                 {/* Ícone de favorito */}
                 <TouchableOpacity style={styles.favIcon} onPress={() => toggleFavorite(business.id)}>
                   <Heart
-                    size={20}
+                    size={23}
                     color={favorites?.includes(business.id) ? '#ef4444' : '#cbd5e1'}
                     fill={favorites?.includes(business.id) ? '#ef4444' : 'none'}
                   />
                 </TouchableOpacity>
-              </Card>
+              </LinearGradient>
             </TouchableOpacity>
           ))}
         </View>
@@ -564,26 +702,31 @@ export default function T1TelaInicial() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff', // Fundo branco
-    padding: 16, // Padding interno
+    backgroundColor: 'transparent',
+    padding: 16,
   },
   activeBadgesContainer: {
     marginTop: 12, // Espaço superior
     marginBottom: 8, // Espaço inferior
   },
   activeBadgesLabel: {
-    fontSize: 12, // Tamanho fonte
-    color: '#666', // Cor cinza
-    marginBottom: 8, // Espaço inferior
-    fontWeight: '600', // Peso médio
+    fontSize: 15,
+    color: '#666',
+    marginBottom: 8,
+    fontWeight: '600',
   },
   activeBadgesLabelDark: {
     color: '#cbd5e1', // Cor cinza claro
   },
   badgesRow: {
-    flexDirection: 'row', // Direção horizontal
-    flexWrap: 'wrap', // Quebra linha
-    gap: 8, // Espaço entre badges
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  badgesRowMin: {
+    minHeight: 78,
+    marginBottom: 6,
+    justifyContent: 'flex-start',
   },
   activeBadge: {
     marginBottom: 4, // Espaço inferior
@@ -598,9 +741,9 @@ const styles = StyleSheet.create({
     gap: 6, // Espaço entre texto e X
   },
   filterBadgeText: {
-    fontSize: 12, // Tamanho fonte
-    fontWeight: '600', // Peso médio
-    color: '#fff', // Texto branco
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
   },
   containerDark: {
     backgroundColor: 'transparent', // Deixa degradê global visível
@@ -618,7 +761,134 @@ const styles = StyleSheet.create({
     borderColor: '#0ea5e9', // Borda dark anterior
   },
   filterGroup: {
-    marginBottom: 12, // Espaço inferior
+    marginBottom: 12,
+  },
+  categoryWebRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  categoryLabelInline: {
+    marginBottom: 0,
+    flexShrink: 0,
+    paddingTop: 10,
+    maxWidth: 110,
+  },
+  categoryLabelInlineDark: {
+    color: '#e2e8f0',
+  },
+  categoryChipsWrap: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  categoryChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#1e3a8a',
+    backgroundColor: '#ffffff',
+    maxWidth: 300,
+    alignSelf: 'flex-start',
+  },
+  categoryChipDark: {
+    borderColor: '#38bdf8',
+    backgroundColor: '#1f2937',
+  },
+  categoryChipSelected: {
+    backgroundColor: '#1e3a8a',
+    borderColor: '#1e3a8a',
+  },
+  categoryChipSelectedDark: {
+    backgroundColor: '#0ea5e9',
+    borderColor: '#7dd3fc',
+  },
+  categoryChipInner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    maxWidth: 280,
+  },
+  categoryChipIcon: {
+    marginTop: 2,
+  },
+  categoryChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1e3a8a',
+    flexShrink: 1,
+    lineHeight: 18,
+    maxWidth: 260,
+  },
+  categoryChipTextDark: {
+    color: '#e0f2fe',
+  },
+  categoryChipTextSelected: {
+    color: '#ffffff',
+  },
+  /** Destaque especial — categoria Imperdíveis (chip filtros web) */
+  categoryChipImperdiveis: {
+    borderColor: '#22c55e',
+    backgroundColor: '#f0fdf4',
+    shadowColor: '#22c55e',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  categoryChipImperdiveisDark: {
+    borderColor: '#4ade80',
+    backgroundColor: 'rgba(6,78,59,0.45)',
+    shadowColor: '#4ade80',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  /** Brilho verde extra (também quando chip já está selecionado / fundo azul) */
+  categoryChipImperdiveisGlow: {
+    shadowColor: '#39ff14',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.42,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  categoryClearChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#dc2626',
+    backgroundColor: '#fef2f2',
+    alignSelf: 'flex-start',
+  },
+  categoryClearChipDark: {
+    borderColor: '#f87171',
+    backgroundColor: 'rgba(127,29,29,0.35)',
+  },
+  categoryClearChipDisabled: {
+    opacity: 0.45,
+    borderColor: '#94a3b8',
+    backgroundColor: '#f1f5f9',
+  },
+  categoryClearChipText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#991b1b',
+  },
+  categoryClearChipTextDark: {
+    color: '#fecaca',
+  },
+  categoryClearChipTextDisabled: {
+    color: '#64748b',
   },
   selectTrigger: {
     marginTop: 8, // Espaço superior
@@ -627,13 +897,13 @@ const styles = StyleSheet.create({
     marginTop: 12, // Espaço superior
   },
   filterButtonClear: {
-    width: '100%', // Largura total
-    flexDirection: 'row', // Direção horizontal
-    alignItems: 'center', // Alinha centro
-    justifyContent: 'center', // Centraliza
-    borderWidth: 2, // Borda
-    borderColor: '#1e3a8a', // Cor borda
-    minHeight: 50,
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#1e3a8a',
+    minHeight: 54,
   },
   buttonContent: {
     flexDirection: 'row', // Direção horizontal
@@ -641,63 +911,77 @@ const styles = StyleSheet.create({
     gap: 8, // Espaço entre itens
   },
   buttonText: {
-    color: '#000', // Texto preto
-    fontSize: 14, // Tamanho fonte
-    fontWeight: '600', // Peso médio
+    color: '#000',
+    fontSize: 17,
+    fontWeight: '600',
   },
   buttonTextDark: {
     color: '#fff', // Texto branco
   },
   resultsText: {
-    fontSize: 14, // Tamanho fonte
-    color: '#666', // Cor cinza
-    marginBottom: 12, // Espaço inferior
+    fontSize: 17,
+    color: '#666',
+    marginBottom: 12,
   },
   resultsTextDark: {
     color: '#cbd5e1', // Cor cinza claro
   },
   cardGrid: {
-    flexDirection: 'row', // Direção horizontal
-    flexWrap: 'wrap', // Quebra linha
-    gap: 16, // Espaço entre cards
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
     justifyContent: 'flex-start',
+    alignItems: 'stretch',
+  },
+  cardGridSingleCentered: {
+    justifyContent: 'center',
   },
   cardWrapper: {
-    width: '100%', // Mobile: 1 por linha
-    minWidth: 280, // Largura mínima
-    maxWidth: 400, // Largura máxima para manter padrão
-    marginBottom: 8, // Espaço inferior
-    // Em telas maiores (tablet/desktop), mostra múltiplos por linha
+    marginBottom: 16,
     flexGrow: 0,
     flexShrink: 0,
-    flexBasis: '100%',
+    flexDirection: 'column',
   },
-  businessCard: {
-    overflow: 'hidden', // Corta conteúdo
-    borderWidth: 2, // Borda
-    borderColor: '#1e3a8a', // Cor borda
+  /** Permite o card esticar na altura da linha (grid 2/3 colunas). */
+  cardWrapperGrid: {
+    alignSelf: 'stretch',
   },
-  businessCardDark: {
-    backgroundColor: '#111827', // Fundo dark anterior dos cards
-    borderColor: '#0ea5e9', // Borda dark anterior
+  businessCardGradient: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    width: '100%',
+  },
+  /** Em grid 2/3 colunas: altura mínima + flex preenche a linha quando um card tem mais conteúdo. */
+  businessCardGradientUniform: {
+    minHeight: Platform.OS === 'web' ? 468 : 430,
+    flex: 1,
+    width: '100%',
+  },
+  businessCardGradientBorderLight: {
+    borderColor: 'rgba(30,58,138,0.35)',
+  },
+  businessCardGradientBorderDark: {
+    borderColor: 'rgba(56,189,248,0.55)',
   },
   imageContainer: {
     width: '100%',
-    height: 150,
-    backgroundColor: '#f0f0f0',
+    height: Platform.OS === 'web' ? 220 : 180,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
     position: 'relative',
   },
   titleAboveImageWrap: {
-    paddingHorizontal: 10,
-    paddingTop: 10,
-    paddingBottom: 6,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
     alignItems: 'center',
+    minHeight: 58,
+    justifyContent: 'center',
   },
   businessNameTop: {
-    fontSize: 16,
+    fontSize: 19,
     fontWeight: '700',
     color: '#1e3a8a',
     textAlign: 'center',
@@ -731,7 +1015,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15,23,42,0.82)',
   },
   cardContent: {
-    padding: 16, // Padding interno
+    padding: 16,
+    flexGrow: 1,
+    justifyContent: 'flex-start',
   },
   categoryBadge: {
     marginBottom: 4, // Espaço inferior
@@ -748,9 +1034,9 @@ const styles = StyleSheet.create({
     elevation: 8, // Elevação Android
   },
   badgeText: {
-    fontSize: 12, // Tamanho fonte
-    fontWeight: '600', // Peso médio
-    color: '#fff', // Texto branco
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
   },
   badgeTextImperdiveis: {
     color: '#1e3a8a', // Azul escuro
@@ -761,7 +1047,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   entregaBadgeText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     color: '#fff',
   },
@@ -776,43 +1062,54 @@ const styles = StyleSheet.create({
     color: '#e0f2fe', // Cor azul claro
   },
   businessDesc: {
-    fontSize: 14, // Tamanho fonte
-    color: '#666', // Cor cinza
-    marginBottom: 8, // Espaço inferior
+    fontSize: 16,
+    lineHeight: 23,
+    height: 46,
+    color: '#444',
+    marginBottom: 8,
+    overflow: 'hidden',
   },
   businessDescDark: {
     color: '#cbd5e1', // Cor cinza claro
   },
   businessLocation: {
-    fontSize: 12, // Tamanho fonte
-    color: '#888', // Cor cinza
+    fontSize: 15,
+    color: '#555',
   },
   businessLocationDark: {
     color: '#94a3b8', // Cor cinza claro
   },
   businessDistance: {
-    fontSize: 12, // Tamanho fonte
-    color: '#10b981', // Verde indicando proximidade
-    fontWeight: '600', // Peso médio
-    marginTop: 4, // Espaço superior
+    fontSize: 15,
+    color: '#10b981',
+    fontWeight: '600',
+    marginTop: 4,
   },
   businessDistanceDark: {
-    color: '#6ee7b7', // Verde claro
+    color: '#6ee7b7',
+  },
+  distanceRow: {
+    minHeight: 26,
+    justifyContent: 'flex-end',
+  },
+  distancePlaceholder: {
+    height: 22,
+    marginTop: 4,
   },
   favIcon: {
-    position: 'absolute', // Posição absoluta
-    bottom: 12, // Distância inferior
-    right: 12, // Distância direita
-    backgroundColor: 'rgba(255,255,255,0.9)', // Fundo branco transparente
-    borderRadius: 20, // Círculo
-    width: 40, // Largura
-    height: 40, // Altura
-    justifyContent: 'center', // Centraliza
-    alignItems: 'center', // Centraliza
-    shadowColor: '#000', // Cor sombra
-    shadowOffset: { width: 0, height: 1 }, // Offset sombra
-    shadowOpacity: 0.1, // Opacidade sombra
-    shadowRadius: 2, // Raio sombra
-    elevation: 2, // Elevação Android
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 22,
+    width: 46,
+    height: 46,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 3,
   },
 });

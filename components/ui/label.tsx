@@ -17,8 +17,8 @@ export function Label({ children, style }: LabelProps) {
 
 const styles = StyleSheet.create({
   label: {
-    fontSize: 14, // Tamanho fonte
-    fontWeight: '600', // Peso médio
-    marginBottom: 4, // Espaço inferior
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 6,
   },
 });

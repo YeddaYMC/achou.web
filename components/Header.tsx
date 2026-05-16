@@ -278,11 +278,37 @@ function LocationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
 }
 
 export default function Header() {
+  const { width } = useWindowDimensions();
   const { isLoggedIn, navigateTo, isDarkMode, setIsDarkMode, userProfile, setSelectedBusiness } = useAppContext();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
   const perfilPermissao = userProfile?.PERMISSAO || userProfile?.permissao || userProfile?.papel;
+
+  const nav = useMemo(() => {
+    const xwide = width >= 1280;
+    const wide = width >= 960;
+    const medium = width >= 640;
+    return {
+      icon: xwide ? 36 : wide ? 30 : medium ? 26 : 24,
+      navIcon: xwide ? 38 : wide ? 32 : medium ? 28 : 26,
+      stroke: xwide ? 2.6 : wide ? 2.45 : medium ? 2.25 : 2.1,
+      logoText: xwide ? 26 : wide ? 23 : medium ? 20 : 19,
+      logoFallback: xwide ? 32 : wide ? 28 : medium ? 26 : 24,
+      logoCircle: xwide ? 68 : wide ? 60 : medium ? 54 : 50,
+      logoImage: xwide ? 60 : wide ? 54 : medium ? 48 : 44,
+      padV: xwide ? 18 : wide ? 16 : medium ? 14 : 12,
+      padH: xwide ? 28 : wide ? 22 : medium ? 16 : 14,
+      actionsGap: xwide ? 20 : wide ? 16 : medium ? 14 : 12,
+      logoGap: xwide ? 16 : wide ? 14 : 12,
+      userDot: xwide ? 38 : wide ? 34 : medium ? 30 : 28,
+      userInitialsFS: xwide ? 15 : wide ? 13 : medium ? 12 : 11,
+      iconBtnPad: xwide ? 14 : wide ? 12 : medium ? 10 : 9,
+      mobileMenuFs: xwide ? 20 : wide ? 18 : medium ? 17 : 16,
+      mobileMenuPadV: xwide ? 14 : wide ? 12 : 11,
+      spreadIcons: width >= 640,
+    };
+  }, [width]);
 
   const userInitials = useMemo(() => {
     const name = userProfile?.name || '';
@@ -329,20 +355,49 @@ export default function Header() {
   return (
     <>
       <LinearGradient
-        colors={isDarkMode ? ['#0f172a', '#1e3a8a'] : ['#0ea5e9', '#22c55e']}
+        colors={
+          isDarkMode
+            ? ['#0f172a', '#152a4a', '#1a3378', '#1e3a8a']
+            : ['#38bdf8', '#22d3ee', '#14b8a6', '#2dd4bf', '#4ade80']
+        }
+        locations={isDarkMode ? [0, 0.33, 0.66, 1] : [0, 0.22, 0.48, 0.72, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={styles.header}
+        style={[
+          styles.header,
+          { paddingVertical: nav.padV, paddingHorizontal: nav.padH },
+        ]}
       >
         <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => handleNavigation('home')} style={styles.logoButton}>
-            <View style={[styles.logoCircle, isDarkMode ? { backgroundColor: '#0f172a' } : { backgroundColor: '#fff' }]}>
+          <TouchableOpacity
+            onPress={() => handleNavigation('home')}
+            style={[styles.logoButton, { gap: nav.logoGap, flexShrink: 0 }]}
+          >
+            <View
+              style={[
+                styles.logoCircle,
+                isDarkMode ? { backgroundColor: '#0f172a' } : { backgroundColor: '#fff' },
+                {
+                  width: nav.logoCircle,
+                  height: nav.logoCircle,
+                  borderRadius: nav.logoCircle / 2,
+                },
+              ]}
+            >
               {logoFailed ? (
-                <Text style={[styles.logoFallbackText, isDarkMode && { color: '#60A5FA' }]}>A</Text>
+                <Text
+                  style={[
+                    styles.logoFallbackText,
+                    isDarkMode && { color: '#60A5FA' },
+                    { fontSize: nav.logoFallback },
+                  ]}
+                >
+                  A
+                </Text>
               ) : (
                 <Image
                   source={logoAchou}
-                  style={styles.logoImage}
+                  style={{ width: nav.logoImage, height: nav.logoImage }}
                   resizeMode="contain"
                   onError={() => setLogoFailed(true)}
                   onLoad={() => setLogoFailed(false)}
@@ -350,59 +405,104 @@ export default function Header() {
                 />
               )}
             </View>
-            <Text style={[styles.logoText, isDarkMode && { color: '#e5e7eb' }]}>Achou!</Text>
+            <Text style={[styles.logoText, isDarkMode && { color: '#e5e7eb' }, { fontSize: nav.logoText }]}>
+              Achou!
+            </Text>
           </TouchableOpacity>
-          <View style={styles.headerActions}>
-            <TouchableOpacity onPress={() => setIsDarkMode(!isDarkMode)} style={styles.iconButton}>
-              {isDarkMode ? <Sun size={20} color="#fff" /> : <Moon size={20} color="#fff" />}
+          <View
+            style={[
+              styles.headerActions,
+              {
+                flex: 1,
+                justifyContent: nav.spreadIcons ? 'space-evenly' : 'flex-end',
+                gap: nav.spreadIcons ? 0 : nav.actionsGap,
+                marginLeft: 10,
+                minHeight: Math.max(nav.logoCircle, nav.navIcon + nav.iconBtnPad * 2),
+              },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={() => setIsDarkMode(!isDarkMode)}
+              style={[styles.iconButton, { padding: nav.iconBtnPad }]}
+            >
+              {isDarkMode ? (
+                <Sun size={nav.icon} color="#fff" strokeWidth={nav.stroke} />
+              ) : (
+                <Moon size={nav.icon} color="#fff" strokeWidth={nav.stroke} />
+              )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleNavigation('favoritos')} style={styles.iconButton}>
-              <Heart size={20} color="#fff" />
+            <TouchableOpacity
+              onPress={() => handleNavigation('favoritos')}
+              style={[styles.iconButton, { padding: nav.iconBtnPad }]}
+            >
+              <Heart size={nav.icon} color="#fff" strokeWidth={nav.stroke} />
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => {
                 if (isLoggedIn) {
                   navigateTo('T5');
                 } else {
                   navigateTo('T3');
                 }
-              }} 
-              style={styles.iconButton}
+              }}
+              style={[styles.iconButton, { padding: nav.iconBtnPad }]}
             >
               {isLoggedIn ? (
-                <View style={styles.userInitialsCircle}>
-                  <Text style={styles.userInitialsText}>{userInitials}</Text>
+                <View
+                  style={[
+                    styles.userInitialsCircle,
+                    {
+                      width: nav.userDot,
+                      height: nav.userDot,
+                      borderRadius: nav.userDot / 2,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.userInitialsText, { fontSize: nav.userInitialsFS }]}>{userInitials}</Text>
                 </View>
               ) : (
-                <User size={20} color="#fff" />
+                <User size={nav.icon} color="#fff" strokeWidth={nav.stroke} />
               )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleOpenLocationDialog} style={styles.iconButton}>
-              <MapPin size={20} color="#fff" />
+            <TouchableOpacity
+              onPress={handleOpenLocationDialog}
+              style={[styles.iconButton, { padding: nav.iconBtnPad }]}
+            >
+              <MapPin size={nav.icon} color="#fff" strokeWidth={nav.stroke} />
             </TouchableOpacity>
             {isLoggedIn && (perfilPermissao === 'admin' || perfilPermissao === 'moderador' || perfilPermissao === 'super_admin') && (
-              <TouchableOpacity onPress={() => handleNavigation('admin')} style={styles.iconButton}>
-                <Shield size={20} color="#fff" />
+              <TouchableOpacity
+                onPress={() => handleNavigation('admin')}
+                style={[styles.iconButton, { padding: nav.iconBtnPad }]}
+              >
+                <Shield size={nav.icon} color="#fff" strokeWidth={nav.stroke} />
               </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={() => setMobileMenuOpen(!mobileMenuOpen)} style={styles.iconButton}>
-              {mobileMenuOpen ? <X size={24} color="#fff" /> : <Menu size={24} color="#fff" />}
+            <TouchableOpacity
+              onPress={() => setMobileMenuOpen(!mobileMenuOpen)}
+              style={[styles.iconButton, { padding: nav.iconBtnPad }]}
+            >
+              {mobileMenuOpen ? (
+                <X size={nav.navIcon} color="#fff" strokeWidth={nav.stroke} />
+              ) : (
+                <Menu size={nav.navIcon} color="#fff" strokeWidth={nav.stroke} />
+              )}
             </TouchableOpacity>
           </View>
         </View>
         {mobileMenuOpen && (
           <View style={styles.mobileMenu}>
-            <TouchableOpacity onPress={() => handleNavigation('anunciar')} style={styles.mobileMenuItem}>
-              <Text style={styles.mobileMenuText}>Anunciar</Text>
+            <TouchableOpacity onPress={() => handleNavigation('anunciar')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Anunciar</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleNavigation('contato')} style={styles.mobileMenuItem}>
-              <Text style={styles.mobileMenuText}>Fale Conosco</Text>
+            <TouchableOpacity onPress={() => handleNavigation('contato')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Fale Conosco</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleNavigation('home')} style={styles.mobileMenuItem}>
-              <Text style={styles.mobileMenuText}>Início</Text>
+            <TouchableOpacity onPress={() => handleNavigation('home')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Início</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleOpenLocationDialog} style={styles.mobileMenuItem}>
-              <Text style={styles.mobileMenuText}>Localização</Text>
+            <TouchableOpacity onPress={handleOpenLocationDialog} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Localização</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
@@ -414,15 +514,15 @@ export default function Header() {
                   setMobileMenuOpen(false);
                 }
               }}
-              style={styles.mobileMenuItem}
+              style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}
             >
-              <Text style={styles.mobileMenuText}>Gestão de Anúncios</Text>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Gestão de Anúncios</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleNavigation('perfil')} style={styles.mobileMenuItem}>
-              <Text style={styles.mobileMenuText}>Perfil</Text>
+            <TouchableOpacity onPress={() => handleNavigation('perfil')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Perfil</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleNavigation('politicas')} style={styles.mobileMenuItem}>
-              <Text style={styles.mobileMenuText}>Políticas de Privacidade</Text>
+            <TouchableOpacity onPress={() => handleNavigation('politicas')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Políticas de Privacidade</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -434,8 +534,6 @@ export default function Header() {
 
 const styles = StyleSheet.create({
   header: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -446,46 +544,33 @@ const styles = StyleSheet.create({
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    width: '100%',
   },
   logoButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
   },
   logoCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logoImage: {
-    width: 44,
-    height: 44,
-  },
   logoFallbackText: {
     color: '#1e3a8a',
-    fontSize: 24,
     fontWeight: '900',
   },
   logoText: {
     color: '#fff',
-    fontSize: 18,
     fontWeight: '600',
   },
   headerActions: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
   },
   iconButton: {
-    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   userInitialsCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -494,7 +579,6 @@ const styles = StyleSheet.create({
   },
   userInitialsText: {
     color: '#fff',
-    fontSize: 10,
     fontWeight: '700',
   },
   mobileMenu: {
@@ -504,12 +588,11 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.2)',
   },
   mobileMenuItem: {
-    paddingVertical: 10,
     paddingHorizontal: 12,
   },
   mobileMenuText: {
     color: '#fff',
-    fontSize: 16,
+    fontWeight: '500',
   },
   dialogContent: {
     maxWidth: '90%',
