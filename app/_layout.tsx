@@ -18,10 +18,25 @@ function AppLayout() {
   return <RootNavigator />;
 }
 
+// Wrapper que usa HashRouter no web se disponível
+function OptionalHashRouter({ children }: { children: React.ReactNode }) {
+  if (typeof window === 'undefined') return <>{children}</>;
+  try {
+    // require para evitar erro no bundler RN (só resolve no web)
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { HashRouter } = require('react-router-dom');
+    return <HashRouter>{children}</HashRouter>;
+  } catch (e) {
+    return <>{children}</>;
+  }
+}
+
 export default function RootLayout() {
   return (
     <AppProvider>
-      <AppLayout />
+      <OptionalHashRouter>
+        <AppLayout />
+      </OptionalHashRouter>
     </AppProvider>
   );
 }
