@@ -26,7 +26,8 @@ function OptionalHashRouter({ children }: { children: React.ReactNode }) {
     // require para evitar erro no bundler RN; roda só no web
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { HashRouter } = require('react-router-dom');
-    return <HashRouter>{children}</HashRouter>;
+    // Forçar HashRouter com basename para GitHub Pages deploy em subpath
+    return <HashRouter basename="/ACHOU_ANDROID_RN/">{children}</HashRouter>;
   } catch (e) {
     return <>{children}</>;
   }
