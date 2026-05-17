@@ -25,5 +25,16 @@ if (!/\<base href=/i.test(html)) {
 html = html.replace(/src="\/_expo\//g, 'src="/ACHOU_ANDROID_RN/_expo/');
 html = html.replace(/href="\/favicon.ico"/g, 'href="/ACHOU_ANDROID_RN/favicon.ico"');
 
+// Fix absolute asset paths (e.g., /assets/...) to include repo prefix for GitHub Pages
+html = html.replace(/src=\"\/assets\//g, 'src="/ACHOU_ANDROID_RN/assets/');
+html = html.replace(/src=\'\/assets\//g, "src='/ACHOU_ANDROID_RN/assets/");
+html = html.replace(/href=\"\/assets\//g, 'href="/ACHOU_ANDROID_RN/assets/');
+html = html.replace(/href=\'\/assets\//g, "href='/ACHOU_ANDROID_RN/assets/");
+html = html.replace(/url\(\"\/assets\//g, 'url("/ACHOU_ANDROID_RN/assets/');
+html = html.replace(/url\(\'\/assets\//g, "url('/ACHOU_ANDROID_RN/assets/");
+
+// Specific fix for expo-router unmatched asset path observed in production
+html = html.replace(/\/assets\/node_modules\//g, '/ACHOU_ANDROID_RN/assets/node_modules/');
+
 fs.writeFileSync(target, html, 'utf8');
 console.log('Patched asset paths in', target);
