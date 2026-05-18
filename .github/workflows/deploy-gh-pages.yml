@@ -26,40 +26,23 @@ jobs:
           node --version
           npm --version
 
-      - name: Install expo-cli globally
-        run: |
-          npm install -g expo-cli@latest
-
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
       - name: Build web (Expo export)
-        run: npx expo export --platform web
+        run: npm run build:web
 
       - name: Show build output (debug)
         run: |
           echo "Listing workspace root"
           ls -la
-          echo "Listing dist/web-build"
-          ls -la dist || ls -la web-build || true
-          if [ -f dist/index.html ]; then head -n 40 dist/index.html; elif [ -f web-build/index.html ]; then head -n 40 web-build/index.html; fi
-
-      - name: Post-export adjustments
-        run: npm run postexport
-
-      - name: Show postexport output (debug)
-        run: |
-          echo "After postexport listing"
-          ls -la dist || ls -la web-build || true
-          if [ -f dist/index.html ]; then head -n 40 dist/index.html; elif [ -f web-build/index.html ]; then head -n 40 web-build/index.html; fi
-
-      - name: Ensure publish directory
-        run: |
-          if [ -d web-build ]; then echo 'web-build exists'; elif [ -d dist ]; then mv dist web-build; else echo 'no build dir found'; fi
+          echo "Listing dist"
+          ls -la dist || true
+          if [ -f dist/index.html ]; then head -n 40 dist/index.html; fi
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./web-build
+          publish_dir: ./dist
           publish_branch: gh-pages

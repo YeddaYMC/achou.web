@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const dirs = ['web-build', 'dist'];
+const dirs = ['dist'];
 
 function walkHtmlFiles(dir) {
   const results = [];

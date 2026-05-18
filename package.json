@@ -7,7 +7,9 @@
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "postexport": "node ./scripts/patch-index-base.js",
-    "build:web": "npx expo export:web --output web-build && node ./scripts/patch-index-base.js",
+    "build:web": "npx expo export --platform web && node ./scripts/patch-index-base.js",
+    "predeploy": "npm run build:web",
+    "deploy": "gh-pages -d dist",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
@@ -58,16 +60,12 @@
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "gh-pages": "^5.0.0"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/yeddaymc/achou-web.git"
   },
-  "devDependencies": {
-    "gh-pages": "^5.0.0"
-  },
-  "private": true,
-  "predeploy": "npm run build:web",
-  "deploy": "gh-pages -d web-build"
+  "private": true
 }
