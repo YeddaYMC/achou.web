@@ -5,7 +5,7 @@
   "homepage": "/achou-web/",
   "scripts": {
     "start": "expo start",
-    "build:web": "npx expo export --platform web --output-dir dist && node patch-index-base.js || true"
+    "build:web": "npx expo export --platform web --output-dir dist && (node patch-index-base.js || true)"
   },
   "dependencies": {},
   "devDependencies": {}

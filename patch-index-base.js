@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const distDir = path.join(__dirname, '..', 'dist');
+const distDir = path.join(__dirname, 'dist');
 
 function patchIndex(indexPath) {
   let html = fs.readFileSync(indexPath, 'utf8');
