@@ -1,0 +1,12 @@
+{
+  "name": "achou.web",
+  "version": "0.1.0",
+  "private": true,
+  "homepage": "/achou-web/",
+  "scripts": {
+    "start": "expo start",
+    "build:web": "npx expo export --platform web --output-dir dist && node patch-index-base.js || true"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
