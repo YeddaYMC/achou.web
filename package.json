@@ -2,7 +2,7 @@
   "name": "achouapprn",
   "main": "expo-router/entry",
   "version": "1.0.0",
-  "homepage": "https://yeddaymc.github.io/achou-web",
+  "homepage": "https://yeddaymc.github.io/achou.web",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
