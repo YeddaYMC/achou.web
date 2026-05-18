@@ -3,6 +3,38 @@ const path = require('path');
 
 const dirs = ['dist'];
 
+function patchPublicPaths(content) {
+  let html = content;
+
+  // Normalize any stale old Pages subpath first.
+  html = html.replace(/\/achou-web\//g, '/achou.web/');
+
+  // Ensure hydration flag is false (replace true -> false)
+  html = html.replace(/globalThis\.__EXPO_ROUTER_HYDRATE__\s*=\s*true;/g, 'globalThis.__EXPO_ROUTER_HYDRATE__=false;');
+
+  // Insert base href if not present
+  if (!/\<base href=/i.test(html)) {
+    html = html.replace(/<head>/i, '<head>\n  <base href="/achou.web/">\n  <script>globalThis.__EXPO_ROUTER_HYDRATE__ = false;</script>');
+  }
+
+  // Fix absolute paths produced by expo to include repo prefix
+  html = html.replace(/src="\/_expo\//g, 'src="/achou.web/_expo/');
+  html = html.replace(/href="\/favicon.ico"/g, 'href="/achou.web/favicon.ico"');
+
+  // Fix absolute asset paths (e.g., /assets/...) to include repo prefix for GitHub Pages
+  html = html.replace(/src=\"\/assets\//g, 'src="/achou.web/assets/');
+  html = html.replace(/src=\'\/assets\//g, "src='/achou.web/assets/");
+  html = html.replace(/href=\"\/assets\//g, 'href="/achou.web/assets/');
+  html = html.replace(/href=\'\/assets\//g, "href='/achou.web/assets/");
+  html = html.replace(/url\(\"\/assets\//g, 'url("/achou.web/assets/');
+  html = html.replace(/url\(\'\/assets\//g, "url('/achou.web/assets/");
+
+  // Specific fix for expo-router unmatched asset path observed in production
+  html = html.replace(/\/assets\/node_modules\//g, '/achou.web/assets/node_modules/');
+
+  return html;
+}
+
 function walkHtmlFiles(dir) {
   const results = [];
   if (!fs.existsSync(dir)) return results;
@@ -11,7 +43,7 @@ function walkHtmlFiles(dir) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       results.push(...walkHtmlFiles(full));
-    } else if (entry.isFile() && full.endsWith('.html')) {
+    } else if (entry.isFile() && (full.endsWith('.html') || full.endsWith('.js'))) {
       results.push(full);
     }
   }
@@ -27,29 +59,12 @@ for (const d of dirs) {
       let html = fs.readFileSync(target, 'utf8');
       any = true;
 
-      // Ensure hydration flag is false (replace true -> false)
-      html = html.replace(/globalThis\.__EXPO_ROUTER_HYDRATE__\s*=\s*true;/g, 'globalThis.__EXPO_ROUTER_HYDRATE__=false;');
+      const before = html;
+      html = patchPublicPaths(html);
 
-      // Insert base href if not present
-      if (!/\<base href=/i.test(html)) {
-        html = html.replace(/<head>/i, '<head>\n  <base href="/achou-web/">\n  <script>globalThis.__EXPO_ROUTER_HYDRATE__ = false;</script>');
-        console.log('Inserted <base href="/achou-web/"> and hydration flag into', target);
+      if (target.endsWith('.html') && before !== html && !/\<base href=/i.test(before)) {
+        console.log('Inserted <base href="/achou.web/"> and hydration flag into', target);
       }
-
-      // Fix absolute paths produced by expo to include repo prefix
-      html = html.replace(/src="\/_expo\//g, 'src="/achou-web/_expo/');
-      html = html.replace(/href="\/favicon.ico"/g, 'href="/achou-web/favicon.ico"');
-
-      // Fix absolute asset paths (e.g., /assets/...) to include repo prefix for GitHub Pages
-      html = html.replace(/src=\"\/assets\//g, 'src="/achou-web/assets/');
-      html = html.replace(/src=\'\/assets\//g, "src='/achou-web/assets/");
-      html = html.replace(/href=\"\/assets\//g, 'href="/achou-web/assets/');
-      html = html.replace(/href=\'\/assets\//g, "href='/achou-web/assets/");
-      html = html.replace(/url\(\"\/assets\//g, 'url("/achou-web/assets/');
-      html = html.replace(/url\(\'\/assets\//g, "url('/achou-web/assets/");
-
-      // Specific fix for expo-router unmatched asset path observed in production
-      html = html.replace(/\/assets\/node_modules\//g, '/achou-web/assets/node_modules/');
 
       fs.writeFileSync(target, html, 'utf8');
       console.log('Patched asset paths in', target);
