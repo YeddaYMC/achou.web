@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Achou</title>
+    <link rel="icon" href="./favicon.ico" />
+    <style>
+      html,body,#root{height:100%;margin:0}
+      body{font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">globalThis.__EXPO_ROUTER_HYDRATE__=true;</script>
+    <script src="./_expo/static/js/web/entry-e123ef11e9dc37c90c474836a86a9176.js" defer></script>
+  </body>
+</html>

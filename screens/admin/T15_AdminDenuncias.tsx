@@ -27,6 +27,30 @@ interface Denuncia {
 }
 
 export default function AdminDenuncias() {
+  // Client-only date formatter to avoid SSR/client mismatch
+  function ClientDate({ value, options }: { value: any; options?: Intl.DateTimeFormatOptions }) {
+    const [text, setText] = useState<string>(() => {
+      if (!value) return '';
+      try {
+        if (typeof value === 'string') return value;
+        if (value?.toDate) return value.toDate().toISOString();
+        if (value instanceof Date) return value.toISOString();
+      } catch {}
+      return '';
+    });
+
+    useEffect(() => {
+      if (!value) return setText('');
+      let date: Date | null = null;
+      if (typeof value === 'string') date = new Date(value);
+      else if (value?.toDate) date = value.toDate();
+      else if (value instanceof Date) date = value;
+      if (!date || isNaN(date.getTime())) return setText('');
+      setText(date.toLocaleDateString('pt-BR', options || { day: '2-digit', month: '2-digit', year: 'numeric' }));
+    }, [value, options]);
+
+    return <Text>{text}</Text>;
+  }
   const { isDarkMode, setCurrentScreen, navigateTo, setSelectedBusiness, businesses } = useAppContext();
   const [denuncias, setDenuncias] = useState<Denuncia[]>([]);
   const [selectedDenuncia, setSelectedDenuncia] = useState<Denuncia | null>(null);

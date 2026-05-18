@@ -25,6 +25,8 @@
     },
     "web": {
       "output": "static",
+      "bundler": "metro",
+      "baseUrl": "/achou-web/",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
