@@ -75,14 +75,16 @@ for (const d of dirs) {
       fs.writeFileSync(target, html, 'utf8');
       console.log('Patched asset paths in', target);
 
-      // Also write a 404.html next to the index to ensure GitHub Pages serves the SPA
-      try {
-        const dir = path.dirname(target);
-        const notFoundPath = path.join(dir, '404.html');
-        fs.writeFileSync(notFoundPath, html, 'utf8');
-        console.log('Wrote 404.html to', notFoundPath);
-      } catch (err) {
-        console.warn('Could not write 404.html for', target, err.message);
+      // Write root 404.html from root index.html so SPA routes work on GitHub Pages.
+      const isRootIndex = path.basename(target) === 'index.html' && path.dirname(target) === dirPath;
+      if (isRootIndex) {
+        try {
+          const notFoundPath = path.join(dirPath, '404.html');
+          fs.writeFileSync(notFoundPath, html, 'utf8');
+          console.log('Wrote 404.html to', notFoundPath);
+        } catch (err) {
+          console.warn('Could not write 404.html for', target, err.message);
+        }
       }
     } catch (err) {
       console.error('Error patching', target, err.message);
