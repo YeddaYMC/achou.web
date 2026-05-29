@@ -53,6 +53,12 @@ function walkHtmlFiles(dir) {
 let any = false;
 for (const d of dirs) {
   const dirPath = path.join(process.cwd(), d);
+  try {
+    fs.writeFileSync(path.join(dirPath, '.nojekyll'), '');
+    console.log('Wrote .nojekyll to', path.join(dirPath, '.nojekyll'));
+  } catch (err) {
+    console.warn('Could not write .nojekyll in', dirPath, err.message);
+  }
   const files = walkHtmlFiles(dirPath);
   for (const target of files) {
     try {
