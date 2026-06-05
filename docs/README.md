@@ -102,6 +102,7 @@ Ver [ARCHITECTURE.md](ARCHITECTURE.md) para:
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Design de arquitetura, componentes, padrões |
 | [API.md](API.md) | Documentação de APIs (authService, hooks) |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Padrões de código, workflow, conventions |
+| [CT01_TESTE_MULTIPLATAFORMA_WEB_MOBILE.md](CT01_TESTE_MULTIPLATAFORMA_WEB_MOBILE.md) | Evidências e resultado do teste CT01 (Web vs Mobile) |
 | [BD-NOTAS.txt](BD-NOTAS.txt) | Estrutura Firestore, regras de negócio |
 
 ## 🧭 Próximos Passos: Geolocalização
