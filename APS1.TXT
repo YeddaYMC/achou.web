@@ -1,6 +1,7 @@
 APS1 - ESQUEMA DE DADOS PRONTO PARA IMPLEMENTAÇÃO
 Projeto: Achou App RN/FIREBASE
-Data: 13/03/2026
+Data: 13/03/202
+---------------------
 
 🔐 Fluxo de Regras Firestore (com atores e ações)
 👤 Usuário comum
