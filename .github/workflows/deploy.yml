@@ -9,9 +9,6 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
-    # ESTA LINHA É OBRIGATÓRIA PARA LIBERAR OS SEGREDO DO AMBIENTE:
-    environment: github-pages
 
     permissions:
       contents: read
