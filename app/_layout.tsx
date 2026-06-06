@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { AppProvider, useAppContext } from '../context/AppContext';
 import RootNavigator from '../navigation/RootNavigator';
@@ -7,7 +7,6 @@ function AppLayout() {
   const { currentScreen, navigateTo } = useAppContext();
 
   useEffect(() => {
-    // Redireciona para T1 após 10s se estiver na tela index
     if (currentScreen === 'index') {
       const timer = setTimeout(() => {
         navigateTo('T1');
@@ -19,15 +18,23 @@ function AppLayout() {
   return <RootNavigator />;
 }
 
-// Wrapper que usa HashRouter no web se disponível
+// Wrapper que usa HashRouter no web se disponível (com correção para Hydration Error)
 function OptionalHashRouter({ children }: { children: React.ReactNode }) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Enquanto estiver renderizando no servidor (build), retorna a estrutura padrão
+  if (!isMounted) return <>{children}</>;
+
   if (Platform.OS !== 'web') return <>{children}</>;
+
   try {
-    // require para evitar erro no bundler RN; roda só no web
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { HashRouter } = require('react-router-dom');
-    // Forçar HashRouter com basename para GitHub Pages deploy em subpath
-    return <HashRouter basename="/achou-web/">{children}</HashRouter>;
+    // Removido o basename antigo porque a Cloudflare Pages roda na raiz do domínio
+    return <HashRouter>{children}</HashRouter>;
   } catch (e) {
     return <>{children}</>;
   }
