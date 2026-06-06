@@ -19,7 +19,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     
-    # AS VARIÁVEIS DEVEM ENTRAR EXATAMENTE AQUI (DENTRO DO JOB BUILD):
     env:
       EXPO_PUBLIC_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
       EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
@@ -55,9 +54,6 @@ jobs:
           path: dist
 
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
     steps:
