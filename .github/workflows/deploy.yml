@@ -37,7 +37,7 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Build Expo web export
-        run: npm run build:web
+        run: npx expo export -p web
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/pages-action@v1
