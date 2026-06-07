@@ -11,9 +11,8 @@ import { toast } from '../components/ui/sonner';
 import { useAppContext } from '../context/AppContext';
 import { getAllActiveAnuncios, getNearbyActiveAnuncios } from '../src/services/anuncioService';
 import { geocodeBusinessAddress } from '../src/services/geocodingService';
-import DistanciaCardAnuncioSMOP from '../components/DistanciaCardAnuncioSMOP';
 
-/** Degradê da barra superior — transição suave azul → verde */
+/** Degradê da barra superior — transição suave azul → verde (paradas intermediárias + locations). */
 const HEADER_GRADIENT = {
   light: {
     colors: ['#38bdf8', '#22d3ee', '#14b8a6', '#2dd4bf', '#4ade80'] as const,
@@ -27,14 +26,16 @@ const HEADER_GRADIENT = {
 const HEADER_GRADIENT_START = { x: 0, y: 0 };
 const HEADER_GRADIENT_END = { x: 1, y: 0 };
 
+// Constantes de raio
 const MIN_RADIUS_KM = 0.5;
 const MAX_RADIUS_KM = 8;
 const DEFAULT_RADIUS_KM = 1;
 const GEO_FETCH_RADIUS_KM = MAX_RADIUS_KM;
 
+// Função para calcular distância em metros usando fórmula de Haversine
 function haversineM(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const toRad = (v: number) => (v * Math.PI) / 180;
-  const R = 6371000;
+  const R = 6371000; // raio da Terra em metros
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -44,6 +45,7 @@ function haversineM(lat1: number, lon1: number, lat2: number, lon2: number): num
   return R * c;
 }
 
+// Categorias disponíveis
 const CATEGORIES = [
   'Imperdíveis',
   'Alimentação & Restaurantes',
@@ -64,10 +66,11 @@ const CATEGORIES = [
   'Tecnologia & Informática',
 ];
 
+// Tela principal de listagem
 export default function T1TelaInicial() {
   const { navigateTo, setSelectedBusiness, favorites, toggleFavorite, isDarkMode, businesses, locationSettings, userProfile } = useAppContext();
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [filteredBusinesses, setFilteredBusinesses] = useState<any[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]); // Categorias selecionadas (múltiplas)
+  const [filteredBusinesses, setFilteredBusinesses] = useState<any[]>([]); // Negócios filtrados
   const [isGeoSearching, setIsGeoSearching] = useState(false);
   const [searchCenter, setSearchCenter] = useState<null | { lat: number; lon: number }>(null);
   const geoCacheRef = useRef<{ key: string; businesses: any[] } | null>(null);
@@ -141,7 +144,12 @@ export default function T1TelaInicial() {
       }
 
       const profileHasAddress = Boolean(
-        userProfile?.cep || userProfile?.street || userProfile?.number || userProfile?.neighborhood || userProfile?.city || userProfile?.state
+        userProfile?.cep ||
+        userProfile?.street ||
+        userProfile?.number ||
+        userProfile?.neighborhood ||
+        userProfile?.city ||
+        userProfile?.state
       );
 
       if (profileHasAddress) {
@@ -156,7 +164,81 @@ export default function T1TelaInicial() {
             country: 'Brasil',
           });
           if (!active) return;
-          if (geo) setSearchCenter({ lat: geo.lat, lon: geo.lon });
+          setSearchCenter(geo ? { lat: geo.lat, lon: geo.lon } : null);
+          return;
+        } catch {
+          if (active) setSearchCenter(null);
+          return;
+        }
+      }
+
+      if (locationSettings?.mode === 'profile') {
+        const hasProfileAddressData = Boolean(
+          userProfile?.cep ||
+            userProfile?.street ||
+            userProfile?.number ||
+            userProfile?.neighborhood ||
+            userProfile?.city ||
+            userProfile?.state
+        );
+
+        if (hasProfileAddressData) {
+          try {
+            const geo = await geocodeBusinessAddress({
+              cep: userProfile?.cep,
+              street: userProfile?.street,
+              number: userProfile?.number,
+              neighborhood: userProfile?.neighborhood,
+              city: userProfile?.city,
+              state: userProfile?.state,
+              country: 'Brasil',
+            });
+            if (!active) return;
+            setSearchCenter(geo ? { lat: geo.lat, lon: geo.lon } : null);
+            return;
+          } catch {
+            if (active) setSearchCenter(null);
+            return;
+          }
+        }
+      }
+
+      if (locationSettings?.mode === 'address' || locationSettings?.mode === 'custom') {
+        const hasAddressData = Boolean(
+          locationSettings?.cep ||
+            locationSettings?.street ||
+            locationSettings?.number ||
+            locationSettings?.neighborhood ||
+            locationSettings?.city ||
+            locationSettings?.state
+        );
+
+        if (hasAddressData) {
+          try {
+            const geo = await geocodeBusinessAddress({
+              cep: locationSettings?.cep,
+              street: locationSettings?.street,
+              number: locationSettings?.number,
+              neighborhood: locationSettings?.neighborhood,
+              city: locationSettings?.city,
+              state: locationSettings?.state,
+              country: 'Brasil',
+            });
+            if (!active) return;
+            setSearchCenter(geo ? { lat: geo.lat, lon: geo.lon } : null);
+            return;
+          } catch {
+            if (active) setSearchCenter(null);
+            return;
+          }
+        }
+      }
+
+      if (locationSettings?.mode === 'cep' && locationSettings?.cep) {
+        try {
+          const geo = await geocodeBusinessAddress({ cep: locationSettings.cep, country: 'Brasil' });
+          if (!active) return;
+          setSearchCenter(geo ? { lat: geo.lat, lon: geo.lon } : null);
           return;
         } catch {
           if (active) setSearchCenter(null);
@@ -168,14 +250,19 @@ export default function T1TelaInicial() {
     };
 
     void resolveCenter();
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+    };
   }, [locationSettings, userProfile]);
-
+  
+  // Layout responsivo: Otimizado para 4 colunas no desktop estável
   const { width } = useWindowDimensions();
-  const GRID_GAP = 12;
-  const H_PADDING = 32;
+  const GRID_GAP = 12; // Gap reduzido para acomodar 4 colunas perfeitamente sem quebras de zoom
+  const H_PADDING = 32; // paddingHorizontal 16 * 2 do container
   const contentW = Math.max(280, width - H_PADDING);
-
+  
+  // Condicional de colunas atualizada para suportar 4 colunas em telas de desktop ordinárias (>=1200px)
   const numColumns = width >= 1200 ? 4 : width >= 900 ? 3 : width >= 640 ? 2 : 1;
   const showCategoryChipRow = Platform.OS === 'web' && width >= 768;
   const cardWidth =
@@ -215,7 +302,9 @@ export default function T1TelaInicial() {
           setIsGeoSearching(true);
           try {
             let nearby = await getNearbyActiveAnuncios({ center, radiusKm: GEO_FETCH_RADIUS_KM });
+
             if (nearby.length === 0) {
+              console.warn('Busca geográfica vazia, aplicando fallback para carregar a base completa.');
               nearby = await getAllActiveAnuncios();
             }
 
@@ -230,13 +319,40 @@ export default function T1TelaInicial() {
               return matched || mapAnuncioToBusiness(anuncio);
             });
 
+            const localGeoBusinesses = (businesses || []).filter((b: any) => {
+              if (typeof b?.lat !== 'number' || typeof b?.lon !== 'number') return false;
+              const d = haversineM(center.lat, center.lon, b.lat, b.lon);
+              return d <= GEO_FETCH_RADIUS_KM * 1000;
+            });
+
+            if (localGeoBusinesses.length > 0) {
+              const merged = new Map<string, any>();
+
+              baseBusinesses.forEach((b: any) => {
+                const key = String(b.firestoreId || b.id || b.name || '');
+                merged.set(key, b);
+              });
+
+              localGeoBusinesses.forEach((b: any) => {
+                const key = String(b.firestoreId || b.id || b.name || '');
+                if (!merged.has(key)) {
+                  merged.set(key, b);
+                }
+              });
+
+              baseBusinesses = Array.from(merged.values());
+            }
+
             geoCacheRef.current = { key: geoCacheKey, businesses: baseBusinesses };
-          } catch {
+          } catch (error) {
+            console.warn('Falha na busca geográfica otimizada, aplicando fallback local:', error);
             baseBusinesses = businesses;
           } finally {
             if (isActive) setIsGeoSearching(false);
           }
         }
+      } else {
+        setIsGeoSearching(false);
       }
 
       let results = baseBusinesses.map(b => {
@@ -249,12 +365,16 @@ export default function T1TelaInicial() {
 
       if (selectedCategories.length > 0) {
         results = results.filter(b => {
-          const categories = Array.isArray(b.categories) ? b.categories : [];
           if (selectedCategories.includes('Entrega Rápida na Região')) {
             const hasDelivery = b.entregaRapida === true;
+            const categories = Array.isArray(b.categories) ? b.categories : [];
             const hasOtherCategory = categories.some(cat => selectedCategories.filter(c => c !== 'Entrega Rápida na Região').includes(cat));
-            return selectedCategories.length > 1 ? (hasDelivery && hasOtherCategory) : hasDelivery;
+            if (selectedCategories.length > 1) {
+              return hasDelivery && hasOtherCategory;
+            }
+            return hasDelivery;
           }
+          const categories = Array.isArray(b.categories) ? b.categories : [];
           return categories.some(cat => selectedCategories.includes(cat));
         });
       }
@@ -262,28 +382,62 @@ export default function T1TelaInicial() {
       if (center) {
         const maxDistanceM = radiusKm * 1000;
         results = results.filter(b => b.distanceM != null && b.distanceM <= maxDistanceM);
-        results.sort((a, b) => (a.distanceM ?? 0) - (b.distanceM ?? 0));
       }
 
-      if (isActive) setFilteredBusinesses(results);
+      if (center) {
+        results.sort((a, b) => {
+          const aDist = typeof a.distanceM === 'number' ? a.distanceM : Number.MAX_SAFE_INTEGER;
+          const bDist = typeof b.distanceM === 'number' ? b.distanceM : Number.MAX_SAFE_INTEGER;
+          if (aDist !== bDist) return aDist - bDist;
+          return String(a?.name || '').localeCompare(String(b?.name || ''), 'pt-BR', { sensitivity: 'base' });
+        });
+      } else {
+        results.sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || ''), 'pt-BR', { sensitivity: 'base' }));
+      }
+
+      if (isActive) {
+        setFilteredBusinesses(results);
+      }
     };
 
     void runFilters();
-    return () => { isActive = false; };
+
+    return () => {
+      isActive = false;
+    };
   }, [selectedCategories, businesses, locationSettings, searchCenter]);
 
   const toggleCategory = (category: string) => {
-    setSelectedCategories(prev => prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]);
+    setSelectedCategories(prev => 
+      prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]
+    );
+  };
+
+  const removeCategory = (category: string) => {
+    setSelectedCategories(prev => prev.filter(c => c !== category));
+  };
+
+  const handleClearFilters = () => {
+    setSelectedCategories([]);
+    toast.info('Filtros limpos');
+  };
+
+  const handleCardClick = (business: any) => {
+    setSelectedBusiness(business);
+    navigateTo('T4');
   };
 
   return (
     <LayoutRN>
       <View style={[styles.container, isDarkMode && styles.containerDark]}>
+        {/* Filtros de Busca */}
         <View style={[styles.filtersCard, isDarkMode && styles.filtersCardDark]}>
           <View style={styles.filterGroup}>
             {showCategoryChipRow ? (
               <View style={styles.categoryWebRow}>
-                <Label style={[styles.categoryLabelInline, isDarkMode && styles.categoryLabelInlineDark]}>Categorias</Label>
+                <Label style={[styles.categoryLabelInline, isDarkMode && styles.categoryLabelInlineDark]}>
+                  Categorias
+                </Label>
                 <View style={styles.categoryChipsWrap}>
                   {CATEGORIES.map((category) => {
                     const selected = selectedCategories.includes(category);
@@ -291,6 +445,7 @@ export default function T1TelaInicial() {
                       <TouchableOpacity
                         key={category}
                         onPress={() => toggleCategory(category)}
+                        activeOpacity={0.85}
                         style={[
                           styles.categoryChip,
                           isDarkMode && styles.categoryChipDark,
@@ -301,61 +456,196 @@ export default function T1TelaInicial() {
                           category === 'Imperdíveis' && styles.categoryChipImperdiveisGlow,
                         ]}
                       >
-                        <Text style={[styles.categoryChipText, isDarkMode && styles.categoryChipTextDark, selected && styles.categoryChipTextSelected]}>
-                          {category}
-                        </Text>
+                        {category === 'Entrega Rápida na Região' ? (
+                          <View style={styles.categoryChipInner}>
+                            <Truck size={18} color={selected ? '#fff' : '#10b981'} style={styles.categoryChipIcon} />
+                            <Text style={[styles.categoryChipText, isDarkMode && styles.categoryChipTextDark, selected && styles.categoryChipTextSelected]}>
+                              {category}
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={[styles.categoryChipText, isDarkMode && styles.categoryChipTextDark, selected && styles.categoryChipTextSelected]}>
+                            {category}
+                          </Text>
+                        )}
                       </TouchableOpacity>
                     );
                   })}
+                  <TouchableOpacity
+                    onPress={handleClearFilters}
+                    disabled={selectedCategories.length === 0}
+                    activeOpacity={0.85}
+                    style={[
+                      styles.categoryClearChip,
+                      isDarkMode && styles.categoryClearChipDark,
+                      selectedCategories.length === 0 && styles.categoryClearChipDisabled,
+                    ]}
+                  >
+                    <X size={18} color={isDarkMode ? '#fecaca' : '#b91c1c'} />
+                    <Text style={[styles.categoryClearChipText, isDarkMode && styles.categoryClearChipTextDark, selectedCategories.length === 0 && styles.categoryClearChipTextDisabled]}>
+                      Limpar filtros
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             ) : (
-              <Select value="" onValueChange={toggleCategory}>
-                <SelectTrigger style={styles.selectTrigger}><SelectValue placeholder="Filtrar Categoria" /></SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map(category => <SelectItem key={category} value={category}>{category}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <>
+                <Label>Categorias (selecione múltiplas)</Label>
+                <Select value="" onValueChange={toggleCategory}>
+                  <SelectTrigger style={styles.selectTrigger}>
+                    <SelectValue placeholder="Adicionar categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category === 'Entrega Rápida na Região' ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Truck size={20} color="#10b981" />
+                            <Text>{category}</Text>
+                          </View>
+                        ) : (
+                          category
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
             )}
           </View>
+
+          {/* Badges de filtros ativos */}
+          {selectedCategories.length > 0 && (
+            <View style={styles.activeBadgesContainer}>
+              <Text style={[styles.activeBadgesLabel, isDarkMode && styles.activeBadgesLabelDark]}>Filtros ativos:</Text>
+              <View style={styles.badgesRow}>
+                {selectedCategories.map((category) => (
+                  <TouchableOpacity key={category} onPress={() => removeCategory(category)} style={styles.activeBadge}>
+                    <Badge variant="default" style={styles.filterBadge}>
+                      <View style={styles.badgeContent}>
+                        <Text style={styles.filterBadgeText}>{category}</Text>
+                        <X size={17} color="#fff" />
+                      </View>
+                    </Badge>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {!showCategoryChipRow && (
+            <View style={styles.filterButtonRow}>
+              <Button 
+                onPress={handleClearFilters} 
+                variant="outline" 
+                style={styles.filterButtonClear}
+                disabled={selectedCategories.length === 0}
+              >
+                <View style={styles.buttonContent}>
+                  <X size={21} color={isDarkMode ? '#fff' : '#000'} />
+                  <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Remover Todos os Filtros</Text>
+                </View>
+              </Button>
+            </View>
+          )}
         </View>
 
-        <Text style={[styles.resultsText, isDarkMode && styles.resultsTextDark]}>{filteredBusinesses.length} negócio(s) encontrado(s)</Text>
-        
+        {/* Resultados - Grid de Cards */}
+        <Text style={[styles.resultsText, isDarkMode && styles.resultsTextDark]}>
+          {filteredBusinesses.length} negócio(s) encontrado(s)
+        </Text>
+        {isGeoSearching && (
+          <Text style={[styles.resultsText, isDarkMode && styles.resultsTextDark]}>
+            Buscando por proximidade...
+          </Text>
+        )}
         <View style={[styles.cardGrid, numColumns === 1 && contentW > cardWidth + 8 && styles.cardGridSingleCentered]}>
           {filteredBusinesses.map((business) => (
-            <TouchableOpacity key={business.id} onPress={() => navigateTo('T4')} style={[styles.cardWrapper, cardOuterStyle, numColumns > 1 && styles.cardWrapperGrid]}>
+            <TouchableOpacity 
+              key={business.id} 
+              onPress={() => handleCardClick(business)} 
+              style={[
+                styles.cardWrapper,
+                cardOuterStyle,
+                numColumns > 1 && styles.cardWrapperGrid,
+              ]}
+            >
               <LinearGradient
                 colors={isDarkMode ? ['#0f172a', '#1d4ed8'] : ['#eff6ff', '#dbeafe']}
-                style={[styles.businessCardGradient, isDarkMode ? styles.businessCardGradientBorderDark : styles.businessCardGradientBorderLight, numColumns > 1 && styles.businessCardGradientUniform]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[
+                  styles.businessCardGradient,
+                  isDarkMode ? styles.businessCardGradientBorderDark : styles.businessCardGradientBorderLight,
+                  numColumns > 1 && styles.businessCardGradientUniform,
+                ]}
               >
                 <View style={styles.titleAboveImageWrap}>
-                  <Text style={[styles.businessNameTop, isDarkMode && styles.businessNameTopDark]} numberOfLines={1}>{business.name}</Text>
+                  <Text style={StyleSheet.flatten([styles.businessNameTop, isDarkMode && styles.businessNameTopDark])} numberOfLines={1}>
+                    {business.name}
+                  </Text>
                 </View>
-
-                <LinearGradient colors={[...HEADER_GRADIENT[isDarkMode ? 'dark' : 'light'].colors]} style={styles.imageContainer}>
-                  <Image source={typeof business.image === 'string' ? { uri: business.image } : business.image} style={styles.cardImage} resizeMode="contain" />
+                <LinearGradient
+                  colors={[...HEADER_GRADIENT[isDarkMode ? 'dark' : 'light'].colors]}
+                  locations={[...HEADER_GRADIENT[isDarkMode ? 'dark' : 'light'].locations]}
+                  start={HEADER_GRADIENT_START}
+                  end={HEADER_GRADIENT_END}
+                  style={styles.imageContainer}
+                >
+                  <Image
+                    source={typeof business.image === 'string' ? { uri: business.image } : business.image}
+                    style={styles.cardImage}
+                    resizeMode="contain"
+                  />
                 </LinearGradient>
-
                 <View style={styles.cardContent}>
                   <View style={styles.badgesRowMin}>
                     <View style={styles.badgesRow}>
                       {business.categories.map((category: string, idx: number) => (
-                        <Badge key={idx} style={[styles.categoryBadge, category === 'Imperdíveis' && styles.categoryBadgeImperdiveis]}>
-                          <Text style={[styles.badgeText, category === 'Imperdíveis' && styles.badgeTextImperdiveis]}>{category}</Text>
+                        <Badge 
+                          key={idx}
+                          variant="default" 
+                          style={StyleSheet.flatten([
+                            styles.categoryBadge,
+                            category === 'Imperdíveis' && styles.categoryBadgeImperdiveis
+                          ])}
+                        >
+                          <Text style={[styles.badgeText, category === 'Imperdíveis' && styles.badgeTextImperdiveis]}>
+                            {category}
+                          </Text>
                         </Badge>
                       ))}
+                      {business.entregaRapida && (
+                        <Badge variant="default" style={styles.entregaBadge}>
+                          <Text style={styles.entregaBadgeText}>🚀 Entrega</Text>
+                        </Badge>
+                      )}
                     </View>
                   </View>
-
-                  <Text style={[styles.businessDesc, isDarkMode && styles.businessDescDark]} numberOfLines={2}>{business.description}</Text>
-                  <Text style={[styles.businessLocation, isDarkMode && styles.businessLocationDark]} numberOfLines={1}>📍 {business.location}</Text>
-
-                  <DistanciaCardAnuncioSMOP userLat={searchCenter?.lat} userLon={searchCenter?.lon} business={business} isDarkMode={isDarkMode} />
+                  <Text style={[styles.businessDesc, isDarkMode && styles.businessDescDark]} numberOfLines={2}>
+                    {business.description}
+                  </Text>
+                  <Text style={[styles.businessLocation, isDarkMode && styles.businessLocationDark]} numberOfLines={1}>
+                    📍 {business.location}
+                  </Text>
+                  <View style={styles.distanceRow}>
+                    {business.distanceM != null ? (
+                      <Text style={[styles.businessDistance, isDarkMode && styles.businessDistanceDark]}>
+                        🎯 {business.distanceM < 1000 ? `${Math.round(business.distanceM)}m` : `${(business.distanceM / 1000).toFixed(1)}km`}
+                      </Text>
+                    ) : (
+                      <View style={styles.distancePlaceholder} />
+                    )}
+                  </View>
                 </View>
 
+                {/* Ícone de favorito */}
                 <TouchableOpacity style={styles.favIcon} onPress={() => toggleFavorite(business.id)}>
-                  <Heart size={16} color={favorites?.includes(business.id) ? '#ef4444' : '#cbd5e1'} fill={favorites?.includes(business.id) ? '#ef4444' : 'none'} />
+                  <Heart
+                    size={20}
+                    color={favorites?.includes(business.id) ? '#ef4444' : '#cbd5e1'}
+                    fill={favorites?.includes(business.id) ? '#ef4444' : 'none'}
+                  />
                 </TouchableOpacity>
               </LinearGradient>
             </TouchableOpacity>
@@ -390,7 +680,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   badgesRowMin: {
-    minHeight: 44, 
+    minHeight: 44, // Reduzido para ficar proporcional ao card menor
     marginBottom: 4,
     justifyContent: 'flex-start',
   },
@@ -537,7 +827,6 @@ const styles = StyleSheet.create({
   categoryClearChipDark: {
     borderColor: '#f87171',
     backgroundColor: 'rgba(127,29,29,0.35)',
-    color: '#fecaca',
   },
   categoryClearChipDisabled: {
     opacity: 0.45,
@@ -548,6 +837,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#991b1b',
+  },
+  categoryClearChipDark: {
+    color: '#fecaca',
   },
   categoryClearChipTextDisabled: {
     color: '#64748b',
@@ -613,6 +905,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     width: '100%',
   },
+  // O pulo do gato para o Web: Reduzido de 468 para 275 para estabilizar a proporção horizontal
   businessCardGradientUniform: {
     minHeight: Platform.OS === 'web' ? 275 : 260,
     flex: 1,
@@ -624,6 +917,7 @@ const styles = StyleSheet.create({
   businessCardGradientBorderDark: {
     borderColor: 'rgba(56,189,248,0.55)',
   },
+  // Altura da imagem reduzida de 220 para 110 para o card não ficar esticado verticalmente
   imageContainer: {
     width: '100%',
     height: Platform.OS === 'web' ? 110 : 100,
@@ -641,7 +935,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   businessNameTop: {
-    fontSize: 14,
+    fontSize: 14, // Fonte ajustada de 19 para 14
     fontWeight: '700',
     color: '#1e3a8a',
     textAlign: 'center',
@@ -653,6 +947,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  // Reduzido o padding de 16 para 8 para otimizar o espaço interno lateral
   cardContent: {
     padding: 8,
     flexGrow: 1,
@@ -673,7 +968,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   badgeText: {
-    fontSize: 10,
+    fontSize: 10, // Fonte reduzida para não quebrar linha dentro do badge
     fontWeight: '600',
     color: '#fff',
   },
@@ -691,9 +986,9 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   businessDesc: {
-    fontSize: 12,
+    fontSize: 12, // Ajustado de 16 para 12
     lineHeight: 16,
-    height: 32,
+    height: 32, // Altura fixa para duas linhas perfeitas
     color: '#444',
     marginBottom: 6,
     overflow: 'hidden',
@@ -702,7 +997,7 @@ const styles = StyleSheet.create({
     color: '#cbd5e1',
   },
   businessLocation: {
-    fontSize: 11,
+    fontSize: 11, // Ajustado de 15 para 11
     color: '#555',
   },
   businessLocationDark: {
@@ -725,6 +1020,7 @@ const styles = StyleSheet.create({
     height: 14,
     marginTop: 2,
   },
+  // Ícone redimensionado e reposicionado proporcionalmente para cards menores
   favIcon: {
     position: 'absolute',
     bottom: 8,
@@ -740,16 +1036,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 2,
     elevation: 2,
-  },
-
-  // Ajustes de destaque do bairro adicionados de forma limpa ao final
-  bairroDestaque: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1e3a8a',
-    marginTop: 6,
-  },
-  bairroDestaqueDark: {
-    color: '#38bdf8',
   },
 });
