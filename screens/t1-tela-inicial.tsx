@@ -256,26 +256,26 @@ export default function T1TelaInicial() {
     };
   }, [locationSettings, userProfile]);
   
-  // Layout responsivo: largura em px evita desalinhamento no web (% + min/max conflitantes)
+  // Layout responsivo: Otimizado para 4 colunas no desktop estável
   const { width } = useWindowDimensions();
-  const GRID_GAP = 16;
+  const GRID_GAP = 12; // Gap reduzido para acomodar 4 colunas perfeitamente sem quebras de zoom
   const H_PADDING = 32; // paddingHorizontal 16 * 2 do container
   const contentW = Math.max(280, width - H_PADDING);
-  // Largura da janela: mobile (<768) = 1 col | médias 768–1199 = 2 | grande (>=1200) = 3
-  const numColumns = width >= 1200 ? 3 : width >= 768 ? 2 : 1;
-  /** Web larga: chips em linha; mobile / web estreita: dropdown Select */
+  
+  // Condicional de colunas atualizada para suportar 4 colunas em telas de desktop ordinárias (>=1200px)
+  const numColumns = width >= 1200 ? 4 : width >= 900 ? 3 : width >= 640 ? 2 : 1;
   const showCategoryChipRow = Platform.OS === 'web' && width >= 768;
   const cardWidth =
     numColumns === 1
       ? Math.min(contentW, Platform.OS === 'web' ? 640 : 560)
-      : Math.max(280, Math.floor((contentW - GRID_GAP * (numColumns - 1)) / numColumns));
+      : Math.max(220, Math.floor((contentW - GRID_GAP * (numColumns - 1)) / numColumns));
 
   const cardOuterStyle = {
     width: cardWidth,
     minWidth: cardWidth,
     maxWidth: cardWidth,
   };
-  // Aplica filtros quando categorias mudam e calcula distância
+
   useEffect(() => {
     if (!searchCenter) {
       geoCacheRef.current = null;
@@ -286,128 +286,119 @@ export default function T1TelaInicial() {
     let isActive = true;
 
     const runFilters = async () => {
-    const center = searchCenter;
-    const radiusKm = locationSettings?.radiusKm || DEFAULT_RADIUS_KM;
+      const center = searchCenter;
+      const radiusKm = locationSettings?.radiusKm || DEFAULT_RADIUS_KM;
 
-    let baseBusinesses = businesses;
-    if (center) {
-      const businessesSignature = (businesses || [])
-        .map((b: any) => String(b.firestoreId || b.id || b.name || ''))
-        .join('|');
-      const geoCacheKey = `${center.lat.toFixed(5)}|${center.lon.toFixed(5)}|${businessesSignature}`;
+      let baseBusinesses = businesses;
+      if (center) {
+        const businessesSignature = (businesses || [])
+          .map((b: any) => String(b.firestoreId || b.id || b.name || ''))
+          .join('|');
+        const geoCacheKey = `${center.lat.toFixed(5)}|${center.lon.toFixed(5)}|${businessesSignature}`;
 
-      if (geoCacheRef.current?.key === geoCacheKey) {
-        baseBusinesses = geoCacheRef.current.businesses;
-      } else {
-      setIsGeoSearching(true);
-      try {
-          let nearby = await getNearbyActiveAnuncios({ center, radiusKm: GEO_FETCH_RADIUS_KM });
+        if (geoCacheRef.current?.key === geoCacheKey) {
+          baseBusinesses = geoCacheRef.current.businesses;
+        } else {
+          setIsGeoSearching(true);
+          try {
+            let nearby = await getNearbyActiveAnuncios({ center, radiusKm: GEO_FETCH_RADIUS_KM });
 
-          if (nearby.length === 0) {
-            console.warn('Busca geográfica vazia, aplicando fallback para carregar a base completa.');
-            nearby = await getAllActiveAnuncios();
-          }
-
-        const existingByFirestoreId = new Map(
-          (businesses || [])
-            .filter((b: any) => typeof b.firestoreId === 'string' && b.firestoreId)
-            .map((b: any) => [b.firestoreId, b])
-        );
-
-        baseBusinesses = nearby.map((anuncio) => {
-          const matched = anuncio.id ? existingByFirestoreId.get(anuncio.id) : null;
-          return matched || mapAnuncioToBusiness(anuncio);
-        });
-
-        // Fallback local para anúncios antigos sem geohash indexado: usa a base já carregada em memória.
-        const localGeoBusinesses = (businesses || []).filter((b: any) => {
-          if (typeof b?.lat !== 'number' || typeof b?.lon !== 'number') return false;
-          const d = haversineM(center.lat, center.lon, b.lat, b.lon);
-          return d <= GEO_FETCH_RADIUS_KM * 1000;
-        });
-
-        if (localGeoBusinesses.length > 0) {
-          const merged = new Map<string, any>();
-
-          baseBusinesses.forEach((b: any) => {
-            const key = String(b.firestoreId || b.id || b.name || '');
-            merged.set(key, b);
-          });
-
-          localGeoBusinesses.forEach((b: any) => {
-            const key = String(b.firestoreId || b.id || b.name || '');
-            if (!merged.has(key)) {
-              merged.set(key, b);
+            if (nearby.length === 0) {
+              console.warn('Busca geográfica vazia, aplicando fallback para carregar a base completa.');
+              nearby = await getAllActiveAnuncios();
             }
-          });
 
-          baseBusinesses = Array.from(merged.values());
-        }
+            const existingByFirestoreId = new Map(
+              (businesses || [])
+                .filter((b: any) => typeof b.firestoreId === 'string' && b.firestoreId)
+                .map((b: any) => [b.firestoreId, b])
+            );
 
-          geoCacheRef.current = { key: geoCacheKey, businesses: baseBusinesses };
-      } catch (error) {
-        console.warn('Falha na busca geográfica otimizada, aplicando fallback local:', error);
-        baseBusinesses = businesses;
-      } finally {
-        if (isActive) setIsGeoSearching(false);
-      }
-      }
-    } else {
-      setIsGeoSearching(false);
-    }
+            baseBusinesses = nearby.map((anuncio) => {
+              const matched = anuncio.id ? existingByFirestoreId.get(anuncio.id) : null;
+              return matched || mapAnuncioToBusiness(anuncio);
+            });
 
-    let results = baseBusinesses.map(b => {
-      // Calcula distância se houver ponto de origem e coordenadas no negócio
-      let distanceM = null;
-      if (center && typeof b.lat === 'number' && typeof b.lon === 'number') {
-        distanceM = haversineM(center.lat, center.lon, b.lat, b.lon);
-      }
-      return { ...b, distanceM };
-    });
+            const localGeoBusinesses = (businesses || []).filter((b: any) => {
+              if (typeof b?.lat !== 'number' || typeof b?.lon !== 'number') return false;
+              const d = haversineM(center.lat, center.lon, b.lat, b.lon);
+              return d <= GEO_FETCH_RADIUS_KM * 1000;
+            });
 
-    // Filtra por categoria
-    if (selectedCategories.length > 0) {
-      results = results.filter(b => {
-        // Se filtro de Entrega Rápida está selecionado
-        if (selectedCategories.includes('Entrega Rápida na Região')) {
-          const hasDelivery = b.entregaRapida === true;
-          const categories = Array.isArray(b.categories) ? b.categories : [];
-          const hasOtherCategory = categories.some(cat => selectedCategories.filter(c => c !== 'Entrega Rápida na Região').includes(cat));
-          // Se há outros filtros além de Entrega Rápida, deve ter entrega E uma das categorias
-          if (selectedCategories.length > 1) {
-            return hasDelivery && hasOtherCategory;
+            if (localGeoBusinesses.length > 0) {
+              const merged = new Map<string, any>();
+
+              baseBusinesses.forEach((b: any) => {
+                const key = String(b.firestoreId || b.id || b.name || '');
+                merged.set(key, b);
+              });
+
+              localGeoBusinesses.forEach((b: any) => {
+                const key = String(b.firestoreId || b.id || b.name || '');
+                if (!merged.has(key)) {
+                  merged.set(key, b);
+                }
+              });
+
+              baseBusinesses = Array.from(merged.values());
+            }
+
+            geoCacheRef.current = { key: geoCacheKey, businesses: baseBusinesses };
+          } catch (error) {
+            console.warn('Falha na busca geográfica otimizada, aplicando fallback local:', error);
+            baseBusinesses = businesses;
+          } finally {
+            if (isActive) setIsGeoSearching(false);
           }
-          // Se só tem filtro de Entrega Rápida, retorna apenas os que têm entrega
-          return hasDelivery;
         }
-        // Filtro normal de categorias
-        const categories = Array.isArray(b.categories) ? b.categories : [];
-        return categories.some(cat => selectedCategories.includes(cat));
+      } else {
+        setIsGeoSearching(false);
+      }
+
+      let results = baseBusinesses.map(b => {
+        let distanceM = null;
+        if (center && typeof b.lat === 'number' && typeof b.lon === 'number') {
+          distanceM = haversineM(center.lat, center.lon, b.lat, b.lon);
+        }
+        return { ...b, distanceM };
       });
-    }
 
-    // Filtra por distância configurada quando há origem definida
-    if (center) {
-      const maxDistanceM = radiusKm * 1000; // Converte km para metros
-      results = results.filter(b => b.distanceM != null && b.distanceM <= maxDistanceM);
-    }
+      if (selectedCategories.length > 0) {
+        results = results.filter(b => {
+          if (selectedCategories.includes('Entrega Rápida na Região')) {
+            const hasDelivery = b.entregaRapida === true;
+            const categories = Array.isArray(b.categories) ? b.categories : [];
+            const hasOtherCategory = categories.some(cat => selectedCategories.filter(c => c !== 'Entrega Rápida na Região').includes(cat));
+            if (selectedCategories.length > 1) {
+              return hasDelivery && hasOtherCategory;
+            }
+            return hasDelivery;
+          }
+          const categories = Array.isArray(b.categories) ? b.categories : [];
+          return categories.some(cat => selectedCategories.includes(cat));
+        });
+      }
 
-    // Se há localização, ordena por proximidade. Sem localização, ordem alfabética.
-    if (center) {
-      results.sort((a, b) => {
-        const aDist = typeof a.distanceM === 'number' ? a.distanceM : Number.MAX_SAFE_INTEGER;
-        const bDist = typeof b.distanceM === 'number' ? b.distanceM : Number.MAX_SAFE_INTEGER;
-        if (aDist !== bDist) return aDist - bDist;
-        return String(a?.name || '').localeCompare(String(b?.name || ''), 'pt-BR', { sensitivity: 'base' });
-      });
-    } else {
-      results.sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || ''), 'pt-BR', { sensitivity: 'base' }));
-    }
+      if (center) {
+        const maxDistanceM = radiusKm * 1000;
+        results = results.filter(b => b.distanceM != null && b.distanceM <= maxDistanceM);
+      }
 
-    if (isActive) {
-      setFilteredBusinesses(results);
-    }
-  };
+      if (center) {
+        results.sort((a, b) => {
+          const aDist = typeof a.distanceM === 'number' ? a.distanceM : Number.MAX_SAFE_INTEGER;
+          const bDist = typeof b.distanceM === 'number' ? b.distanceM : Number.MAX_SAFE_INTEGER;
+          if (aDist !== bDist) return aDist - bDist;
+          return String(a?.name || '').localeCompare(String(b?.name || ''), 'pt-BR', { sensitivity: 'base' });
+        });
+      } else {
+        results.sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || ''), 'pt-BR', { sensitivity: 'base' }));
+      }
+
+      if (isActive) {
+        setFilteredBusinesses(results);
+      }
+    };
 
     void runFilters();
 
@@ -416,30 +407,24 @@ export default function T1TelaInicial() {
     };
   }, [selectedCategories, businesses, locationSettings, searchCenter]);
 
-  // Adiciona ou remove categoria
   const toggleCategory = (category: string) => {
     setSelectedCategories(prev => 
-      prev.includes(category) 
-        ? prev.filter(c => c !== category) // Remove se já existe
-        : [...prev, category] // Adiciona se não existe
+      prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]
     );
   };
 
-  // Remove categoria específica
   const removeCategory = (category: string) => {
     setSelectedCategories(prev => prev.filter(c => c !== category));
   };
 
-  // Limpa todos os filtros
   const handleClearFilters = () => {
-    setSelectedCategories([]); // Reseta categorias
-    toast.info('Filtros limpos'); // Notifica usuário
+    setSelectedCategories([]);
+    toast.info('Filtros limpos');
   };
 
-  // Seleciona negócio e navega
   const handleCardClick = (business: any) => {
-    setSelectedBusiness(business); // Define negócio selecionado
-    navigateTo('T4'); // Navega para detalhes
+    setSelectedBusiness(business);
+    navigateTo('T4');
   };
 
   return (
@@ -474,24 +459,12 @@ export default function T1TelaInicial() {
                         {category === 'Entrega Rápida na Região' ? (
                           <View style={styles.categoryChipInner}>
                             <Truck size={18} color={selected ? '#fff' : '#10b981'} style={styles.categoryChipIcon} />
-                            <Text
-                              style={[
-                                styles.categoryChipText,
-                                isDarkMode && styles.categoryChipTextDark,
-                                selected && styles.categoryChipTextSelected,
-                              ]}
-                            >
+                            <Text style={[styles.categoryChipText, isDarkMode && styles.categoryChipTextDark, selected && styles.categoryChipTextSelected]}>
                               {category}
                             </Text>
                           </View>
                         ) : (
-                          <Text
-                            style={[
-                              styles.categoryChipText,
-                              isDarkMode && styles.categoryChipTextDark,
-                              selected && styles.categoryChipTextSelected,
-                            ]}
-                          >
+                          <Text style={[styles.categoryChipText, isDarkMode && styles.categoryChipTextDark, selected && styles.categoryChipTextSelected]}>
                             {category}
                           </Text>
                         )}
@@ -509,13 +482,7 @@ export default function T1TelaInicial() {
                     ]}
                   >
                     <X size={18} color={isDarkMode ? '#fecaca' : '#b91c1c'} />
-                    <Text
-                      style={[
-                        styles.categoryClearChipText,
-                        isDarkMode && styles.categoryClearChipTextDark,
-                        selectedCategories.length === 0 && styles.categoryClearChipTextDisabled,
-                      ]}
-                    >
+                    <Text style={[styles.categoryClearChipText, isDarkMode && styles.categoryClearChipTextDark, selectedCategories.length === 0 && styles.categoryClearChipTextDisabled]}>
                       Limpar filtros
                     </Text>
                   </TouchableOpacity>
@@ -567,19 +534,19 @@ export default function T1TelaInicial() {
           )}
 
           {!showCategoryChipRow && (
-          <View style={styles.filterButtonRow}>
-            <Button 
-              onPress={handleClearFilters} 
-              variant="outline" 
-              style={styles.filterButtonClear}
-              disabled={selectedCategories.length === 0}
-            >
-              <View style={styles.buttonContent}>
-                <X size={21} color={isDarkMode ? '#fff' : '#000'} />
-                <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Remover Todos os Filtros</Text>
-              </View>
-            </Button>
-          </View>
+            <View style={styles.filterButtonRow}>
+              <Button 
+                onPress={handleClearFilters} 
+                variant="outline" 
+                style={styles.filterButtonClear}
+                disabled={selectedCategories.length === 0}
+              >
+                <View style={styles.buttonContent}>
+                  <X size={21} color={isDarkMode ? '#fff' : '#000'} />
+                  <Text style={[styles.buttonText, isDarkMode && styles.buttonTextDark]}>Remover Todos os Filtros</Text>
+                </View>
+              </Button>
+            </View>
           )}
         </View>
 
@@ -592,12 +559,7 @@ export default function T1TelaInicial() {
             Buscando por proximidade...
           </Text>
         )}
-        <View
-          style={[
-            styles.cardGrid,
-            numColumns === 1 && contentW > cardWidth + 8 && styles.cardGridSingleCentered,
-          ]}
-        >
+        <View style={[styles.cardGrid, numColumns === 1 && contentW > cardWidth + 8 && styles.cardGridSingleCentered]}>
           {filteredBusinesses.map((business) => (
             <TouchableOpacity 
               key={business.id} 
@@ -619,7 +581,7 @@ export default function T1TelaInicial() {
                 ]}
               >
                 <View style={styles.titleAboveImageWrap}>
-                  <Text style={StyleSheet.flatten([styles.businessNameTop, isDarkMode && styles.businessNameTopDark])} numberOfLines={2}>
+                  <Text style={StyleSheet.flatten([styles.businessNameTop, isDarkMode && styles.businessNameTopDark])} numberOfLines={1}>
                     {business.name}
                   </Text>
                 </View>
@@ -638,44 +600,38 @@ export default function T1TelaInicial() {
                 </LinearGradient>
                 <View style={styles.cardContent}>
                   <View style={styles.badgesRowMin}>
-                  <View style={styles.badgesRow}>
-                    {business.categories.map((category: string, idx: number) => (
-                      <Badge 
-                        key={idx}
-                        variant="default" 
-                        style={StyleSheet.flatten([
-                          styles.categoryBadge,
-                          category === 'Imperdíveis' && styles.categoryBadgeImperdiveis
-                        ])}
-                      >
-                        <Text style={[
-                          styles.badgeText,
-                          category === 'Imperdíveis' && styles.badgeTextImperdiveis
-                        ]}>
-                          {category}
-                        </Text>
-                      </Badge>
-                    ))}
-                    {business.entregaRapida && (
-                      <Badge variant="default" style={styles.entregaBadge}>
-                        <Text style={styles.entregaBadgeText}>🚀 Entrega Rápida</Text>
-                      </Badge>
-                    )}
-                  </View>
+                    <View style={styles.badgesRow}>
+                      {business.categories.map((category: string, idx: number) => (
+                        <Badge 
+                          key={idx}
+                          variant="default" 
+                          style={StyleSheet.flatten([
+                            styles.categoryBadge,
+                            category === 'Imperdíveis' && styles.categoryBadgeImperdiveis
+                          ])}
+                        >
+                          <Text style={[styles.badgeText, category === 'Imperdíveis' && styles.badgeTextImperdiveis]}>
+                            {category}
+                          </Text>
+                        </Badge>
+                      ))}
+                      {business.entregaRapida && (
+                        <Badge variant="default" style={styles.entregaBadge}>
+                          <Text style={styles.entregaBadgeText}>🚀 Entrega</Text>
+                        </Badge>
+                      )}
+                    </View>
                   </View>
                   <Text style={[styles.businessDesc, isDarkMode && styles.businessDescDark]} numberOfLines={2}>
                     {business.description}
                   </Text>
-                  <Text
-                    style={[styles.businessLocation, isDarkMode && styles.businessLocationDark]}
-                    numberOfLines={2}
-                  >
-                    📍 {business.location} • {business.cep}
+                  <Text style={[styles.businessLocation, isDarkMode && styles.businessLocationDark]} numberOfLines={1}>
+                    📍 {business.location}
                   </Text>
                   <View style={styles.distanceRow}>
                     {business.distanceM != null ? (
                       <Text style={[styles.businessDistance, isDarkMode && styles.businessDistanceDark]}>
-                        🎯 {business.distanceM < 1000 ? `${Math.round(business.distanceM)}m` : `${(business.distanceM / 1000).toFixed(2)}km`}
+                        🎯 {business.distanceM < 1000 ? `${Math.round(business.distanceM)}m` : `${(business.distanceM / 1000).toFixed(1)}km`}
                       </Text>
                     ) : (
                       <View style={styles.distancePlaceholder} />
@@ -686,7 +642,7 @@ export default function T1TelaInicial() {
                 {/* Ícone de favorito */}
                 <TouchableOpacity style={styles.favIcon} onPress={() => toggleFavorite(business.id)}>
                   <Heart
-                    size={23}
+                    size={20}
                     color={favorites?.includes(business.id) ? '#ef4444' : '#cbd5e1'}
                     fill={favorites?.includes(business.id) ? '#ef4444' : 'none'}
                   />
@@ -706,8 +662,8 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   activeBadgesContainer: {
-    marginTop: 12, // Espaço superior
-    marginBottom: 8, // Espaço inferior
+    marginTop: 12,
+    marginBottom: 8,
   },
   activeBadgesLabel: {
     fontSize: 15,
@@ -716,29 +672,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   activeBadgesLabelDark: {
-    color: '#cbd5e1', // Cor cinza claro
+    color: '#cbd5e1',
   },
   badgesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 4,
   },
   badgesRowMin: {
-    minHeight: 78,
-    marginBottom: 6,
+    minHeight: 44, // Reduzido para ficar proporcional ao card menor
+    marginBottom: 4,
     justifyContent: 'flex-start',
   },
   activeBadge: {
-    marginBottom: 4, // Espaço inferior
+    marginBottom: 4,
   },
   filterBadge: {
-    paddingHorizontal: 12, // Padding horizontal
-    paddingVertical: 6, // Padding vertical
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   badgeContent: {
-    flexDirection: 'row', // Direção horizontal
-    alignItems: 'center', // Alinha centro
-    gap: 6, // Espaço entre texto e X
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   filterBadgeText: {
     fontSize: 14,
@@ -746,19 +702,19 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   containerDark: {
-    backgroundColor: 'transparent', // Deixa degradê global visível
+    backgroundColor: 'transparent',
   },
   filtersCard: {
-    backgroundColor: '#f3f4f6', // Fundo claro
-    borderWidth: 2, // Borda
-    borderColor: '#1e3a8a', // Cor borda
-    borderRadius: 12, // Arredondamento
-    padding: 16, // Padding
-    marginBottom: 16, // Espaço inferior
+    backgroundColor: '#f3f4f6',
+    borderWidth: 2,
+    borderColor: '#1e3a8a',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
   },
   filtersCardDark: {
-    backgroundColor: '#1f2937', // Fundo dark anterior dos cards de filtro
-    borderColor: '#0ea5e9', // Borda dark anterior
+    backgroundColor: '#1f2937',
+    borderColor: '#0ea5e9',
   },
   filterGroup: {
     marginBottom: 12,
@@ -787,9 +743,9 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   categoryChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     borderWidth: 2,
     borderColor: '#1e3a8a',
     backgroundColor: '#ffffff',
@@ -811,18 +767,18 @@ const styles = StyleSheet.create({
   categoryChipInner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: 6,
     maxWidth: 280,
   },
   categoryChipIcon: {
     marginTop: 2,
   },
   categoryChipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#1e3a8a',
     flexShrink: 1,
-    lineHeight: 18,
+    lineHeight: 16,
     maxWidth: 260,
   },
   categoryChipTextDark: {
@@ -831,7 +787,6 @@ const styles = StyleSheet.create({
   categoryChipTextSelected: {
     color: '#ffffff',
   },
-  /** Destaque especial — categoria Imperdíveis (chip filtros web) */
   categoryChipImperdiveis: {
     borderColor: '#22c55e',
     backgroundColor: '#f0fdf4',
@@ -850,7 +805,6 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
-  /** Brilho verde extra (também quando chip já está selecionado / fundo azul) */
   categoryChipImperdiveisGlow: {
     shadowColor: '#39ff14',
     shadowOffset: { width: 0, height: 0 },
@@ -863,8 +817,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     borderWidth: 2,
     borderColor: '#dc2626',
     backgroundColor: '#fef2f2',
@@ -880,21 +834,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f5f9',
   },
   categoryClearChipText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#991b1b',
   },
-  categoryClearChipTextDark: {
+  categoryClearChipDark: {
     color: '#fecaca',
   },
   categoryClearChipTextDisabled: {
     color: '#64748b',
   },
   selectTrigger: {
-    marginTop: 8, // Espaço superior
+    marginTop: 8,
   },
   filterButtonRow: {
-    marginTop: 12, // Espaço superior
+    marginTop: 12,
   },
   filterButtonClear: {
     width: '100%',
@@ -903,33 +857,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#1e3a8a',
-    minHeight: 54,
+    minHeight: 44,
   },
   buttonContent: {
-    flexDirection: 'row', // Direção horizontal
-    alignItems: 'center', // Alinha centro
-    gap: 8, // Espaço entre itens
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   buttonText: {
     color: '#000',
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '600',
   },
   buttonTextDark: {
-    color: '#fff', // Texto branco
+    color: '#fff',
   },
   resultsText: {
-    fontSize: 17,
+    fontSize: 15,
     color: '#666',
     marginBottom: 12,
   },
   resultsTextDark: {
-    color: '#cbd5e1', // Cor cinza claro
+    color: '#cbd5e1',
   },
   cardGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 12,
     justifyContent: 'flex-start',
     alignItems: 'stretch',
   },
@@ -937,24 +891,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cardWrapper: {
-    marginBottom: 16,
+    marginBottom: 12,
     flexGrow: 0,
     flexShrink: 0,
     flexDirection: 'column',
   },
-  /** Permite o card esticar na altura da linha (grid 2/3 colunas). */
   cardWrapperGrid: {
     alignSelf: 'stretch',
   },
   businessCardGradient: {
-    borderRadius: 12,
+    borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 2,
     width: '100%',
   },
-  /** Em grid 2/3 colunas: altura mínima + flex preenche a linha quando um card tem mais conteúdo. */
+  // O pulo do gato para o Web: Reduzido de 468 para 275 para estabilizar a proporção horizontal
   businessCardGradientUniform: {
-    minHeight: Platform.OS === 'web' ? 468 : 430,
+    minHeight: Platform.OS === 'web' ? 275 : 260,
     flex: 1,
     width: '100%',
   },
@@ -964,24 +917,25 @@ const styles = StyleSheet.create({
   businessCardGradientBorderDark: {
     borderColor: 'rgba(56,189,248,0.55)',
   },
+  // Altura da imagem reduzida de 220 para 110 para o card não ficar esticado verticalmente
   imageContainer: {
     width: '100%',
-    height: Platform.OS === 'web' ? 220 : 180,
+    height: Platform.OS === 'web' ? 110 : 100,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
     position: 'relative',
   },
   titleAboveImageWrap: {
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 6,
     alignItems: 'center',
-    minHeight: 58,
+    minHeight: 38,
     justifyContent: 'center',
   },
   businessNameTop: {
-    fontSize: 19,
+    fontSize: 14, // Fonte ajustada de 19 para 14
     fontWeight: '700',
     color: '#1e3a8a',
     textAlign: 'center',
@@ -989,127 +943,98 @@ const styles = StyleSheet.create({
   businessNameTopDark: {
     color: '#e0f2fe',
   },
-  imageTopOverlay: {
-    position: 'absolute',
-    top: 8,
-    left: 10,
-    right: 10,
-    alignItems: 'center',
-  },
   cardImage: {
-    width: '100%', // Largura total
-    height: '100%', // Altura preenchida
+    width: '100%',
+    height: '100%',
   },
-  businessNameOnImage: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1e3a8a',
-    textAlign: 'center',
-    backgroundColor: 'rgba(255,255,255,0.86)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  businessNameOnImageDark: {
-    color: '#e0f2fe',
-    backgroundColor: 'rgba(15,23,42,0.82)',
-  },
+  // Reduzido o padding de 16 para 8 para otimizar o espaço interno lateral
   cardContent: {
-    padding: 16,
+    padding: 8,
     flexGrow: 1,
     justifyContent: 'flex-start',
   },
   categoryBadge: {
-    marginBottom: 4, // Espaço inferior
-    marginRight: 6, // Espaço à direita para múltiplos badges
+    marginBottom: 4,
+    marginRight: 6,
   },
   categoryBadgeImperdiveis: {
-    backgroundColor: '#fff', // Mantém fundo branco
-    borderWidth: 3, // Borda dupla (mais grossa)
-    borderColor: '#39ff14', // Borda verde neon
-    shadowColor: '#39ff14', // Sombra verde neon
-    shadowOffset: { width: 0, height: 0 }, // Sem offset
-    shadowOpacity: 0.9, // Opacidade alta
-    shadowRadius: 10, // Raio largo para brilho
-    elevation: 8, // Elevação Android
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#22c55e',
+    shadowColor: '#22c55e',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 6,
+    elevation: 4,
   },
   badgeText: {
-    fontSize: 14,
+    fontSize: 10, // Fonte reduzida para não quebrar linha dentro do badge
     fontWeight: '600',
     color: '#fff',
   },
   badgeTextImperdiveis: {
-    color: '#1e3a8a', // Azul escuro
-    fontWeight: '700', // Peso extra bold
+    color: '#1e3a8a',
+    fontWeight: '700',
   },
   entregaBadge: {
-    backgroundColor: '#10b981', // Verde
+    backgroundColor: '#10b981',
     borderWidth: 0,
   },
   entregaBadgeText: {
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: '700',
     color: '#fff',
   },
-  businessName: {
-    fontSize: 16, // Tamanho fonte
-    fontWeight: '600', // Peso médio
-    color: '#1e3a8a', // Cor azul
-    marginBottom: 8, // Espaço inferior
-    textAlign: 'center', // Centraliza o nome no card
-  },
-  businessNameDark: {
-    color: '#e0f2fe', // Cor azul claro
-  },
   businessDesc: {
-    fontSize: 16,
-    lineHeight: 23,
-    height: 46,
+    fontSize: 12, // Ajustado de 16 para 12
+    lineHeight: 16,
+    height: 32, // Altura fixa para duas linhas perfeitas
     color: '#444',
-    marginBottom: 8,
+    marginBottom: 6,
     overflow: 'hidden',
   },
   businessDescDark: {
-    color: '#cbd5e1', // Cor cinza claro
+    color: '#cbd5e1',
   },
   businessLocation: {
-    fontSize: 15,
+    fontSize: 11, // Ajustado de 15 para 11
     color: '#555',
   },
   businessLocationDark: {
-    color: '#94a3b8', // Cor cinza claro
+    color: '#94a3b8',
+  },
+  distanceRow: {
+    minHeight: 18,
+    justifyContent: 'flex-end',
   },
   businessDistance: {
-    fontSize: 15,
+    fontSize: 11,
     color: '#10b981',
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: 2,
   },
   businessDistanceDark: {
     color: '#6ee7b7',
   },
-  distanceRow: {
-    minHeight: 26,
-    justifyContent: 'flex-end',
-  },
   distancePlaceholder: {
-    height: 22,
-    marginTop: 4,
+    height: 14,
+    marginTop: 2,
   },
+  // Ícone redimensionado e reposicionado proporcionalmente para cards menores
   favIcon: {
     position: 'absolute',
-    bottom: 12,
-    right: 12,
+    bottom: 8,
+    right: 8,
     backgroundColor: 'rgba(255,255,255,0.92)',
-    borderRadius: 22,
-    width: 46,
-    height: 46,
+    borderRadius: 15,
+    width: 30,
+    height: 30,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.12,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowRadius: 2,
+    elevation: 2,
   },
 });
