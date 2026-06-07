@@ -164,7 +164,7 @@ function LocationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
 
     setLocationSettings(nextSettings);
     onOpenChange(false);
-    toast.success('Configuração de localização atualizada');
+    toast.success('Configuração de localização updated');
   };
 
   return (
@@ -295,7 +295,7 @@ export default function Header() {
       icon: xwide ? 36 : wide ? 30 : medium ? 26 : 24,
       navIcon: xwide ? 38 : wide ? 32 : medium ? 28 : 26,
       stroke: xwide ? 2.6 : wide ? 2.45 : medium ? 2.25 : 2.1,
-      logoText: xwide ? 26 : wide ? 23 : medium ? 20 : 25, // Aumentado para dar destaque
+      logoText: xwide ? 26 : wide ? 23 : medium ? 20 : 25, 
       logoFallback: xwide ? 32 : wide ? 28 : medium ? 26 : 24,
       logoCircle: xwide ? 68 : wide ? 60 : medium ? 54 : 50,
       logoImage: xwide ? 60 : wide ? 54 : medium ? 48 : 44,
@@ -352,11 +352,11 @@ export default function Header() {
     setLogoFailed(false);
   }, [isDarkMode, mobileMenuOpen]);
 
-  const renderActions = (isBottomBar = false) => (
+  const renderActions = () => (
     <View 
       style={[
         styles.headerActions, 
-        isBottomBar ? styles.bottomBarActions : {
+        {
           flex: 1,
           justifyContent: nav.spreadIcons ? 'space-evenly' : 'flex-end',
           gap: nav.spreadIcons ? 0 : nav.actionsGap,
@@ -365,70 +365,104 @@ export default function Header() {
         }
       ]}
     >
-      {isBottomBar && (
-        <TouchableOpacity onPress={() => handleNavigation('home')} style={styles.bottomBarButton}>
-          <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Início</Text>
-        </TouchableOpacity>
-      )}
-
       <TouchableOpacity
         onPress={() => setIsDarkMode(!isDarkMode)}
-        style={isBottomBar ? styles.bottomBarButton : [styles.iconButton, { padding: nav.iconBtnPad }]}
+        style={[styles.iconButton, { padding: nav.iconBtnPad }]}
       >
         {isDarkMode ? (
-          <Sun size={isBottomBar ? 20 : nav.icon} color={isBottomBar ? '#94a3b8' : '#fff'} strokeWidth={isBottomBar ? 2 : nav.stroke} />
+          <Sun size={nav.icon} color={'#fff'} strokeWidth={nav.stroke} />
         ) : (
-          <Moon size={isBottomBar ? 20 : nav.icon} color={isBottomBar ? '#64748b' : '#fff'} strokeWidth={isBottomBar ? 2 : nav.stroke} />
+          <Moon size={nav.icon} color={'#fff'} strokeWidth={nav.stroke} />
         )}
-        {isBottomBar && <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Tema</Text>}
       </TouchableOpacity>
 
       <TouchableOpacity
         onPress={() => handleNavigation('favoritos')}
-        style={isBottomBar ? styles.bottomBarButton : [styles.iconButton, { padding: nav.iconBtnPad }]}
+        style={[styles.iconButton, { padding: nav.iconBtnPad }]}
       >
-        <Heart size={isBottomBar ? 20 : nav.icon} color={isBottomBar ? (isDarkMode ? '#94a3b8' : '#64748b') : '#fff'} strokeWidth={isBottomBar ? 2 : nav.stroke} />
-        {isBottomBar && <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Favoritos</Text>}
+        <Heart size={nav.icon} color={'#fff'} strokeWidth={nav.stroke} />
       </TouchableOpacity>
 
       <TouchableOpacity
         onPress={() => isLoggedIn ? navigateTo('T5') : navigateTo('T3')}
-        style={isBottomBar ? styles.bottomBarButton : [styles.iconButton, { padding: nav.iconBtnPad }]}
+        style={[styles.iconButton, { padding: nav.iconBtnPad }]}
       >
         {isLoggedIn ? (
           <View
             style={[
               styles.userInitialsCircle,
-              isBottomBar ? styles.userInitialsCircleBottom : {
+              {
                 width: nav.userDot,
                 height: nav.userDot,
                 borderRadius: nav.userDot / 2,
               },
             ]}
           >
-            <Text style={[styles.userInitialsText, isBottomBar ? styles.userInitialsTextBottom : { fontSize: nav.userInitialsFS }]}>{userInitials}</Text>
+            <Text style={[styles.userInitialsText, { fontSize: nav.userInitialsFS }]}>{userInitials}</Text>
           </View>
         ) : (
-          <User size={isBottomBar ? 20 : nav.icon} color={isBottomBar ? (isDarkMode ? '#94a3b8' : '#64748b') : '#fff'} strokeWidth={isBottomBar ? 2 : nav.stroke} />
+          <User size={nav.icon} color={'#fff'} strokeWidth={nav.stroke} />
         )}
-        {isBottomBar && <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Perfil</Text>}
       </TouchableOpacity>
 
       <TouchableOpacity
         onPress={handleOpenLocationDialog}
-        style={isBottomBar ? styles.bottomBarButton : [styles.iconButton, { padding: nav.iconBtnPad }]}
+        style={[styles.iconButton, { padding: nav.iconBtnPad }]}
       >
-        <MapPin size={isBottomBar ? 20 : nav.icon} color={isBottomBar ? (isDarkMode ? '#94a3b8' : '#64748b') : '#fff'} strokeWidth={isBottomBar ? 2 : nav.stroke} />
-        {isBottomBar && <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Filtros</Text>}
+        <MapPin size={nav.icon} color={'#fff'} strokeWidth={nav.stroke} />
       </TouchableOpacity>
 
       {isLoggedIn && (perfilPermissao === 'admin' || perfilPermissao === 'moderador' || perfilPermissao === 'super_admin') && (
         <TouchableOpacity
           onPress={() => handleNavigation('admin')}
-          style={isBottomBar ? styles.bottomBarButton : [styles.iconButton, { padding: nav.iconBtnPad }]}
+          style={[styles.iconButton, { padding: nav.iconBtnPad }]}
         >
-          <Shield size={isBottomBar ? 20 : nav.icon} color={isBottomBar ? (isDarkMode ? '#94a3b8' : '#64748b') : '#fff'} strokeWidth={isBottomBar ? 2 : nav.stroke} />
-          {isBottomBar && <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Admin</Text>}
+          <Shield size={nav.icon} color={'#fff'} strokeWidth={nav.stroke} />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const renderBottomActions = () => (
+    <View style={styles.bottomBarActions}>
+      <TouchableOpacity onPress={() => handleNavigation('home')} style={styles.bottomBarButton}>
+        <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Início</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => setIsDarkMode(!isDarkMode)} style={styles.bottomBarButton}>
+        {isDarkMode ? (
+          <Sun size={20} color={'#94a3b8'} strokeWidth={2} />
+        ) : (
+          <Moon size={20} color={'#64748b'} strokeWidth={2} />
+        )}
+        <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Tema</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => handleNavigation('favoritos')} style={styles.bottomBarButton}>
+        <Heart size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} strokeWidth={2} />
+        <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Favoritos</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => isLoggedIn ? navigateTo('T5') : navigateTo('T3')} style={styles.bottomBarButton}>
+        {isLoggedIn ? (
+          <View style={styles.userInitialsCircleBottom}>
+            <Text style={styles.userInitialsTextBottom}>{userInitials}</Text>
+          </View>
+        ) : (
+          <User size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} strokeWidth={2} />
+        )}
+        <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Perfil</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={handleOpenLocationDialog} style={styles.bottomBarButton}>
+        <MapPin size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} strokeWidth={2} />
+        <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Filtros</Text>
+      </TouchableOpacity>
+
+      {isLoggedIn && (perfilPermissao === 'admin' || perfilPermissao === 'moderador' || perfilPermissao === 'super_admin') && (
+        <TouchableOpacity onPress={() => handleNavigation('admin')} style={styles.bottomBarButton}>
+          <Shield size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} strokeWidth={2} />
+          <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Admin</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -451,71 +485,82 @@ export default function Header() {
         ]}
       >
         <View style={styles.headerContent}>
-          {/* Logo Alinhado à Esquerda */}
-          <TouchableOpacity
-            onPress={() => handleNavigation('home')}
-            style={styles.logoButtonLeft}
-          >
-            <View
-              style={[
-                styles.logoCircle,
-                isDarkMode ? { backgroundColor: '#0f172a' } : { backgroundColor: '#fff' },
-                {
-                  width: nav.logoCircle,
-                  height: nav.logoCircle,
-                  borderRadius: nav.logoCircle / 2,
-                },
-              ]}
-            >
-              {logoFailed ? (
-                <Text
+          {isMobile ? (
+            /* LAYOUT MOBILE: 3 Colunas Separadas (Logo | Texto Absoluto no Centro | Menu) */
+            <>
+              <TouchableOpacity onPress={() => handleNavigation('home')} style={styles.logoButtonLeft}>
+                <View
                   style={[
-                    styles.logoFallbackText,
-                    isDarkMode && { color: '#60A5FA' },
-                    { fontSize: nav.logoFallback },
+                    styles.logoCircle,
+                    isDarkMode ? { backgroundColor: '#0f172a' } : { backgroundColor: '#fff' },
+                    { width: nav.logoCircle, height: nav.logoCircle, borderRadius: nav.logoCircle / 2 },
                   ]}
                 >
-                  A
+                  {logoFailed ? (
+                    <Text style={[styles.logoFallbackText, isDarkMode && { color: '#60A5FA' }, { fontSize: nav.logoFallback }]}>A</Text>
+                  ) : (
+                    <Image
+                      source={logoAchou}
+                      style={{ width: nav.logoImage, height: nav.logoImage }}
+                      resizeMode="contain"
+                      onError={() => setLogoFailed(true)}
+                      onLoad={() => setLogoFailed(false)}
+                      accessibilityLabel="Logo Achou"
+                    />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.textCenterAbsolute} pointerEvents="none">
+                <Text style={[styles.logoText, isDarkMode && { color: '#e5e7eb' }, { fontSize: nav.logoText }]}>
+                  Achou!
                 </Text>
-              ) : (
-                <Image
-                  source={logoAchou}
-                  style={{ width: nav.logoImage, height: nav.logoImage }}
-                  resizeMode="contain"
-                  onError={() => setLogoFailed(true)}
-                  onLoad={() => setLogoFailed(false)}
-                  accessibilityLabel="Logo Achou"
-                />
-              )}
-            </View>
-          </TouchableOpacity>
+              </View>
 
-          {/* Texto "Achou!" - Centralizado Absoluto no mobile, Fluido no Desktop */}
-          <View style={isMobile ? styles.textCenterAbsolute : { marginLeft: nav.logoGap }}>
-            <Text style={[
-              styles.logoText, 
-              isDarkMode && { color: '#e5e7eb' }, 
-              { fontSize: nav.logoText }
-            ]}>
-              Achou!
-            </Text>
-          </View>
+              <TouchableOpacity
+                onPress={() => setMobileMenuOpen(!mobileMenuOpen)}
+                style={[styles.iconButton, { padding: nav.iconBtnPad, marginLeft: 'auto' }]}
+              >
+                {mobileMenuOpen ? (
+                  <X size={nav.navIcon} color="#fff" strokeWidth={nav.stroke} />
+                ) : (
+                  <Menu size={nav.navIcon} color="#fff" strokeWidth={nav.stroke} />
+                )}
+              </TouchableOpacity>
+            </>
+          ) : (
+            /* LAYOUT DESKTOP: Logo + Texto juntos à esquerda | Ícones normais à direita */
+            <>
+              <TouchableOpacity
+                onPress={() => handleNavigation('home')}
+                style={[styles.logoButtonDesktop, { gap: nav.logoGap }]}
+              >
+                <View
+                  style={[
+                    styles.logoCircle,
+                    isDarkMode ? { backgroundColor: '#0f172a' } : { backgroundColor: '#fff' },
+                    { width: nav.logoCircle, height: nav.logoCircle, borderRadius: nav.logoCircle / 2 },
+                  ]}
+                >
+                  {logoFailed ? (
+                    <Text style={[styles.logoFallbackText, isDarkMode && { color: '#60A5FA' }, { fontSize: nav.logoFallback }]}>A</Text>
+                  ) : (
+                    <Image
+                      source={logoAchou}
+                      style={{ width: nav.logoImage, height: nav.logoImage }}
+                      resizeMode="contain"
+                      onError={() => setLogoFailed(true)}
+                      onLoad={() => setLogoFailed(false)}
+                    />
+                  )}
+                </View>
+                <Text style={[styles.logoText, isDarkMode && { color: '#e5e7eb' }, { fontSize: nav.logoText }]}>
+                  Achou!
+                </Text>
+              </TouchableOpacity>
 
-          {/* Ações de navegação normais para Desktop */}
-          {!isMobile && renderActions(false)}
-
-          {/* Menu Alinhado à Direita no Mobile */}
-          {isMobile && (
-            <TouchableOpacity
-              onPress={() => setMobileMenuOpen(!mobileMenuOpen)}
-              style={[styles.iconButton, { padding: nav.iconBtnPad, marginLeft: 'auto' }]}
-            >
-              {mobileMenuOpen ? (
-                <X size={nav.navIcon} color="#fff" strokeWidth={nav.stroke} />
-              ) : (
-                <Menu size={nav.navIcon} color="#fff" strokeWidth={nav.stroke} />
-              )}
-            </TouchableOpacity>
+              {renderActions()}
+            </>
           )}
         </View>
 
@@ -551,7 +596,7 @@ export default function Header() {
 
       {isMobile && (
         <View style={[styles.bottomNavigationBar, isDarkMode ? styles.bottomBarDark : styles.bottomBarLight]}>
-          {renderActions(true)}
+          {renderBottomActions()}
         </View>
       )}
     </>
@@ -571,9 +616,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    position: 'relative', // Essencial para o absolute center do texto funcionar
   },
   logoButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  logoButtonDesktop: {
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -581,9 +630,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
+    top: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: -1, // Garante que o toque nos botões das pontas continue funcionando perfeitamente
+    zIndex: 1, 
   },
   logoCircle: {
     justifyContent: 'center',
