@@ -177,7 +177,7 @@ export default function T4Detalhes() {
           'Brasil',
         ]);
 
-        const mapsUrl = `http://maps.google.com/?saddr=${buildMapsDirectionValue(originAddress, origin)}&daddr=${buildMapsDirectionValue(destinationAddress, destination)}&travelmode=driving`;
+        const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${buildMapsDirectionValue(originAddress, origin)}&destination=${buildMapsDirectionValue(destinationAddress, destination)}&travelmode=driving`;
         await Linking.openURL(mapsUrl);
         toast.success('Abrindo rota no Maps...');
       } catch {
@@ -263,8 +263,9 @@ export default function T4Detalhes() {
     };
   }, [locationSettings]);
 
-  // Calculation bypassed for current sprint setup
+  // Cálculo de distância
   const center = searchCenter;
+
   const distM = center && typeof selectedBusiness.lat === 'number' && typeof selectedBusiness.lon === 'number'
     ? haversineM(center.lat, center.lon, selectedBusiness.lat, selectedBusiness.lon)
     : null;
@@ -436,18 +437,25 @@ export default function T4Detalhes() {
             )}
 
             <View style={{ marginTop: 10 }}>
-              <TouchableOpacity 
-                onPress={() => handleAction('route')} 
-                style={styles.distanceBadge}
-                accessibilityRole="button"
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={[styles.distanceValue, { fontSize: 16, color: isDarkMode ? '#60A5FA' : '#1E3A8A' }]}>
-                    🎯 Ver rota
-                  </Text>
+              {/* Bloco de exibição de distância comentado mantendo compatibilidade
+              center && distM != null ? (
+                <View style={styles.distanceRow}>
+                  <View style={styles.distanceBadge}>
+                    <Text style={styles.distanceValue}>
+                      🎯 {distM < 1000 ? `${Math.round(distM)}m` : `${(distM / 1000).toFixed(2)}km`}
+                    </Text>
+                    <Text style={styles.distanceNote}>Distância em linha reta</Text>
+                    <TouchableOpacity onPress={() => handleAction('route')} accessibilityRole="button">
+                      <Text style={styles.routeLink}>Clique aqui para ver rota</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-                <Text style={styles.distanceNote}>Clique para abrir o mapa</Text>
-              </TouchableOpacity>
+              ) : (
+                <TouchableOpacity onPress={() => navigateTo('T3')} accessibilityRole="button">
+                  <Text style={[textMuted, { textDecorationLine: 'underline' }]}>Faça login ou entre com sua conta</Text>
+                </TouchableOpacity>
+              )
+              */}
             </View>
 
             <View style={styles.socialRow}>
@@ -620,11 +628,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     backgroundColor: '#f3f4f6',
-    width: '100%',
   },
   distanceValue: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   distanceNote: {
     fontSize: 12,
