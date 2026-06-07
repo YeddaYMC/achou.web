@@ -329,7 +329,7 @@ export default function Header() {
         setSelectedBusiness(null);
         navigateTo('T6');
       } else if (target === 'perfil') navigateTo('T5');
-      else if (target === 'favoritos' navigateTo('T9');
+      else if (target === 'favoritos') navigateTo('T9');
       else if (target === 'contato') navigateTo('T10');
       else if (target === 'politicas') navigateTo('T8');
       else if (target === 'admin') navigateTo('AdminAcessos');
@@ -342,4 +342,517 @@ export default function Header() {
     if (!isLoggedIn) {
       toast.error('Você precisa fazer login para configurar a localização');
       navigateTo('T3');
-      setMobileMenuOpen(false
+      setMobileMenuOpen(false);
+      return;
+    }
+    setLocationDialogOpen(true);
+  };
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [isDarkMode, mobileMenuOpen]);
+
+  const renderActions = () => (
+    <>
+      <TouchableOpacity
+        onPress={() => setIsDarkMode(!isDarkMode)}
+        style={[styles.iconButton, { padding: nav.iconBtnPad }]}
+      >
+        {isDarkMode ? (
+          <Sun size={nav.icon} color={'#fff'} strokeWidth={nav.stroke} />
+        ) : (
+          <Moon size={nav.icon} color={'#fff'} strokeWidth={nav.stroke} />
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => handleNavigation('favoritos')}
+        style={[styles.iconButton, { padding: nav.iconBtnPad }]}
+      >
+        <Heart size={nav.icon} color={'#fff'} strokeWidth={nav.stroke} />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => isLoggedIn ? navigateTo('T5') : navigateTo('T3')}
+        style={[styles.iconButton, { padding: nav.iconBtnPad }]}
+      >
+        {isLoggedIn ? (
+          <View
+            style={[
+              styles.userInitialsCircle,
+              {
+                width: nav.userDot,
+                height: nav.userDot,
+                borderRadius: nav.userDot / 2,
+              },
+            ]}
+          >
+            <Text style={[styles.userInitialsText, { fontSize: nav.userInitialsFS }]}>{userInitials}</Text>
+          </View>
+        ) : (
+          <User size={nav.icon} color={'#fff'} strokeWidth={nav.stroke} />
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={handleOpenLocationDialog}
+        style={[styles.iconButton, { padding: nav.iconBtnPad }]}
+      >
+        <MapPin size={nav.icon} color={'#fff'} strokeWidth={nav.stroke} />
+      </TouchableOpacity>
+
+      {isLoggedIn && (perfilPermissao === 'admin' || perfilPermissao === 'moderador' || perfilPermissao === 'super_admin') && (
+        <TouchableOpacity
+          onPress={() => handleNavigation('admin')}
+          style={[styles.iconButton, { padding: nav.iconBtnPad }]}
+        >
+          <Shield size={nav.icon} color={'#fff'} strokeWidth={nav.stroke} />
+        </TouchableOpacity>
+      )}
+    </>
+  );
+
+  const renderBottomActions = () => (
+    <View style={styles.bottomBarActions}>
+      <TouchableOpacity onPress={() => handleNavigation('home')} style={styles.bottomBarButton}>
+        <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Início</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => setIsDarkMode(!isDarkMode)} style={styles.bottomBarButton}>
+        {isDarkMode ? (
+          <Sun size={20} color={'#94a3b8'} strokeWidth={2} />
+        ) : (
+          <Moon size={20} color={'#64748b'} strokeWidth={2} />
+        )}
+        <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Tema</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => handleNavigation('favoritos')} style={styles.bottomBarButton}>
+        <Heart size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} strokeWidth={2} />
+        <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Favoritos</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => isLoggedIn ? navigateTo('T5') : navigateTo('T3')} style={styles.bottomBarButton}>
+        {isLoggedIn ? (
+          <View style={styles.userInitialsCircleBottom}>
+            <Text style={styles.userInitialsTextBottom}>{userInitials}</Text>
+          </View>
+        ) : (
+          <User size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} strokeWidth={2} />
+        )}
+        <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Perfil</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={handleOpenLocationDialog} style={styles.bottomBarButton}>
+        <MapPin size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} strokeWidth={2} />
+        <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Filtros</Text>
+      </TouchableOpacity>
+
+      {isLoggedIn && (perfilPermissao === 'admin' || perfilPermissao === 'moderador' || perfilPermissao === 'super_admin') && (
+        <TouchableOpacity onPress={() => handleNavigation('admin')} style={styles.bottomBarButton}>
+          <Shield size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} strokeWidth={2} />
+          <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Admin</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  return (
+    <>
+      <LinearGradient
+        colors={
+          isDarkMode
+            ? ['#0f172a', '#152a4a', '#1a3378', '#1e3a8a']
+            : ['#38bdf8', '#22d3ee', '#14b8a6', '#2dd4bf', '#4ade80']
+        }
+        locations={isDarkMode ? [0, 0.33, 0.66, 1] : [0, 0.22, 0.48, 0.72, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[
+          styles.header,
+          { paddingVertical: nav.padV, paddingHorizontal: nav.padH },
+        ]}
+      >
+        <View style={[styles.headerContent, { justifyContent: 'space-between' }]}>
+          
+          {/* LADO ESQUERDO: Logo fixo na ponta esquerda */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', zIndex: 10 }}>
+            <TouchableOpacity onPress={() => handleNavigation('home')} style={styles.logoButtonLeft}>
+              <View
+                style={[
+                  styles.logoCircle,
+                  isDarkMode ? { backgroundColor: '#0f172a' } : { backgroundColor: '#fff' },
+                  { width: nav.logoCircle, height: nav.logoCircle, borderRadius: nav.logoCircle / 2 },
+                ]}
+              >
+                {logoFailed ? (
+                  <Text style={[styles.logoFallbackText, isDarkMode && { color: '#60A5FA' }, { fontSize: nav.logoFallback }]}>A</Text>
+                ) : (
+                  <Image
+                    source={logoAchou}
+                    style={{ width: nav.logoImage, height: nav.logoImage }}
+                    resizeMode="contain"
+                    onError={() => setLogoFailed(true)}
+                    onLoad={() => setLogoFailed(false)}
+                    accessibilityLabel="Logo Achou"
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
+
+            {/* Texto "Achou!" coladinho ao logo no Desktop */}
+            {!isMobile && (
+              <Text style={[styles.logoText, isDarkMode && { color: '#e5e7eb' }, { fontSize: nav.logoText, marginLeft: nav.logoGap }]}>
+                Achou!
+              </Text>
+            )}
+          </View>
+
+          {/* TEXTO ABSOLUTO: Centralizado cirurgicamente no meio da tela APENAS no Mobile */}
+          {isMobile && (
+            <View style={styles.textCenterAbsolute} pointerEvents="none">
+              <Text style={[styles.logoText, isDarkMode && { color: '#e5e7eb' }, { fontSize: nav.logoText }]}>
+                Achou!
+              </Text>
+            </View>
+          )}
+
+          {/* LADO DIREITO: Ícones de controle + Menu hambúrguer sempre à direita */}
+          <View style={[styles.headerActions, { gap: nav.actionsGap }]}>
+            
+            {/* Ícones (Sol, Coração, Perfil) aparecem aqui se for tela grande */}
+            {!isMobile && renderActions()}
+
+            {/* O Botão de 3 Barras do Menu - Fica fixo ao lado dos ícones no Desktop e sozinho no celular */}
+            <TouchableOpacity
+              onPress={() => setMobileMenuOpen(!mobileMenuOpen)}
+              style={[styles.iconButton, { padding: nav.iconBtnPad }]}
+            >
+              {mobileMenuOpen ? (
+                <X size={nav.navIcon} color="#fff" strokeWidth={nav.stroke} />
+              ) : (
+                <Menu size={nav.navIcon} color="#fff" strokeWidth={nav.stroke} />
+              )}
+            </TouchableOpacity>
+          </View>
+
+        </View>
+
+        {/* Menu Retrátil */}
+        {mobileMenuOpen && (
+          <View style={styles.mobileMenu}>
+            <TouchableOpacity onPress={() => handleNavigation('anunciar')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Anunciar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => handleNavigation('contato')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Fale Conosco</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                if (!isLoggedIn) {
+                  toast.error('Você precisa fazer login para acessar esta área');
+                  navigateTo('T3');
+                } else {
+                  navigateTo('T7');
+                  setMobileMenuOpen(false);
+                }
+              }}
+              style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}
+            >
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Gestão de Anúncios</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => handleNavigation('politicas')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Políticas de Privacidade</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        <LocationDialog open={locationDialogOpen} onOpenChange={setLocationDialogOpen} />
+      </LinearGradient>
+
+      {isMobile && (
+        <View style={[styles.bottomNavigationBar, isDarkMode ? styles.bottomBarDark : styles.bottomBarLight]}>
+          {renderBottomActions()}
+        </View>
+      )}
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: {
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+    flexShrink: 0,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+  },
+  logoButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  textCenterAbsolute: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1, 
+  },
+  logoCircle: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoFallbackText: {
+    color: '#1e3a8a',
+    fontWeight: '900',
+  },
+  logoText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontFamily: 'sans-serif-rounded', 
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto', 
+  },
+  iconButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userInitialsCircle: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
+  },
+  userInitialsText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  mobileMenu: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.2)',
+  },
+  mobileMenuItem: {
+    paddingHorizontal: 12,
+  },
+  mobileMenuText: {
+    color: '#fff',
+    fontWeight: '500',
+  },
+  dialogContent: {
+    maxWidth: '90%',
+    width: '100%',
+    overflow: 'hidden',
+  },
+  dialogContentDark: {
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)'
+  },
+  dialogTitle: {
+    color: '#0ea5e9',
+  },
+  dialogTitleDark: {
+    color: '#60a5fa',
+  },
+  dialogDescriptionDark: {
+    color: '#9ca3af',
+  },
+  dialogInfo: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#475569',
+  },
+  dialogInfoDark: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#cbd5e1',
+  },
+  dialogBody: {
+    marginTop: 16,
+    gap: 12,
+    flexShrink: 1,
+  },
+  sliderFieldTop: {
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: 'rgba(14, 165, 233, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.2)',
+  },
+  radioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+  },
+  radioDark: {
+    borderColor: '#64748b',
+  },
+  radioChecked: {
+    backgroundColor: '#0ea5e9',
+    borderColor: '#0ea5e9',
+  },
+  radioLabel: {
+    fontSize: 14,
+    color: '#0f172a',
+  },
+  radioLabelDark: {
+    color: '#e5e7eb',
+  },
+  inputLabelDark: {
+    color: '#d1d5db',
+  },
+  inputField: {
+    marginTop: 8,
+  },
+  sliderField: {
+    marginTop: 8,
+  },
+  sliderControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 12,
+  },
+  sliderBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#0ea5e9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sliderBtnDisabled: {
+    backgroundColor: '#cbd5e1',
+    opacity: 0.5,
+  },
+  sliderBtnText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  sliderDisplay: {
+    alignItems: 'center',
+    minWidth: 120,
+  },
+  sliderValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0ea5e9',
+  },
+  sliderNote: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 4,
+  },
+  sliderNoteDark: {
+    color: '#9ca3af',
+  },
+  rangeNote: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  rangeNoteDark: {
+    color: '#cbd5e1',
+  },
+  dialogActions: {
+    flexDirection: 'column',
+    gap: 4,
+    marginTop: 8,
+    paddingBottom: 6,
+    flexShrink: 0,
+  },
+  dialogScroll: {
+    flexGrow: 0,
+  },
+  dialogScrollContent: {
+    gap: 12,
+    paddingBottom: 12,
+  },
+  btnFlex: {
+    width: '100%',
+    minHeight: 40,
+  },
+  bottomNavigationBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  bottomBarLight: {
+    backgroundColor: '#ffffff',
+    borderTopColor: '#e2e8f0',
+  },
+  bottomBarDark: {
+    backgroundColor: '#0f172a',
+    borderTopColor: '#334155',
+  },
+  bottomBarActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingHorizontal: 10,
+  },
+  bottomBarButton: {
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  barLabel: {
+    fontSize: 10,
+    color: '#64748b',
+    marginTop: 2,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  barLabelDark: {
+    color: '#94a3b8',
+  },
+  userInitialsCircleBottom: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(14, 165, 233, 0.15)',
+    borderColor: '#0ea5e9',
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userInitialsTextBottom: {
+    color: '#0ea5e9',
+    fontSize: 10,
+  },
+});
