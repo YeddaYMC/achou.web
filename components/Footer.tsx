@@ -22,22 +22,25 @@ export default function Footer() {
       isDarkMode && styles.footerDark,
       isMobile && styles.footerMobileMargin
     ]}>
-      <Text style={[styles.footerText, isDarkMode && styles.footerTextDark]}>© 2025</Text>
-      <Text style={[styles.footerText, styles.footerName, isDarkMode && styles.footerTextDark]}>
-        YEDDA MARIA CARVALHAIS
-      </Text>
-      <Text style={[styles.footerText, styles.footerName, isDarkMode && styles.footerTextDark]}>
-        MARY ANA CARVALHAIS CARNEIRO
-      </Text>
-      <Text style={[styles.footerText, isDarkMode && styles.footerTextDark]}>
-        Licenciado sob{' '}
-        <Text onPress={() => Linking.openURL('https://creativecommons.org/licenses/by-nc-sa/4.0/')} style={styles.footerLink}>
-          CC BY-NC-SA 4.0
+      {/* Bloco de textos centralizado */}
+      <View style={styles.textContainer}>
+        <Text style={[styles.footerText, isDarkMode && styles.footerTextDark]}>© 2025</Text>
+        <Text style={[styles.footerText, styles.footerName, isDarkMode && styles.footerTextDark]}>
+          YEDDA MARIA CARVALHAIS
         </Text>
-        .
-      </Text>
+        <Text style={[styles.footerText, styles.footerName, isDarkMode && styles.footerTextDark]}>
+          MARY ANA CARVALHAIS CARNEIRO
+        </Text>
+        <Text style={[styles.footerText, isDarkMode && styles.footerTextDark]}>
+          Licenciado sob{' '}
+          <Text onPress={() => Linking.openURL('https://creativecommons.org/licenses/by-nc-sa/4.0/')} style={styles.footerLink}>
+            CC BY-NC-SA 4.0
+          </Text>
+          .
+        </Text>
+      </View>
 
-      {/* Botão de voltar redondo fixado abaixo dos créditos */}
+      {/* Botão redondo fixado na lateral direita sem alterar a altura do container */}
       <TouchableOpacity
         onPress={handleBackStack}
         style={[styles.footerRoundBackButton, isDarkMode ? styles.backButtonDark : styles.backButtonLight]}
@@ -55,10 +58,11 @@ const styles = StyleSheet.create({
     borderTopColor: '#e2e8f0',
     backgroundColor: '#fff',
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     flexShrink: 0,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8, // Garante um espaçamento controlado entre o texto e o botão
+    position: 'relative', // Essencial para permitir o posicionamento absoluto do botão interno
   },
   footerDark: {
     borderTopColor: '#334155',
@@ -66,6 +70,11 @@ const styles = StyleSheet.create({
   },
   footerMobileMargin: {
     marginBottom: 60, // Recuo de segurança essencial para não ficar escondido atrás da aba inferior
+  },
+  textContainer: {
+    width: '100%',
+    alignItems: 'center',
+    paddingHorizontal: 40, // Evita que o texto encoste ou passe por baixo do botão na direita
   },
   footerText: {
     fontSize: 10,
@@ -85,17 +94,18 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   footerRoundBackButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    position: 'absolute', // Retira o botão do fluxo comum para não empurrar o texto
+    right: 16,            // Alinha perfeitamente no canto direito
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1.5 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 4,
-    marginTop: 4,
+    shadowRadius: 1.5,
+    elevation: 3,
   },
   backButtonLight: {
     backgroundColor: '#0ea5e9',
@@ -106,7 +116,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   backButtonArrow: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
     transform: [{ scaleX: -1 }], // Inverte a seta para apontar para a esquerda (Voltar)
   },
