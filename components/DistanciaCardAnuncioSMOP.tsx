@@ -14,58 +14,59 @@ interface DistanciaProps {
 
 export default function DistanciaCardAnuncioSMOP({ userLat, userLon, business, isDarkMode }: DistanciaProps) {
   const [textoDistancia, setTextoDistancia] = useState('Calculando...');
-  const [debugInfo, setDebugInfo] = useState('');
 
   useEffect(() => {
     let ativo = true;
 
-    // 1. Diagnóstico de entrada de dados
-    const statusCoordenadas = `U: ${userLat ?? 'nulo'},${userLon ?? 'nulo'} | B: ${business?.lat ?? 'nulo'},${business?.lon ?? 'nulo'}`;
-    setDebugInfo(statusCoordenadas);
-    console.log("=== DEBUG SMOP ===", statusCoordenadas);
-
     if (!userLat || !userLon || !business?.lat || !business?.lon) {
       if (business?.distanceM != null) {
-        setTextoDistancia(business.distanceM < 1000 ? `${Math.round(business.distanceM)}m (ar)` : `${(business.distanceM / 1000).toFixed(1)}km (ar)`);
+        setTextoDistancia(business.distanceM < 1000 ? `${Math.round(business.distanceM)}m` : `${(business.distanceM / 1000).toFixed(1)}km`);
       } else {
-        setTextoDistancia('Sem Coordenadas');
+        setTextoDistancia('---');
       }
       return;
     }
 
+    // CORREÇÃO INTELEGENTE DE INVERSÃO:
+    // No Brasil, a longitude fica na casa dos -45 a -55 e a latitude na casa dos -10 a -30.
+    // Se o userLat que chegou for menor que -35, significa que as variáveis vieram invertidas da T1.
+    let latUsuario = userLat;
+    let lonUsuario = userLon;
+    if (userLat < -35 && userLon > -35) {
+      latUsuario = userLon;
+      lonUsuario = userLat;
+    }
+
+    let latNegocio = business.lat;
+    let lonNegocio = business.lon;
+    if (business.lat < -35 && business.lon > -35) {
+      latNegocio = business.lon;
+      lonNegocio = business.lat;
+    }
+
     const buscarDistanciaRealOSRM = async () => {
       try {
-        const url = `https://routing.openstreetmap.de/routed-car/route/v1/driving/${userLon},${userLat};${business.lon},${business.lat}?overview=false`;
+        // Agora a URL é montada com a garantia matemática de que Longitude e Latitude estão nos lugares certos
+        const url = `https://routing.openstreetmap.de/routed-car/route/v1/driving/${lonUsuario},${latUsuario};${lonNegocio},${latNegocio}?overview=false`;
         
         const resposta = await fetch(url);
-        
-        if (!resposta.ok) {
-          throw new Error(`HTTP Erro: ${resposta.status}`);
-        }
-        
         const dados = await resposta.json();
 
         if (ativo && dados.code === 'Ok' && dados.routes && dados.routes[0]) {
-          const metrosReais = dados.routes[0].distance;
+          const metrosReais = dados.routes[0].distance; // Distância real por ruas
           
           const formatoTexto = metrosReais < 1000 
             ? `${Math.round(metrosReais)}m` 
             : `${(metrosReais / 1000).toFixed(1)}km`;
             
           setTextoDistancia(formatoTexto);
-          setDebugInfo(`Sucesso: ${formatoTexto}`);
-        } else {
-          throw new Error(dados.code || 'Estrutura JSON inválida');
+        } else if (ativo && business.distanceM != null) {
+          setTextoDistancia(business.distanceM < 1000 ? `${Math.round(business.distanceM)}m` : `${(business.distanceM / 1000).toFixed(1)}km`);
         }
-      } catch (error: any) {
-        console.error('Erro na requisição SMOP/OSRM:', error);
-        if (ativo) {
-          setDebugInfo(`Erro: ${error?.message || 'Falha de Rede'}`);
-          if (business.distanceM != null) {
-            setTextoDistancia(business.distanceM < 1000 ? `${Math.round(business.distanceM)}m (ar)` : `${(business.distanceM / 1000).toFixed(1)}km (ar)`);
-          } else {
-            setTextoDistancia('Erro na Rota');
-          }
+      } catch (error) {
+        console.warn('Erro ao processar rota real, aplicando Haversine:', error);
+        if (ativo && business.distanceM != null) {
+          setTextoDistancia(business.distanceM < 1000 ? `${Math.round(business.distanceM)}m` : `${(business.distanceM / 1000).toFixed(1)}km`);
         }
       }
     };
@@ -82,18 +83,14 @@ export default function DistanciaCardAnuncioSMOP({ userLat, userLon, business, i
       <Text style={[styles.businessDistance, isDarkMode && styles.businessDistanceDark]}>
         🎯 {textoDistancia}
       </Text>
-      {/* Texto auxiliar temporário que vai te mostrar no celular ou navegador o que está acontecendo por baixo dos panos */}
-      <Text style={{ fontSize: 9, color: 'gray', marginTop: 2 }}>
-        {debugInfo}
-      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   distanceRow: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   businessDistance: {
     fontSize: 13,
