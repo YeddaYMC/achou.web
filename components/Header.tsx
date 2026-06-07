@@ -475,7 +475,7 @@ export default function Header() {
       >
         <View style={[styles.headerContent, { justifyContent: 'space-between' }]}>
           
-          {/* LADO ESQUERDO: Logo fixo na ponta esquerda */}
+          {/* LADO ESQUERDO: Apenas o Logo isolado na ponta esquerda */}
           <View style={{ flexDirection: 'row', alignItems: 'center', zIndex: 10 }}>
             <TouchableOpacity onPress={() => handleNavigation('home')} style={styles.logoButtonLeft}>
               <View
@@ -499,16 +499,22 @@ export default function Header() {
                 )}
               </View>
             </TouchableOpacity>
-
-            {/* Texto "Achou!" coladinho ao logo no Desktop */}
-            {!isMobile && (
-              <Text style={[styles.logoText, isDarkMode && { color: '#e5e7eb' }, { fontSize: nav.logoText, marginLeft: nav.logoGap }]}>
-                Achou!
-              </Text>
-            )}
           </View>
 
-          {/* TEXTO ABSOLUTO: Centralizado cirurgicamente no meio da tela APENAS no Mobile */}
+          {/* CENTRO DA TELA (Desktop): O Nome centralizado, maior com bordas arredondadas e o Slogan Hiperlocal */}
+          {!isMobile && (
+            <View style={styles.centerPillContainer}>
+              <Text style={[styles.centerPillText, isDarkMode && styles.centerPillTextDark, { fontSize: nav.logoText + 2 }]}>
+                Achou!
+              </Text>
+              <View style={styles.verticalDivider} />
+              <Text style={[styles.sloganText, isDarkMode && styles.sloganTextDark]}>
+                O que você precisa, onde você precisa.
+              </Text>
+            </View>
+          )}
+
+          {/* TEXTO ABSOLUTO: Centralizado apenas no Mobile */}
           {isMobile && (
             <View style={styles.textCenterAbsolute} pointerEvents="none">
               <Text style={[styles.logoText, isDarkMode && { color: '#e5e7eb' }, { fontSize: nav.logoText }]}>
@@ -520,10 +526,10 @@ export default function Header() {
           {/* LADO DIREITO: Ícones de controle + Menu hambúrguer sempre à direita */}
           <View style={[styles.headerActions, { gap: nav.actionsGap }]}>
             
-            {/* Ícones (Sol, Coração, Perfil) aparecem aqui se for tela grande */}
+            {/* Ícones aparecem aqui se for tela grande */}
             {!isMobile && renderActions()}
 
-            {/* O Botão de 3 Barras do Menu - Fica fixo ao lado dos ícones no Desktop e sozinho no celular */}
+            {/* O Botão de 3 Barras do Menu */}
             <TouchableOpacity
               onPress={() => setMobileMenuOpen(!mobileMenuOpen)}
               style={[styles.iconButton, { padding: nav.iconBtnPad }]}
@@ -606,6 +612,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1, 
+  },
+  centerPillContainer: {
+    flex: 1,
+    maxWidth: 680, 
+    backgroundColor: 'rgba(255, 255, 255, 0.16)', 
+    paddingVertical: 8,
+    paddingHorizontal: 24,
+    borderRadius: 99, 
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  centerPillText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontFamily: 'sans-serif-rounded',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  centerPillTextDark: {
+    color: '#ffffff',
+  },
+  verticalDivider: {
+    width: 1,
+    height: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    marginHorizontal: 14,
+  },
+  sloganText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: 'sans-serif-rounded',
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(0, 0, 0, 0.12)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  sloganTextDark: {
+    color: '#e2e8f0',
   },
   logoCircle: {
     justifyContent: 'center',
