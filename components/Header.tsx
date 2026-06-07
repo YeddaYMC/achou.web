@@ -164,7 +164,7 @@ function LocationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
 
     setLocationSettings(nextSettings);
     onOpenChange(false);
-    toast.success('Configuração de localização atualizada');
+    toast.success('Configuração de localização updated');
   };
 
   return (
@@ -295,14 +295,16 @@ export default function Header() {
       icon: xwide ? 36 : wide ? 30 : medium ? 26 : 24,
       navIcon: xwide ? 38 : wide ? 32 : medium ? 28 : 26,
       stroke: xwide ? 2.6 : wide ? 2.45 : medium ? 2.25 : 2.1,
-      logoText: xwide ? 26 : wide ? 23 : medium ? 20 : 25, 
+      logoText: xwide ? 34 : wide ? 28 : medium ? 22 : 25, 
+      sloganText: xwide ? 18 : wide ? 16 : medium ? 14 : 13,
       logoFallback: xwide ? 32 : wide ? 28 : medium ? 26 : 24,
       logoCircle: xwide ? 68 : wide ? 60 : medium ? 54 : 50,
       logoImage: xwide ? 60 : wide ? 54 : medium ? 48 : 44,
-      padV: xwide ? 18 : wide ? 16 : medium ? 14 : 12,
-      padH: xwide ? 28 : wide ? 22 : medium ? 16 : 14,
-      actionsGap: xwide ? 20 : wide ? 16 : medium ? 14 : 12,
+      padV: xwide ? 22 : wide ? 18 : medium ? 14 : 12,
+      padH: xwide ? 40 : wide ? 32 : medium ? 20 : 14,
+      actionsGap: xwide ? 24 : wide ? 18 : medium ? 14 : 12,
       logoGap: xwide ? 16 : wide ? 14 : 12,
+      pillMaxWidth: xwide ? 1000 : wide ? 800 : 600,
       userDot: xwide ? 38 : wide ? 34 : medium ? 30 : 28,
       userInitialsFS: xwide ? 15 : wide ? 13 : medium ? 12 : 11,
       iconBtnPad: xwide ? 14 : wide ? 12 : medium ? 10 : 9,
@@ -321,7 +323,7 @@ export default function Header() {
   }, [userProfile]);
 
   const handleNavigation = (target: string) => {
-    if (!isLoggedIn && (target === 'anunciar' || target === 'perfil' || target === 'favoritos' || target === 'admin')) {
+    if (!isLoggedIn && (target === 'anunciar' || target === 'perfil' || target === 'favoritos' || target === 'admin' || target === 'gestao')) {
       toast.error('Você precisa fazer login para acessar esta área');
       navigateTo('T3');
     } else {
@@ -332,6 +334,9 @@ export default function Header() {
       else if (target === 'favoritos') navigateTo('T9');
       else if (target === 'contato') navigateTo('T10');
       else if (target === 'politicas') navigateTo('T8');
+      else if (target === 'termos') navigateTo('T11');
+      else if (target === 'planos') navigateTo('T12');
+      else if (target === 'gestao') navigateTo('T7');
       else if (target === 'admin') navigateTo('AdminAcessos');
       else if (target === 'home') navigateTo('T1');
     }
@@ -503,12 +508,12 @@ export default function Header() {
 
           {/* CENTRO DA TELA (Desktop): O Nome centralizado, maior com bordas arredondadas e o Slogan Hiperlocal */}
           {!isMobile && (
-            <View style={styles.centerPillContainer}>
-              <Text style={[styles.centerPillText, isDarkMode && styles.centerPillTextDark, { fontSize: nav.logoText + 2 }]}>
+            <View style={[styles.centerPillContainer, { maxWidth: nav.pillMaxWidth }]}>
+              <Text style={[styles.centerPillText, isDarkMode && styles.centerPillTextDark, { fontSize: nav.logoText }]}>
                 Achou!
               </Text>
               <View style={styles.verticalDivider} />
-              <Text style={[styles.sloganText, isDarkMode && styles.sloganTextDark]}>
+              <Text style={[styles.sloganText, isDarkMode && styles.sloganTextDark, { fontSize: nav.sloganText }]}>
                 O que você precisa, onde você precisa.
               </Text>
             </View>
@@ -550,25 +555,25 @@ export default function Header() {
             <TouchableOpacity onPress={() => handleNavigation('anunciar')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
               <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Anunciar</Text>
             </TouchableOpacity>
+            
             <TouchableOpacity onPress={() => handleNavigation('contato')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
               <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Fale Conosco</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                if (!isLoggedIn) {
-                  toast.error('Você precisa fazer login para acessar esta área');
-                  navigateTo('T3');
-                } else {
-                  navigateTo('T7');
-                  setMobileMenuOpen(false);
-                }
-              }}
-              style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}
-            >
+            
+            <TouchableOpacity onPress={() => handleNavigation('gestao')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
               <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Gestão de Anúncios</Text>
             </TouchableOpacity>
+            
             <TouchableOpacity onPress={() => handleNavigation('politicas')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
               <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Políticas de Privacidade</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => handleNavigation('termos')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Termos de Uso</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => handleNavigation('planos')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Planos</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -615,15 +620,14 @@ const styles = StyleSheet.create({
   },
   centerPillContainer: {
     flex: 1,
-    maxWidth: 680, 
     backgroundColor: 'rgba(255, 255, 255, 0.16)', 
-    paddingVertical: 8,
-    paddingHorizontal: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
     borderRadius: 99, 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: 40,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.25)',
   },
@@ -640,14 +644,13 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   verticalDivider: {
-    width: 1,
-    height: 18,
+    width: 1.5,
+    height: 24,
     backgroundColor: 'rgba(255, 255, 255, 0.35)',
-    marginHorizontal: 14,
+    marginHorizontal: 20,
   },
   sloganText: {
     color: '#ffffff',
-    fontSize: 15,
     fontWeight: '600',
     fontFamily: 'sans-serif-rounded',
     letterSpacing: 0.3,
@@ -896,14 +899,13 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(14, 165, 233, 0.15)',
-    borderColor: '#0ea5e9',
-    borderWidth: 1,
+    backgroundColor: '#0ea5e9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   userInitialsTextBottom: {
-    color: '#0ea5e9',
+    color: '#fff',
     fontSize: 10,
+    fontWeight: '700',
   },
 });
