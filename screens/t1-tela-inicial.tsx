@@ -628,7 +628,9 @@ export default function T1TelaInicial() {
                   <Text style={[styles.businessLocation, isDarkMode && styles.businessLocationDark]} numberOfLines={1}>
                     📍 {business.location}
                   </Text>
-                  <View style={styles.distanceRow}>
+
+                  {/* O comentário deve abraçar a View inteira, do começo ao fim */}
+                   {/*  <View style={styles.distanceRow}>
                     {business.distanceM != null ? (
                       <Text style={[styles.businessDistance, isDarkMode && styles.businessDistanceDark]}>
                         🎯 {business.distanceM < 1000 ? `${Math.round(business.distanceM)}m` : `${(business.distanceM / 1000).toFixed(1)}km`}
@@ -637,7 +639,7 @@ export default function T1TelaInicial() {
                       <View style={styles.distancePlaceholder} />
                     )}
                   </View>
-                </View>
+                </View> */}
 
                 {/* Ícone de favorito */}
                 <TouchableOpacity style={styles.favIcon} onPress={() => toggleFavorite(business.id)}>
