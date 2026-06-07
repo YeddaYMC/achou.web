@@ -11,6 +11,7 @@ import { toast } from '../components/ui/sonner';
 import { useAppContext } from '../context/AppContext';
 import { getAllActiveAnuncios, getNearbyActiveAnuncios } from '../src/services/anuncioService';
 import { geocodeBusinessAddress } from '../src/services/geocodingService';
+import DistanciaCardAnuncioSMOP from '../components/DistanciaCardAnuncioSMOP'; // NOVO COMPONENT PARA DIST. EXIBIDA NO CARD NAO SER A LINEAR DO HARVERSINE
 
 /** Degradê da barra superior — transição suave azul → verde (paradas intermediárias + locations). */
 const HEADER_GRADIENT = {
@@ -628,16 +629,19 @@ export default function T1TelaInicial() {
                   <Text style={[styles.businessLocation, isDarkMode && styles.businessLocationDark]} numberOfLines={1}>
                     📍 {business.location}
                   </Text>
-                  <View style={styles.distanceRow}>
-                    {business.distanceM != null ? (
-                      <Text style={[styles.businessDistance, isDarkMode && styles.businessDistanceDark]}>
-                        🎯 {business.distanceM < 1000 ? `${Math.round(business.distanceM)}m` : `${(business.distanceM / 1000).toFixed(1)}km`}
-                      </Text>
-                    ) : (
-                      <View style={styles.distancePlaceholder} />
-                    )}
-                  </View>
-                </View>
+
+<View style={styles.distanceRow}>
+  {business.distanceM != null ? (
+    <Text style={[styles.businessDistance, isDarkMode && styles.businessDistanceDark]}>
+      🎯 {business.distanceM < 1000 ? `${Math.round(business.distanceM)}m` : `${(business.distanceM / 1000).toFixed(1)}km`}
+    </Text>
+  ) : (
+    <View style={styles.distancePlaceholder} />
+  )}
+</View>
+
+                  
+                  
 
                 {/* Ícone de favorito */}
                 <TouchableOpacity style={styles.favIcon} onPress={() => toggleFavorite(business.id)}>
