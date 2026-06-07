@@ -638,8 +638,8 @@ export default function T1TelaInicial() {
                     ) : (
                       <View style={styles.distancePlaceholder} />
                     )}
-                  </View>
-                </View> */}
+                  </View> */}
+                </View>
 
                 {/* Ícone de favorito */}
                 <TouchableOpacity style={styles.favIcon} onPress={() => toggleFavorite(business.id)}>
