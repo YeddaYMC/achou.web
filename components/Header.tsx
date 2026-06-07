@@ -279,8 +279,7 @@ function LocationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
 
 export default function Header() {
   const { width } = useWindowDimensions();
-  const context = useAppContext();
-  const { isLoggedIn, navigateTo, isDarkMode, setIsDarkMode, userProfile, setSelectedBusiness } = context;
+  const { isLoggedIn, navigateTo, isDarkMode, setIsDarkMode, userProfile, setSelectedBusiness } = useAppContext();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
@@ -418,6 +417,51 @@ export default function Header() {
     </>
   );
 
+  const renderBottomActions = () => (
+    <View style={styles.bottomBarActions}>
+      <TouchableOpacity onPress={() => handleNavigation('home')} style={styles.bottomBarButton}>
+        <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Início</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => setIsDarkMode(!isDarkMode)} style={styles.bottomBarButton}>
+        {isDarkMode ? (
+          <Sun size={20} color={'#94a3b8'} strokeWidth={2} />
+        ) : (
+          <Moon size={20} color={'#64748b'} strokeWidth={2} />
+        )}
+        <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Tema</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => handleNavigation('favoritos')} style={styles.bottomBarButton}>
+        <Heart size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} strokeWidth={2} />
+        <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Favoritos</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => isLoggedIn ? navigateTo('T5') : navigateTo('T3')} style={styles.bottomBarButton}>
+        {isLoggedIn ? (
+          <View style={styles.userInitialsCircleBottom}>
+            <Text style={styles.userInitialsTextBottom}>{userInitials}</Text>
+          </View>
+        ) : (
+          <User size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} strokeWidth={2} />
+        )}
+        <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Perfil</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={handleOpenLocationDialog} style={styles.bottomBarButton}>
+        <MapPin size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} strokeWidth={2} />
+        <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Filtros</Text>
+      </TouchableOpacity>
+
+      {isLoggedIn && (perfilPermissao === 'admin' || perfilPermissao === 'moderador' || perfilPermissao === 'super_admin') && (
+        <TouchableOpacity onPress={() => handleNavigation('admin')} style={styles.bottomBarButton}>
+          <Shield size={20} color={isDarkMode ? '#94a3b8' : '#64748b'} strokeWidth={2} />
+          <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Admin</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
   return (
     <>
       <LinearGradient
@@ -535,6 +579,12 @@ export default function Header() {
         )}
         <LocationDialog open={locationDialogOpen} onOpenChange={setLocationDialogOpen} />
       </LinearGradient>
+
+      {isMobile && (
+        <View style={[styles.bottomNavigationBar, isDarkMode ? styles.bottomBarDark : styles.bottomBarLight]}>
+          {renderBottomActions()}
+        </View>
+      )}
     </>
   );
 }
@@ -803,5 +853,59 @@ const styles = StyleSheet.create({
   btnFlex: {
     width: '100%',
     minHeight: 40,
+  },
+  bottomNavigationBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  bottomBarLight: {
+    backgroundColor: '#ffffff',
+    borderTopColor: '#e2e8f0',
+  },
+  bottomBarDark: {
+    backgroundColor: '#0f172a',
+    borderTopColor: '#334155',
+  },
+  bottomBarActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingHorizontal: 10,
+  },
+  bottomBarButton: {
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  barLabel: {
+    fontSize: 10,
+    color: '#64748b',
+    marginTop: 2,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  barLabelDark: {
+    color: '#94a3b8',
+  },
+  userInitialsCircleBottom: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#0ea5e9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userInitialsTextBottom: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });
