@@ -14,7 +14,7 @@ import { toast } from './ui/sonner';
 const MIN_RADIUS_KM = 0.5;
 const MAX_RADIUS_KM = 8;
 const DEFAULT_RADIUS_KM = 1;
-const STEP_KM = 0.5; // Incremento de 500m
+const STEP_KM = 0.5; 
 
 type LocationMode = 'profile' | 'custom' | 'cep';
 
@@ -93,7 +93,7 @@ function LocationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
             nextSettings.geoSource = geo.source;
           }
         } catch {
-          // Mantém configuração e raio mesmo se geocodificação falhar.
+          // Mantém configuração
         }
       } else if (!nextSettings?.coords) {
         toast.error('Seu perfil ainda não tem endereço cadastrado.');
@@ -136,7 +136,7 @@ function LocationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
             nextSettings.geoSource = geo.source;
           }
         } catch {
-          // Mantém configuração e raio mesmo se geocodificação falhar.
+          // Mantém configuração
         }
       } else if (!nextSettings?.coords) {
         toast.error('Informe um endereço ou CEP para definir sua localização.');
@@ -154,7 +154,7 @@ function LocationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
             nextSettings.geoSource = geo.source;
           }
         } catch {
-          // Mantém configuração e raio mesmo se geocodificação falhar.
+          // Mantém configuração
         }
       } else if (!nextSettings?.coords) {
         toast.error('Informe um endereço ou CEP para definir sua localização.');
@@ -285,6 +285,8 @@ export default function Header() {
   const [logoFailed, setLogoFailed] = useState(false);
   const perfilPermissao = userProfile?.PERMISSAO || userProfile?.permissao || userProfile?.papel;
 
+  const isMobile = width < 640; // Define o corte onde vira aba inferior (baseado no nav.spreadIcons antigo)
+
   const nav = useMemo(() => {
     const xwide = width >= 1280;
     const wide = width >= 960;
@@ -343,14 +345,94 @@ export default function Header() {
       setMobileMenuOpen(false);
       return;
     }
-
     setLocationDialogOpen(true);
   };
 
-  // Tenta recarregar a logo quando o tema ou o menu móvel mudarem — evita ficar presa em estado "failed"
   useEffect(() => {
     setLogoFailed(false);
   }, [isDarkMode, mobileMenuOpen]);
+
+  const renderActions = (isBottomBar = false) => (
+    <View 
+      style={[
+        styles.headerActions, 
+        isBottomBar ? styles.bottomBarActions : {
+          flex: 1,
+          justifyContent: nav.spreadIcons ? 'space-evenly' : 'flex-end',
+          gap: nav.spreadIcons ? 0 : nav.actionsGap,
+          marginLeft: 10,
+          minHeight: Math.max(nav.logoCircle, nav.navIcon + nav.iconBtnPad * 2),
+        }
+      ]}
+    >
+      {isBottomBar && (
+        <TouchableOpacity onPress={() => handleNavigation('home')} style={styles.bottomBarButton}>
+          <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Início</Text>
+        </TouchableOpacity>
+      )}
+
+      <TouchableOpacity
+        onPress={() => setIsDarkMode(!isDarkMode)}
+        style={isBottomBar ? styles.bottomBarButton : [styles.iconButton, { padding: nav.iconBtnPad }]}
+      >
+        {isDarkMode ? (
+          <Sun size={isBottomBar ? 20 : nav.icon} color={isBottomBar ? '#94a3b8' : '#fff'} strokeWidth={isBottomBar ? 2 : nav.stroke} />
+        ) : (
+          <Moon size={isBottomBar ? 20 : nav.icon} color={isBottomBar ? '#64748b' : '#fff'} strokeWidth={isBottomBar ? 2 : nav.stroke} />
+        )}
+        {isBottomBar && <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Tema</Text>}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => handleNavigation('favoritos')}
+        style={isBottomBar ? styles.bottomBarButton : [styles.iconButton, { padding: nav.iconBtnPad }]}
+      >
+        <Heart size={isBottomBar ? 20 : nav.icon} color={isBottomBar ? (isDarkMode ? '#94a3b8' : '#64748b') : '#fff'} strokeWidth={isBottomBar ? 2 : nav.stroke} />
+        {isBottomBar && <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Favoritos</Text>}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => isLoggedIn ? navigateTo('T5') : navigateTo('T3')}
+        style={isBottomBar ? styles.bottomBarButton : [styles.iconButton, { padding: nav.iconBtnPad }]}
+      >
+        {isLoggedIn ? (
+          <View
+            style={[
+              styles.userInitialsCircle,
+              isBottomBar ? styles.userInitialsCircleBottom : {
+                width: nav.userDot,
+                height: nav.userDot,
+                borderRadius: nav.userDot / 2,
+              },
+            ]}
+          >
+            <Text style={[styles.userInitialsText, isBottomBar ? styles.userInitialsTextBottom : { fontSize: nav.userInitialsFS }]}>{userInitials}</Text>
+          </View>
+        ) : (
+          <User size={isBottomBar ? 20 : nav.icon} color={isBottomBar ? (isDarkMode ? '#94a3b8' : '#64748b') : '#fff'} strokeWidth={isBottomBar ? 2 : nav.stroke} />
+        )}
+        {isBottomBar && <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Perfil</Text>}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={handleOpenLocationDialog}
+        style={isBottomBar ? styles.bottomBarButton : [styles.iconButton, { padding: nav.iconBtnPad }]}
+      >
+        <MapPin size={isBottomBar ? 20 : nav.icon} color={isBottomBar ? (isDarkMode ? '#94a3b8' : '#64748b') : '#fff'} strokeWidth={isBottomBar ? 2 : nav.stroke} />
+        {isBottomBar && <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Filtros</Text>}
+      </TouchableOpacity>
+
+      {isLoggedIn && (perfilPermissao === 'admin' || perfilPermissao === 'moderador' || perfilPermissao === 'super_admin') && (
+        <TouchableOpacity
+          onPress={() => handleNavigation('admin')}
+          style={isBottomBar ? styles.bottomBarButton : [styles.iconButton, { padding: nav.iconBtnPad }]}
+        >
+          <Shield size={isBottomBar ? 20 : nav.icon} color={isBottomBar ? (isDarkMode ? '#94a3b8' : '#64748b') : '#fff'} strokeWidth={isBottomBar ? 2 : nav.stroke} />
+          {isBottomBar && <Text style={[styles.barLabel, isDarkMode && styles.barLabelDark]}>Admin</Text>}
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 
   return (
     <>
@@ -409,78 +491,13 @@ export default function Header() {
               Achou!
             </Text>
           </TouchableOpacity>
-          <View
-            style={[
-              styles.headerActions,
-              {
-                flex: 1,
-                justifyContent: nav.spreadIcons ? 'space-evenly' : 'flex-end',
-                gap: nav.spreadIcons ? 0 : nav.actionsGap,
-                marginLeft: 10,
-                minHeight: Math.max(nav.logoCircle, nav.navIcon + nav.iconBtnPad * 2),
-              },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={() => setIsDarkMode(!isDarkMode)}
-              style={[styles.iconButton, { padding: nav.iconBtnPad }]}
-            >
-              {isDarkMode ? (
-                <Sun size={nav.icon} color="#fff" strokeWidth={nav.stroke} />
-              ) : (
-                <Moon size={nav.icon} color="#fff" strokeWidth={nav.stroke} />
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleNavigation('favoritos')}
-              style={[styles.iconButton, { padding: nav.iconBtnPad }]}
-            >
-              <Heart size={nav.icon} color="#fff" strokeWidth={nav.stroke} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                if (isLoggedIn) {
-                  navigateTo('T5');
-                } else {
-                  navigateTo('T3');
-                }
-              }}
-              style={[styles.iconButton, { padding: nav.iconBtnPad }]}
-            >
-              {isLoggedIn ? (
-                <View
-                  style={[
-                    styles.userInitialsCircle,
-                    {
-                      width: nav.userDot,
-                      height: nav.userDot,
-                      borderRadius: nav.userDot / 2,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.userInitialsText, { fontSize: nav.userInitialsFS }]}>{userInitials}</Text>
-                </View>
-              ) : (
-                <User size={nav.icon} color="#fff" strokeWidth={nav.stroke} />
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleOpenLocationDialog}
-              style={[styles.iconButton, { padding: nav.iconBtnPad }]}
-            >
-              <MapPin size={nav.icon} color="#fff" strokeWidth={nav.stroke} />
-            </TouchableOpacity>
-            {isLoggedIn && (perfilPermissao === 'admin' || perfilPermissao === 'moderador' || perfilPermissao === 'super_admin') && (
-              <TouchableOpacity
-                onPress={() => handleNavigation('admin')}
-                style={[styles.iconButton, { padding: nav.iconBtnPad }]}
-              >
-                <Shield size={nav.icon} color="#fff" strokeWidth={nav.stroke} />
-              </TouchableOpacity>
-            )}
+
+          {!isMobile && renderActions(false)}
+
+          {isMobile && (
             <TouchableOpacity
               onPress={() => setMobileMenuOpen(!mobileMenuOpen)}
-              style={[styles.iconButton, { padding: nav.iconBtnPad }]}
+              style={[styles.iconButton, { padding: nav.iconBtnPad, marginLeft: 'auto' }]}
             >
               {mobileMenuOpen ? (
                 <X size={nav.navIcon} color="#fff" strokeWidth={nav.stroke} />
@@ -488,8 +505,9 @@ export default function Header() {
                 <Menu size={nav.navIcon} color="#fff" strokeWidth={nav.stroke} />
               )}
             </TouchableOpacity>
-          </View>
+          )}
         </View>
+
         {mobileMenuOpen && (
           <View style={styles.mobileMenu}>
             <TouchableOpacity onPress={() => handleNavigation('anunciar')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
@@ -497,12 +515,6 @@ export default function Header() {
             </TouchableOpacity>
             <TouchableOpacity onPress={() => handleNavigation('contato')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
               <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Fale Conosco</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleNavigation('home')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
-              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Início</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleOpenLocationDialog} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
-              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Localização</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
@@ -518,9 +530,6 @@ export default function Header() {
             >
               <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Gestão de Anúncios</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleNavigation('perfil')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
-              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Perfil</Text>
-            </TouchableOpacity>
             <TouchableOpacity onPress={() => handleNavigation('politicas')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
               <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Políticas de Privacidade</Text>
             </TouchableOpacity>
@@ -528,6 +537,12 @@ export default function Header() {
         )}
         <LocationDialog open={locationDialogOpen} onOpenChange={setLocationDialogOpen} />
       </LinearGradient>
+
+      {isMobile && (
+        <View style={[styles.bottomNavigationBar, isDarkMode ? styles.bottomBarDark : styles.bottomBarLight]}>
+          {renderActions(true)}
+        </View>
+      )}
     </>
   );
 }
@@ -740,5 +755,60 @@ const styles = StyleSheet.create({
   btnFlex: {
     width: '100%',
     minHeight: 40,
+  },
+  bottomNavigationBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  bottomBarLight: {
+    backgroundColor: '#ffffff',
+    borderTopColor: '#e2e8f0',
+  },
+  bottomBarDark: {
+    backgroundColor: '#0f172a',
+    borderTopColor: '#334155',
+  },
+  bottomBarActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingHorizontal: 10,
+  },
+  bottomBarButton: {
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  barLabel: {
+    fontSize: 10,
+    color: '#64748b',
+    marginTop: 2,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  barLabelDark: {
+    color: '#94a3b8',
+  },
+  userInitialsCircleBottom: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(14, 165, 233, 0.15)',
+    borderColor: '#0ea5e9',
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userInitialsTextBottom: {
+    color: '#0ea5e9',
+    fontSize: 10,
   },
 });
