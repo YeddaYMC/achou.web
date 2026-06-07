@@ -443,4 +443,365 @@ export default function Header() {
                 style={[
                   styles.logoCircle,
                   isDarkMode ? { backgroundColor: '#0f172a' } : { backgroundColor: '#fff' },
-                  { width: nav.logoCircle, height: nav.logoCircle, borderRadius: nav.logoCircle /
+                  { width: nav.logoCircle, height: nav.logoCircle, borderRadius: nav.logoCircle / 2 },
+                ]}
+              >
+                {logoFailed ? (
+                  <Text style={[styles.logoFallbackText, isDarkMode && { color: '#60A5FA' }, { fontSize: nav.logoFallback }]}>A</Text>
+                ) : (
+                  <Image
+                    source={logoAchou}
+                    style={{ width: nav.logoImage, height: nav.logoImage }}
+                    resizeMode="contain"
+                    onError={() => setLogoFailed(true)}
+                    onLoad={() => setLogoFailed(false)}
+                    accessibilityLabel="Logo Achou"
+                  />
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* CENTRO DA TELA (Desktop): O Nome centralizado, maior com bordas arredondadas e o Slogan Hiperlocal */}
+          {!isMobile && (
+            <View style={[styles.centerPillContainer, { maxWidth: nav.pillMaxWidth }]}>
+              <Text style={[styles.centerPillText, isDarkMode && styles.centerPillTextDark, { fontSize: nav.logoText }]}>
+                Achou!
+              </Text>
+              <View style={styles.verticalDivider} />
+              <Text style={[styles.sloganText, isDarkMode && styles.sloganTextDark, { fontSize: nav.sloganText }]}>
+                O que você precisa, onde você precisa.
+              </Text>
+            </View>
+          )}
+
+          {/* TEXTO ABSOLUTO: Centralizado apenas no Mobile */}
+          {isMobile && (
+            <View style={styles.textCenterAbsolute} pointerEvents="none">
+              <Text style={[styles.logoText, isDarkMode && { color: '#e5e7eb' }, { fontSize: nav.logoText }]}>
+                Achou!
+              </Text>
+            </View>
+          )}
+
+          {/* LADO DIREITO: Ícones de controle + Menu hambúrguer sempre à direita */}
+          <View style={[styles.headerActions, { gap: nav.actionsGap }]}>
+            
+            {/* Ícones aparecem aqui se for tela grande */}
+            {!isMobile && renderActions()}
+
+            {/* O Botão de 3 Barras do Menu */}
+            <TouchableOpacity
+              onPress={() => setMobileMenuOpen(!mobileMenuOpen)}
+              style={[styles.iconButton, { padding: nav.iconBtnPad }]}
+            >
+              {mobileMenuOpen ? (
+                <X size={nav.navIcon} color="#fff" strokeWidth={nav.stroke} />
+              ) : (
+                <Menu size={nav.navIcon} color="#fff" strokeWidth={nav.stroke} />
+              )}
+            </TouchableOpacity>
+          </View>
+
+        </View>
+
+        {/* Menu Retrátil */}
+        {mobileMenuOpen && (
+          <View style={styles.mobileMenu}>
+            <TouchableOpacity onPress={() => handleNavigation('anunciar')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Anunciar</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity onPress={() => handleNavigation('contato')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Fale Conosco</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity onPress={() => handleNavigation('gestao')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Gestão de Anúncios</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity onPress={() => handleNavigation('politicas')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Políticas de Privacidade</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => handleNavigation('termos')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Termos de Uso</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => handleNavigation('planos')} style={[styles.mobileMenuItem, { paddingVertical: nav.mobileMenuPadV }]}>
+              <Text style={[styles.mobileMenuText, { fontSize: nav.mobileMenuFs }]}>Planos</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        <LocationDialog open={locationDialogOpen} onOpenChange={setLocationDialogOpen} />
+      </LinearGradient>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: {
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+    flexShrink: 0,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+  },
+  logoButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  textCenterAbsolute: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1, 
+  },
+  centerPillContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)', 
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 99, 
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 40,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  centerPillText: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontFamily: 'sans-serif-rounded',
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  centerPillTextDark: {
+    color: '#ffffff',
+  },
+  verticalDivider: {
+    width: 1.5,
+    height: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    marginHorizontal: 20,
+  },
+  sloganText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontFamily: 'sans-serif-rounded',
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(0, 0, 0, 0.12)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  sloganTextDark: {
+    color: '#e2e8f0',
+  },
+  logoCircle: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoFallbackText: {
+    color: '#1e3a8a',
+    fontWeight: '900',
+  },
+  logoText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontFamily: 'sans-serif-rounded', 
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto', 
+  },
+  iconButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userInitialsCircle: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
+  },
+  userInitialsText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  mobileMenu: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.2)',
+  },
+  mobileMenuItem: {
+    paddingHorizontal: 12,
+  },
+  mobileMenuText: {
+    color: '#fff',
+    fontWeight: '500',
+  },
+  dialogContent: {
+    maxWidth: '90%',
+    width: '100%',
+    overflow: 'hidden',
+  },
+  dialogContentDark: {
+    backgroundColor: '#0f172a',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)'
+  },
+  dialogTitle: {
+    color: '#0ea5e9',
+  },
+  dialogTitleDark: {
+    color: '#60a5fa',
+  },
+  dialogDescriptionDark: {
+    color: '#9ca3af',
+  },
+  dialogInfo: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#475569',
+  },
+  dialogInfoDark: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#cbd5e1',
+  },
+  dialogBody: {
+    marginTop: 16,
+    gap: 12,
+    flexShrink: 1,
+  },
+  sliderFieldTop: {
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: 'rgba(14, 165, 233, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(14, 165, 233, 0.2)',
+  },
+  radioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+  },
+  radioDark: {
+    borderColor: '#64748b',
+  },
+  radioChecked: {
+    backgroundColor: '#0ea5e9',
+    borderColor: '#0ea5e9',
+  },
+  radioLabel: {
+    fontSize: 14,
+    color: '#0f172a',
+  },
+  radioLabelDark: {
+    color: '#e5e7eb',
+  },
+  inputLabelDark: {
+    color: '#d1d5db',
+  },
+  inputField: {
+    marginTop: 8,
+  },
+  sliderField: {
+    marginTop: 8,
+  },
+  sliderControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 12,
+  },
+  sliderBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#0ea5e9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sliderBtnDisabled: {
+    backgroundColor: '#cbd5e1',
+    opacity: 0.5,
+  },
+  sliderBtnText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  sliderDisplay: {
+    alignItems: 'center',
+    minWidth: 120,
+  },
+  sliderValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0ea5e9',
+  },
+  sliderNote: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 4,
+  },
+  sliderNoteDark: {
+    color: '#9ca3af',
+  },
+  rangeNote: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  rangeNoteDark: {
+    color: '#cbd5e1',
+  },
+  dialogActions: {
+    flexDirection: 'column',
+    gap: 4,
+    marginTop: 8,
+    paddingBottom: 6,
+    flexShrink: 0,
+  },
+  dialogScroll: {
+    flexGrow: 0,
+  },
+  dialogScrollContent: {
+    gap: 12,
+    paddingBottom: 12,
+  },
+  btnFlex: {
+    width: '100%',
+    minHeight: 40,
+  },
+});
