@@ -295,7 +295,7 @@ export default function Header() {
       icon: xwide ? 36 : wide ? 30 : medium ? 26 : 24,
       navIcon: xwide ? 38 : wide ? 32 : medium ? 28 : 26,
       stroke: xwide ? 2.6 : wide ? 2.45 : medium ? 2.25 : 2.1,
-      logoText: xwide ? 26 : wide ? 23 : medium ? 20 : 24, // Aumentado de 19 para 24 no mobile
+      logoText: xwide ? 26 : wide ? 23 : medium ? 20 : 25, // Aumentado para dar destaque
       logoFallback: xwide ? 32 : wide ? 28 : medium ? 26 : 24,
       logoCircle: xwide ? 68 : wide ? 60 : medium ? 54 : 50,
       logoImage: xwide ? 60 : wide ? 54 : medium ? 48 : 44,
@@ -451,16 +451,10 @@ export default function Header() {
         ]}
       >
         <View style={styles.headerContent}>
-          {/* View fantasma para equilibrar o espaço à esquerda e centralizar o logo perfeitamente no mobile */}
-          {isMobile && <View style={styles.spacerPlaceholder} />}
-
+          {/* Logo Alinhado à Esquerda */}
           <TouchableOpacity
             onPress={() => handleNavigation('home')}
-            style={[
-              styles.logoButton, 
-              isMobile ? styles.logoButtonCentered : {},
-              { gap: nav.logoGap }
-            ]}
+            style={styles.logoButtonLeft}
           >
             <View
               style={[
@@ -494,6 +488,10 @@ export default function Header() {
                 />
               )}
             </View>
+          </TouchableOpacity>
+
+          {/* Texto "Achou!" - Centralizado Absoluto no mobile, Fluido no Desktop */}
+          <View style={isMobile ? styles.textCenterAbsolute : { marginLeft: nav.logoGap }}>
             <Text style={[
               styles.logoText, 
               isDarkMode && { color: '#e5e7eb' }, 
@@ -501,10 +499,12 @@ export default function Header() {
             ]}>
               Achou!
             </Text>
-          </TouchableOpacity>
+          </View>
 
+          {/* Ações de navegação normais para Desktop */}
           {!isMobile && renderActions(false)}
 
+          {/* Menu Alinhado à Direita no Mobile */}
           {isMobile && (
             <TouchableOpacity
               onPress={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -571,17 +571,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
+    position: 'relative', // Essencial para o absolute center do texto funcionar
   },
-  logoButton: {
+  logoButtonLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexShrink: 0,
   },
-  logoButtonCentered: {
-    marginLeft: 'auto',
-  },
-  spacerPlaceholder: {
-    width: 44, // Equilibra visualmente o tamanho do botão Menu da direita fazendo o logo ficar no meio exato
+  textCenterAbsolute: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: -1, // Garante que o toque nos botões das pontas continue funcionando perfeitamente
   },
   logoCircle: {
     justifyContent: 'center',
@@ -594,7 +596,7 @@ const styles = StyleSheet.create({
   logoText: {
     color: '#fff',
     fontWeight: '700',
-    fontFamily: 'sans-serif-rounded', // Deixa as letras arredondadas por padrão no Android/Web
+    fontFamily: 'sans-serif-rounded', 
   },
   headerActions: {
     flexDirection: 'row',
