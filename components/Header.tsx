@@ -279,13 +279,22 @@ function LocationDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
 
 export default function Header() {
   const { width } = useWindowDimensions();
-  const { isLoggedIn, navigateTo, isDarkMode, setIsDarkMode, userProfile, setSelectedBusiness } = useAppContext();
+  const context = useAppContext();
+  const { isLoggedIn, navigateTo, isDarkMode, setIsDarkMode, userProfile, setSelectedBusiness } = context;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
   const perfilPermissao = userProfile?.PERMISSAO || userProfile?.permissao || userProfile?.papel;
 
   const isMobile = width < 640; 
+
+  const handleBackStack = () => {
+    if (context && typeof context.goBack === 'function') {
+      context.goBack();
+    } else {
+      navigateTo('T1');
+    }
+  };
 
   const nav = useMemo(() => {
     const xwide = width >= 1280;
@@ -580,11 +589,41 @@ export default function Header() {
         <LocationDialog open={locationDialogOpen} onOpenChange={setLocationDialogOpen} />
       </LinearGradient>
 
-      {isMobile && (
-        <View style={[styles.bottomNavigationBar, isDarkMode ? styles.bottomBarDark : styles.bottomBarLight]}>
-          {renderBottomActions()}
-        </View>
-      )}
+      {/* RETAIN INTEGRATED FOOTER STRUCTURE FOR ALL SCREENS */}
+      <View style={[styles.bottomNavigationBar, isDarkMode ? styles.bottomBarDark : styles.bottomBarLight]}>
+        {isMobile ? (
+          /* Tela P: Renderiza as ações e injeta o botão de voltar ao lado da licença no rodapé inferior */
+          <View style={styles.mobileFooterContainer}>
+            {renderBottomActions()}
+            <View style={styles.licenseFooterRow}>
+              <Text style={[styles.licenseText, isDarkMode && styles.licenseTextDark]}>
+                © 2025 YEDDA MARIA CARVALHAIS / MARY ANA CARVALHAIS CARNEIRO
+              </Text>
+              <TouchableOpacity
+                onPress={handleBackStack}
+                style={[styles.footerRoundBackButton, isDarkMode ? styles.backButtonDark : styles.backButtonLight]}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.backButtonArrow, isDarkMode ? styles.arrowDark : styles.arrowLight]}>➔</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          /* Tela G: Sem os ícones superiores, mas mantém o texto de licença e o botão de voltar fixo ao lado dele */
+          <View style={styles.desktopFooterRow}>
+            <Text style={[styles.licenseText, isDarkMode && styles.licenseTextDark]}>
+              © 2025 YEDDA MARIA CARVALHAIS / MARY ANA CARVALHAIS CARNEIRO • Licenciado sob CC BY-NC-SA 4.0
+            </Text>
+            <TouchableOpacity
+              onPress={handleBackStack}
+              style={[styles.footerRoundBackButton, isDarkMode ? styles.backButtonDark : styles.backButtonLight]}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.backButtonArrow, isDarkMode ? styles.arrowDark : styles.arrowLight]}>➔</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     </>
   );
 }
@@ -855,13 +894,9 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   bottomNavigationBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 60,
+    width: '100%',
     borderTopWidth: 1,
-    flexDirection: 'row',
+    paddingVertical: 8,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,
@@ -874,16 +909,80 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     borderTopColor: '#334155',
   },
+  mobileFooterContainer: {
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 6,
+  },
   bottomBarActions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
     paddingHorizontal: 10,
+    alignItems: 'center',
   },
   bottomBarButton: {
     padding: 4,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  licenseFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    width: '100%',
+    paddingHorizontal: 16,
+    marginTop: 2,
+  },
+  desktopFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    width: '100%',
+    paddingHorizontal: 32,
+  },
+  licenseText: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  licenseTextDark: {
+    color: '#94a3b8',
+  },
+  footerRoundBackButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 4,
+  },
+  backButtonLight: {
+    backgroundColor: '#0ea5e9',
+  },
+  backButtonDark: {
+    backgroundColor: '#1e3a8a',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  backButtonArrow: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    transform: [{ scaleX: -1 }], 
+  },
+  arrowLight: {
+    color: '#4ade80',
+  },
+  arrowDark: {
+    color: '#ffffff',
   },
   barLabel: {
     fontSize: 10,
