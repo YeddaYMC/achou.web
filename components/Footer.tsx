@@ -8,13 +8,17 @@ export default function Footer() {
   const { width } = useWindowDimensions();
   const isMobile = width < 640; // Alinhado com o mesmo breakpoint do Header
 
-  const handleBackStack = () => {
-    if (context && typeof context.goBack === 'function') {
-      context.goBack();
+
+const handleBackStack = () => {
+    // usando a função do AppContext
+    if (context && typeof context.navigateBack === 'function') {
+      context.navigateBack();
     } else {
-      navigateTo('T1');
+      navigateTo('T1'); // Fallback de segurança caso a pilha suma
     }
   };
+  
+ 
 
   return (
     <View style={[
