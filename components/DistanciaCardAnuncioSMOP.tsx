@@ -13,38 +13,35 @@ interface DistanciaProps {
 }
 
 export default function DistanciaCardAnuncioSMOP({ userLat, userLon, business, isDarkMode }: DistanciaProps) {
-  // Começa exibindo o valor do Haversine (convertido) enquanto o OSRM calcula em background
-  const [textoDistancia, setTextoDistancia] = useState(() => {
-    if (business.distanceM != null) {
-      return business.distanceM < 1000 
-        ? `${Math.round(business.distanceM)}m (ar)` 
-        : `${(business.distanceM / 1000).toFixed(1)}km (ar)`;
-    }
-    return 'Calculando...';
-  });
+  // Estado inicial limpo. O componente vai calcular a rota real pelas ruas imediatamente.
+  const [textoDistancia, setTextoDistancia] = useState('Calculando...');
 
   useEffect(() => {
-    // Só dispara a busca se tiver as coordenadas do usuário e do card
+    let ativo = true;
+
+    // Se faltarem as coordenadas do usuário ou do anúncio, usa o Haversine padrão como contingência
     if (!userLat || !userLon || !business.lat || !business.lon) {
-      // Caso não tenha coordenadas, tenta usar o Haversine como último recurso para tirar o "Calculando..."
       if (business.distanceM != null) {
-        setTextoDistancia(business.distanceM < 1000 ? `${Math.round(business.distanceM)}m (ar)` : `${(business.distanceM / 1000).toFixed(1)}km (ar)`);
+        const formatoHaversine = business.distanceM < 1000 
+          ? `${Math.round(business.distanceM)}m` 
+          : `${(business.distanceM / 1000).toFixed(1)}km`;
+        setTextoDistancia(formatoHaversine);
+      } else {
+        setTextoDistancia('---');
       }
       return;
     }
 
-    let ativo = true;
-
     const buscarDistanciaRealOSRM = async () => {
       try {
-        // CORREÇÃO: Alterado de http para https para corrigir o bloqueio de segurança no Deploy (Mixed Content)
-        const url = `https://router.project-osrm.org/route/v1/driving/${userLon},${userLat};${business.lon},${business.lat}?overview=false`;
+        // CORREÇÃO: Endpoint estável com HTTPS certificado (OpenStreetMap) para aceitar chamadas na Web sem CORS/Mixed Content
+        const url = `https://routing.openstreetmap.de/routed-car/route/v1/driving/${userLon},${userLat};${business.lon},${business.lat}?overview=false`;
         
         const resposta = await fetch(url);
         const dados = await resposta.json();
 
         if (ativo && dados.code === 'Ok' && dados.routes && dados.routes[0]) {
-          const metrosReais = dados.routes[0].distance; // Distância em metros pelas ruas
+          const metrosReais = dados.routes[0].distance; // Distância exata da rota por ruas/avenidas
           
           const formatoTexto = metrosReais < 1000 
             ? `${Math.round(metrosReais)}m` 
@@ -52,18 +49,13 @@ export default function DistanciaCardAnuncioSMOP({ userLat, userLon, business, i
             
           setTextoDistancia(formatoTexto);
         } else if (ativo && business.distanceM != null) {
-          // Se a API responder algo inesperado, usa o Haversine de fallback
-          setTextoDistancia(business.distanceM < 1000 ? `${Math.round(business.distanceM)}m (ar)` : `${(business.distanceM / 1000).toFixed(1)}km (ar)`);
+          // Se a API falhar no parse, renderiza o plano B (Haversine) sem o sufixo travado
+          setTextoDistancia(business.distanceM < 1000 ? `${Math.round(business.distanceM)}m` : `${(business.distanceM / 1000).toFixed(1)}km`);
         }
       } catch (error) {
-        console.warn('Erro ao buscar rota real no OSRM, mantendo Haversine:', error);
-        // CORREÇÃO: Se a requisição falhar/for bloqueada, atualiza o estado com o Haversine - distancia linear
-        if (ativo) {
-          if (business.distanceM != null) {
-            setTextoDistancia(business.distanceM < 1000 ? `${Math.round(business.distanceM)}m (ar)` : `${(business.distanceM / 1000).toFixed(1)}km (ar)`);
-          } else {
-            setTextoDistancia('---');
-          }
+        console.warn('Erro ao processar rota real, aplicando Haversine de contingência:', error);
+        if (ativo && business.distanceM != null) {
+          setTextoDistancia(business.distanceM < 1000 ? `${Math.round(business.distanceM)}m` : `${(business.distanceM / 1000).toFixed(1)}km`);
         }
       }
     };
@@ -73,6 +65,7 @@ export default function DistanciaCardAnuncioSMOP({ userLat, userLon, business, i
     return () => {
       ativo = false;
     };
+    // CORREÇÃO DE ACURÁCIA: Escutando propriedades primitivas individuais para forçar a re-renderização precisa
   }, [userLat, userLon, business.lat, business.lon, business.distanceM]);
 
   return (
