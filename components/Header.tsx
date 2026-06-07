@@ -285,7 +285,7 @@ export default function Header() {
   const [logoFailed, setLogoFailed] = useState(false);
   const perfilPermissao = userProfile?.PERMISSAO || userProfile?.permissao || userProfile?.papel;
 
-  const isMobile = width < 640; // Define o corte onde vira aba inferior (baseado no nav.spreadIcons antigo)
+  const isMobile = width < 640; 
 
   const nav = useMemo(() => {
     const xwide = width >= 1280;
@@ -295,7 +295,7 @@ export default function Header() {
       icon: xwide ? 36 : wide ? 30 : medium ? 26 : 24,
       navIcon: xwide ? 38 : wide ? 32 : medium ? 28 : 26,
       stroke: xwide ? 2.6 : wide ? 2.45 : medium ? 2.25 : 2.1,
-      logoText: xwide ? 26 : wide ? 23 : medium ? 20 : 19,
+      logoText: xwide ? 26 : wide ? 23 : medium ? 20 : 24, // Aumentado de 19 para 24 no mobile
       logoFallback: xwide ? 32 : wide ? 28 : medium ? 26 : 24,
       logoCircle: xwide ? 68 : wide ? 60 : medium ? 54 : 50,
       logoImage: xwide ? 60 : wide ? 54 : medium ? 48 : 44,
@@ -451,9 +451,16 @@ export default function Header() {
         ]}
       >
         <View style={styles.headerContent}>
+          {/* View fantasma para equilibrar o espaço à esquerda e centralizar o logo perfeitamente no mobile */}
+          {isMobile && <View style={styles.spacerPlaceholder} />}
+
           <TouchableOpacity
             onPress={() => handleNavigation('home')}
-            style={[styles.logoButton, { gap: nav.logoGap, flexShrink: 0 }]}
+            style={[
+              styles.logoButton, 
+              isMobile ? styles.logoButtonCentered : {},
+              { gap: nav.logoGap }
+            ]}
           >
             <View
               style={[
@@ -487,7 +494,11 @@ export default function Header() {
                 />
               )}
             </View>
-            <Text style={[styles.logoText, isDarkMode && { color: '#e5e7eb' }, { fontSize: nav.logoText }]}>
+            <Text style={[
+              styles.logoText, 
+              isDarkMode && { color: '#e5e7eb' }, 
+              { fontSize: nav.logoText }
+            ]}>
               Achou!
             </Text>
           </TouchableOpacity>
@@ -564,6 +575,13 @@ const styles = StyleSheet.create({
   logoButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
+  },
+  logoButtonCentered: {
+    marginLeft: 'auto',
+  },
+  spacerPlaceholder: {
+    width: 44, // Equilibra visualmente o tamanho do botão Menu da direita fazendo o logo ficar no meio exato
   },
   logoCircle: {
     justifyContent: 'center',
@@ -575,7 +593,8 @@ const styles = StyleSheet.create({
   },
   logoText: {
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: '700',
+    fontFamily: 'sans-serif-rounded', // Deixa as letras arredondadas por padrão no Android/Web
   },
   headerActions: {
     flexDirection: 'row',
