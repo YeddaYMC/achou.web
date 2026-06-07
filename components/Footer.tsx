@@ -1,12 +1,18 @@
 import React from 'react';
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useAppContext } from '../context/AppContext';
 
 export default function Footer() {
   const { isDarkMode } = useAppContext();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 640; // Alinhado com o mesmo breakpoint do Header
 
   return (
-    <View style={[styles.footer, isDarkMode && styles.footerDark]}>
+    <View style={[
+      styles.footer, 
+      isDarkMode && styles.footerDark,
+      isMobile && styles.footerMobileMargin
+    ]}>
       <Text style={[styles.footerText, isDarkMode && styles.footerTextDark]}>© 2025</Text>
       <Text style={[styles.footerText, styles.footerName, isDarkMode && styles.footerTextDark]}>
         YEDDA MARIA CARVALHAIS
@@ -38,6 +44,9 @@ const styles = StyleSheet.create({
   footerDark: {
     borderTopColor: '#334155',
     backgroundColor: '#0f172a',
+  },
+  footerMobileMargin: {
+    marginBottom: 60, // Recuo de segurança essencial para não ficar escondido atrás da aba inferior
   },
   footerText: {
     fontSize: 10,
