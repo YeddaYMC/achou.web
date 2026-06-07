@@ -387,6 +387,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+
+ 
   // Função de navegação
   const navigateTo = (screen: string) => {
     setScreenHistory((prev) => [...prev, currentScreen]); // Adiciona tela ao histórico
@@ -401,6 +403,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCurrentScreen(previous); // Volta para tela anterior
     }
   };
+
+
+
+  
+ 
 
   // Toggle de favorito (sincroniza com Firebase)
   const toggleFavorite = (id: number) => {
