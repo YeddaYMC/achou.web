@@ -44,7 +44,7 @@ export default function T4Detalhes() {
   const [enderecoLoading, setEnderecoLoading] = useState(false);
   const [searchCenter, setSearchCenter] = useState<null | { lat: number; lon: number }>(null);
   const { width, height } = useWindowDimensions();
-  const imageHeight = Math.max(280, Math.floor(height * 0.55)); // Aumentado para 280px mínimo e 55% da altura
+  const imageHeight = Math.max(280, Math.floor(height * 0.55));
 
   const isFavorite = useMemo(() => favorites?.includes(selectedBusiness?.id ?? 0) ?? false, [favorites, selectedBusiness]);
 
@@ -205,11 +205,11 @@ export default function T4Detalhes() {
       navigateTo('T3');
       return;
     }
-    // Setar o anúncio a denunciar e navegar para T10
     setReportBusiness({ id: selectedBusiness.id, firestoreId: selectedBusiness.firestoreId ?? undefined, name: selectedBusiness.name });
     navigateTo('T10');
   };
 
+  // RESOLVE CENTRO DA BUSCA UTILIZANDO VIACEP + NOMINATIM SEQUENCIALMENTE
   useEffect(() => {
     let active = true;
 
@@ -221,9 +221,31 @@ export default function T4Detalhes() {
 
       if (locationSettings?.mode === 'cep' && locationSettings?.cep) {
         try {
-          const geo = await geocodeBusinessAddress({ cep: locationSettings.cep, country: 'Brasil' });
+          const cepDigits = String(locationSettings.cep).replace(/\D/g, '');
+          
+          // 1. Busca primeiro no ViaCEP para pegar os dados nominais da rua
+          const viaCepResponse = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`);
+          const viaCepData = await viaCepResponse.json();
+
           if (!active) return;
-          setSearchCenter(geo ? { lat: geo.lat, lon: geo.lon } : null);
+
+          if (viaCepData && !viaCepData.erro) {
+            // 2. Manda os dados estruturados da rua para o Nominatim em vez do CEP cru
+            const geo = await geocodeBusinessAddress({
+              street: viaCepData.logradouro,
+              neighborhood: viaCepData.bairro,
+              city: viaCepData.localidade,
+              state: viaCepData.uf,
+              cep: cepDigits,
+              country: 'Brasil'
+            });
+
+            if (active) setSearchCenter(geo ? { lat: geo.lat, lon: geo.lon } : null);
+          } else {
+            // Fallback caso o ViaCEP falhe ou não encontre, tenta o método antigo pelo CEP cru
+            const geoFallback = await geocodeBusinessAddress({ cep: locationSettings.cep, country: 'Brasil' });
+            if (active) setSearchCenter(geoFallback ? { lat: geoFallback.lat, lon: geoFallback.lon } : null);
+          }
           return;
         } catch {
           if (active) setSearchCenter(null);
@@ -346,7 +368,6 @@ export default function T4Detalhes() {
                 <Text style={textMuted}>Imagem não disponível</Text>
               </View>
             )}
-
           </View>
 
           <Separator style={{ marginVertical: 10 }} />
@@ -403,7 +424,6 @@ export default function T4Detalhes() {
             </View>
           </View>
 
-          {/* Descrição truncada */}
           <Text style={textMuted}>
             {String(selectedBusiness.description || '').length > 200
               ? String(selectedBusiness.description).slice(0, 200) + '...'
@@ -436,7 +456,6 @@ export default function T4Detalhes() {
               )}
             </View>
 
-            {/* Redes sociais */}
             <View style={styles.socialRow}>
               {selectedBusiness.instagram && selectedBusiness.contactVisibility?.instagram && (
                 <TouchableOpacity onPress={() => Linking.openURL(String(selectedBusiness.instagram))} style={[styles.socialIcon, { backgroundColor: '#ec4899' }]} accessibilityLabel="Instagram">
@@ -509,9 +528,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: 4,
-  },
-  imageTopOverlay: {
-    alignItems: 'center',
   },
   image: {
     width: '100%',
@@ -688,16 +704,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#16A34A',
     width: '100%',
     alignSelf: 'stretch',
-  },
-  favoriteInlineButton: {
-    height: 36,
-    width: 36,
-    borderWidth: 1.5,
-    borderColor: '#1e3a8a',
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
   },
   actionContent: {
     flexDirection: 'row',
