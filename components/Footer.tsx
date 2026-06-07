@@ -4,21 +4,18 @@ import { useAppContext } from '../context/AppContext';
 
 export default function Footer() {
   const context = useAppContext();
-  const { isDarkMode, navigateTo } = context;
+  // Já desestruturamos o navigateBack aqui para garantir escopo limpo
+  const { isDarkMode, navigateTo, navigateBack } = context;
   const { width } = useWindowDimensions();
-  const isMobile = width < 640; // Alinhado com o mesmo breakpoint do Header
+  const isMobile = width < 640; 
 
-
-const handleBackStack = () => {
-    // usando a função do AppContext
-    if (context && typeof context.navigateBack === 'function') {
-      context.navigateBack();
+  const handleBackStack = () => {
+    if (typeof navigateBack === 'function') {
+      navigateBack();
     } else {
-      navigateTo('T1'); // Fallback de segurança caso a pilha suma
+      navigateTo('T1'); 
     }
   };
-  
- 
 
   return (
     <View style={[
@@ -44,7 +41,7 @@ const handleBackStack = () => {
         </Text>
       </View>
 
-      {/* Botão redondo fixado na lateral direita sem alterar a altura do container */}
+      {/* Botão redondo fixado na lateral direita com zIndex adicionado */}
       <TouchableOpacity
         onPress={handleBackStack}
         style={[styles.footerRoundBackButton, isDarkMode ? styles.backButtonDark : styles.backButtonLight]}
@@ -66,19 +63,19 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative', // Essencial para permitir o posicionamento absoluto do botão interno
+    position: 'relative', 
   },
   footerDark: {
     borderTopColor: '#334155',
     backgroundColor: '#0f172a',
   },
   footerMobileMargin: {
-    marginBottom: 60, // Recuo de segurança essencial para não ficar escondido atrás da aba inferior
+    marginBottom: 60, 
   },
   textContainer: {
     width: '100%',
     alignItems: 'center',
-    paddingHorizontal: 40, // Evita que o texto encoste ou passe por baixo do botão na direita
+    paddingHorizontal: 40, 
   },
   footerText: {
     fontSize: 10,
@@ -98,8 +95,8 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   footerRoundBackButton: {
-    position: 'absolute', // Retira o botão do fluxo comum para não empurrar o texto
-    right: 16,            // Alinha perfeitamente no canto direito
+    position: 'absolute', 
+    right: 16,            
     width: 34,
     height: 34,
     borderRadius: 17,
@@ -110,6 +107,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 1.5,
     elevation: 3,
+    zIndex: 99, // <--- ADICIONADO AQUI: Garante que o botão fique fisicamente por cima de tudo e receba o toque
   },
   backButtonLight: {
     backgroundColor: '#0ea5e9',
@@ -122,12 +120,12 @@ const styles = StyleSheet.create({
   backButtonArrow: {
     fontSize: 13,
     fontWeight: 'bold',
-    transform: [{ scaleX: -1 }], // Inverte a seta para apontar para a esquerda (Voltar)
+    transform: [{ scaleX: -1 }], 
   },
   arrowLight: {
-    color: '#4ade80', // Flecha verde em modo claro
+    color: '#4ade80', 
   },
   arrowDark: {
-    color: '#ffffff', // Flecha branca em modo escuro
+    color: '#ffffff', 
   },
 });
