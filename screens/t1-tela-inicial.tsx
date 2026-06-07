@@ -598,7 +598,8 @@ export default function T1TelaInicial() {
                     style={styles.cardImage}
                     resizeMode="contain"
                   />
-                </LinearGradient>
+               </LinearGradient>
+                
                 <View style={styles.cardContent}>
                   <View style={styles.badgesRowMin}>
                     <View style={styles.badgesRow}>
@@ -623,27 +624,25 @@ export default function T1TelaInicial() {
                       )}
                     </View>
                   </View>
+                  
                   <Text style={[styles.businessDesc, isDarkMode && styles.businessDescDark]} numberOfLines={2}>
                     {business.description}
                   </Text>
+                  
                   <Text style={[styles.businessLocation, isDarkMode && styles.businessLocationDark]} numberOfLines={1}>
                     📍 {business.location}
                   </Text>
 
-<View style={styles.distanceRow}>
-  {business.distanceM != null ? (
-    <Text style={[styles.businessDistance, isDarkMode && styles.businessDistanceDark]}>
-      🎯 {business.distanceM < 1000 ? `${Math.round(business.distanceM)}m` : `${(business.distanceM / 1000).toFixed(1)}km`}
-    </Text>
-  ) : (
-    <View style={styles.distancePlaceholder} />
-  )}
-</View>
+                  {/* NOVO COMPONENTE DE DISTÂNCIA INJETADO CORRETAMENTE AQUI */}
+                  <DistanciaCardAnuncioSMOP 
+                    userLat={searchCenter?.lat} 
+                    userLon={searchCenter?.lon} 
+                    business={business} 
+                    isDarkMode={isDarkMode}
+                  />
+                </View>
 
-                  
-                  
-
-                {/* Ícone de favorito */}
+                {/* ÍCONE DE FAVORITO (FORA DO CARDCONTENT, DENTRO DO GRADIENT PAI) */}
                 <TouchableOpacity style={styles.favIcon} onPress={() => toggleFavorite(business.id)}>
                   <Heart
                     size={20}
@@ -684,7 +683,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   badgesRowMin: {
-    minHeight: 44, // Reduzido para ficar proporcional ao card menor
+    minHeight: 44, 
     marginBottom: 4,
     justifyContent: 'flex-start',
   },
