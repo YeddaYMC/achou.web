@@ -310,9 +310,9 @@ export default function Login() {
               <View style={{ flex: 1, height: 1, backgroundColor: colors.formBorder }} />
             </View>
 
-            {/* Botão Google (desabilitado temporariamente) */}
+            {/* troco o botao do google pelo de criar conta com o mesmo estilo e rota T2 */}
             <Button
-              onPress={() => setErrorMessage('Login com Google será implementado em breve')}
+              onPress={() => navigateTo('T2')}
               disabled={loading}
               style={{
                 backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
@@ -327,9 +327,9 @@ export default function Login() {
                 gap: spacing.sm,
               }}
             >
-              <Text style={{ fontSize: 20 }}>🔐</Text>
+              <Text style={{ fontSize: 20 }}>📝</Text>
               <Text style={{ color: formTextColor, fontSize: fontSize.base, fontWeight: '600' }}>
-                Entrar com Google
+                Criar Conta Gratuitamente
               </Text>
             </Button>
 
