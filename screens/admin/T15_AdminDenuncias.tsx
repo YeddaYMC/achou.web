@@ -1,4 +1,4 @@
-import { getAuth } from 'firebase/auth'; // Importing getAuth
+import { getAuth } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, getFirestore, limit, query, Timestamp, where } from 'firebase/firestore';
 import { ChevronLeft } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
@@ -27,7 +27,6 @@ interface Denuncia {
 }
 
 export default function AdminDenuncias() {
-  // Client-only date formatter to avoid SSR/client mismatch
   function ClientDate({ value, options }: { value: any; options?: Intl.DateTimeFormatOptions }) {
     const [text, setText] = useState<string>(() => {
       if (!value) return '';
@@ -51,6 +50,7 @@ export default function AdminDenuncias() {
 
     return <Text>{text}</Text>;
   }
+
   const { isDarkMode, setCurrentScreen, navigateTo, setSelectedBusiness, businesses } = useAppContext();
   const [denuncias, setDenuncias] = useState<Denuncia[]>([]);
   const [selectedDenuncia, setSelectedDenuncia] = useState<Denuncia | null>(null);
@@ -65,7 +65,6 @@ export default function AdminDenuncias() {
 
   const styles = getStyles(isDarkMode);
 
-  // Carregar denúncias pendentes ao montar componente
   useEffect(() => {
     const carregarDenuncias = async () => {
       try {
@@ -90,7 +89,6 @@ export default function AdminDenuncias() {
   const handleAbrirDetalhe = async (denuncia: Denuncia) => {
     setSelectedDenuncia(denuncia);
     setDecisao(null);
-    // Iniciar justificativa vazia; será preenchida ao selecionar decisão
     setJustificativa('');
     justificativaRef.current = '';
     setAnuncioRelacionado(null);
@@ -166,19 +164,14 @@ export default function AdminDenuncias() {
     }
   };
 
-  const baseJustificativaPrefix = 'Agradecemos por contribuir com a segurança e a qualidade da plataforma. ';
-
   function handleSelectDecisao(dec: 'aceita' | 'nao_aceita') {
-    // Preenche automaticamente apenas se o campo estiver vazio
     const current = (justificativaRef.current || '').trim();
     if (!current) {
       let novo = '';
       if (dec === 'aceita') {
-        novo =
-          'Agradecemos sua denúncia. Após verificação, confirmamos que o conteúdo viola nossas normas e já aplicamos as medidas corretivas necessárias. Sua colaboração é fundamental para nossa comunidade!';
+        novo = 'Agradecemos sua denúncia. Após verificação, confirmamos que o conteúdo viola nossas normas e já aplicamos as medidas corretivas necessárias. Sua colaboração é fundamental para nossa comunidade!';
       } else {
-        novo =
-          'Obrigado por nos ajudar a manter a plataforma segura. Após análise, não identificamos violações às nossas diretrizes neste caso específico. Por isso, nenhuma ação foi tomada no momento. Seguimos à disposição!';
+        novo = 'Obrigado por nos ajudar a manter a plataforma segura. Após análise, não identificamos violações às nossas diretrizes neste caso específico. Por isso, nenhuma ação foi tomada no momento. Seguimos à disposição!';
       }
 
       setJustificativa(novo);
@@ -191,6 +184,7 @@ export default function AdminDenuncias() {
   const handleVerAnuncio = () => {
     if (!anuncioRelacionado) return;
 
+    // Retornado exatamente ao seu mapeamento original
     const selectedBusiness = {
       id: 0,
       firestoreId: anuncioRelacionado.id,
@@ -226,7 +220,7 @@ export default function AdminDenuncias() {
       return;
     }
 
-    // pego o id do anuncio carregado ou do fallback
+    // Identifica o ID correto do anúncio para a resolução
     const idDoAnuncio = anuncioRelacionado?.id || selectedDenuncia.anuncioId;
 
     if (!idDoAnuncio) {
@@ -236,15 +230,12 @@ export default function AdminDenuncias() {
 
     setLoading(true);
     try {
-      // Resolver denúncia no Firestore
       const moderadorId = getAuth(app).currentUser?.uid || '';
       
-      // passo idDoAnuncio como ultimo parametro para o service
+      // Executa a função passando o ID do anúncio conforme solicitado
       await resolverDenuncia(selectedDenuncia.id, moderadorId, decisao, justificativa, idDoAnuncio);
 
-      // Atualizar lista local removendo a denúncia resolvida
       setDenuncias(prev => prev.filter(d => d.id !== selectedDenuncia.id));
-      
       alert('Denúncia resolvida com sucesso!');
       setShowDetailDialog(false);
     } catch (error) {
@@ -258,7 +249,6 @@ export default function AdminDenuncias() {
   return (
     <LayoutRN>
       <ScrollView contentContainerStyle={styles.container}>
-        {/* Header com botão voltar */}
         <View style={styles.headerContainer}>
           <TouchableOpacity onPress={handleVoltar} style={styles.backButton}>
             <ChevronLeft width={24} height={24} color={isDarkMode ? '#fff' : '#000'} />
@@ -267,12 +257,10 @@ export default function AdminDenuncias() {
           <View style={{ width: 40 }} />
         </View>
 
-        {/* Info */}
         <Text style={styles.infoText}>
           Analise e tome decisões sobre as denúncias reportadas pelos usuários.
         </Text>
 
-        {/* Lista de denúncias */}
         <View style={styles.listContainer}>
           {loadingDenuncias ? (
             <View style={styles.emptyState}>
@@ -312,7 +300,6 @@ export default function AdminDenuncias() {
           )}
         </View>
 
-        {/* Dialog de detalhes e decisão */}
         <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
           <DialogContent style={styles.dialogContent}>
             <ScrollView style={styles.dialogScroll} showsVerticalScrollIndicator={true}>
@@ -432,292 +419,63 @@ export default function AdminDenuncias() {
 
 function getStyles(isDarkMode: boolean) {
   return StyleSheet.create({
-    container: {
-      paddingHorizontal: 16,
-      paddingVertical: 16,
-      paddingBottom: 80,
-    },
-    headerContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 16,
-    },
-    backButton: {
-      width: 40,
-      height: 40,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    headerTitle: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: isDarkMode ? '#fff' : '#000',
-      flex: 1,
-      textAlign: 'center',
-    },
-    infoText: {
-      fontSize: 14,
-      color: isDarkMode ? '#aaa' : '#666',
-      marginBottom: 20,
-      textAlign: 'center',
-    },
-    listContainer: {
-      gap: 12,
-    },
-    emptyState: {
-      paddingVertical: 40,
-      alignItems: 'center',
-    },
-    emptyStateText: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: isDarkMode ? '#ccc' : '#333',
-      marginBottom: 8,
-    },
-    emptyStateSubtext: {
-      fontSize: 13,
-      color: isDarkMode ? '#888' : '#999',
-      textAlign: 'center',
-    },
-    denunciaCard: {
-      padding: 12,
-      borderRadius: 8,
-      backgroundColor: isDarkMode ? '#1a1a1a' : '#f9f9f9',
-      borderLeftWidth: 4,
-      borderLeftColor: '#ff9800',
-    },
-    denunciaHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 8,
-    },
-    denunciaMotivo: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: isDarkMode ? '#fff' : '#000',
-      flex: 1,
-    },
-    statusBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 4,
-    },
-    status_aberta: {
-      backgroundColor: '#ff9800',
-    },
-    status_em_analise: {
-      backgroundColor: '#2196f3',
-    },
-    status_resolvida: {
-      backgroundColor: '#4caf50',
-    },
-    statusText: {
-      fontSize: 11,
-      fontWeight: '600',
-      color: '#fff',
-    },
-    denunciaDescricao: {
-      fontSize: 12,
-      color: isDarkMode ? '#bbb' : '#666',
-      marginBottom: 8,
-    },
-    denunciaData: {
-      fontSize: 11,
-      color: isDarkMode ? '#888' : '#999',
-      marginBottom: 10,
-    },
-    detalheButton: {
-      paddingVertical: 8,
-      paddingHorizontal: 12,
-      backgroundColor: '#1976d2',
-      borderRadius: 4,
-    },
-    detalheButtonText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: '#fff',
-    },
-    dialogContent: {
-      width: '100%',
-      minWidth: 320,
-      maxHeight: '75%',
-      paddingBottom: 16,
-    },
-    dialogScroll: {
-      maxHeight: '72%',
-      flexGrow: 0,
-    },
-    dialogTitleDark: {
-      color: '#fff',
-    },
-    dialogDescriptionDark: {
-      color: '#aaa',
-    },
-    carimboBox: {
-      marginBottom: 8,
-      padding: 8,
-      borderRadius: 8,
-      backgroundColor: isDarkMode ? '#262626' : '#fff7ed',
-      borderLeftWidth: 4,
-      borderLeftColor: '#ff9800',
-    },
-    carimboLabel: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: isDarkMode ? '#ddd' : '#9a3412',
-      marginBottom: 4,
-    },
-    carimboText: {
-      fontSize: 13,
-      color: isDarkMode ? '#f3f4f6' : '#1f2937',
-      lineHeight: 18,
-    },
-    dialogBody: {
-      gap: 8,
-    },
-    label: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: isDarkMode ? '#fff' : '#000',
-    },
-    labelMarginTop: {
-      marginTop: 6,
-    },
-    descricaoText: {
-      fontSize: 13,
-      color: isDarkMode ? '#bbb' : '#666',
-      padding: 6,
-      backgroundColor: isDarkMode ? '#0a0a0a' : '#f0f0f0',
-      borderRadius: 4,
-    },
-    decisaoButtons: {
-      flexDirection: 'row',
-      gap: 8,
-    },
-    decisaoBtn: {
-      flex: 1,
-      paddingVertical: 10,
-      borderRadius: 4,
-      backgroundColor: isDarkMode ? '#333' : '#eee',
-      borderWidth: 2,
-      borderColor: 'transparent',
-    },
-    decisaoBtnAceita: {
-      borderColor: '#4caf50',
-      backgroundColor: '#4caf5022',
-    },
-    decisaoBtnNegada: {
-      borderColor: '#f44336',
-      backgroundColor: '#f4433622',
-    },
-    decisaoBtnText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: isDarkMode ? '#fff' : '#000',
-    },
-    justificativaInput: {
-      height: 140,
-      textAlignVertical: 'top',
-      padding: 12,
-      fontSize: 14,
-      borderRadius: 6,
-    },
-    anuncioPreview: {
-      borderWidth: 1,
-      borderColor: '#d1d5db',
-      borderRadius: 6,
-      padding: 8,
-      backgroundColor: '#f9fafb',
-    },
-    anuncioPreviewDark: {
-      backgroundColor: '#1f2937',
-      borderColor: '#374151',
-    },
-    anuncioPreviewTitle: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: '#1e3a8a',
-      marginBottom: 3,
-    },
-    anuncioPreviewTitleDark: {
-      color: '#93c5fd',
-    },
-    anuncioPreviewMeta: {
-      fontSize: 12,
-      color: '#6b7280',
-      marginBottom: 8,
-    },
-    anuncioPreviewMetaDark: {
-      color: '#9ca3af',
-    },
-    anuncioPreviewDesc: {
-      fontSize: 12,
-      color: '#4b5563',
-      lineHeight: 18,
-    },
-    anuncioPreviewDescDark: {
-      color: '#cbd5e1',
-    },
-    previewButton: {
-      marginTop: 8,
-      paddingVertical: 10,
-      borderRadius: 6,
-      backgroundColor: '#1976d2',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    previewButtonText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: '#fff',
-    },
-    previewLoadingText: {
-      marginTop: 12,
-      fontSize: 13,
-      color: '#6b7280',
-    },
-    previewLoadingTextDark: {
-      color: '#d1d5db',
-    },
-    previewMissingText: {
-      marginTop: 12,
-      fontSize: 13,
-      color: '#b91c1c',
-    },
-    previewMissingTextDark: {
-      color: '#fca5a5',
-    },
-    dialogActions: {
-      flexDirection: 'row',
-      gap: 8,
-      marginTop: 8,
-    },
-    btnCancel: {
-      flex: 1,
-      paddingVertical: 10,
-      backgroundColor: isDarkMode ? '#333' : '#eee',
-      borderRadius: 4,
-    },
-    btnCancelText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: isDarkMode ? '#fff' : '#000',
-    },
-    btnSubmit: {
-      flex: 1,
-      paddingVertical: 10,
-      backgroundColor: '#4caf50',
-      borderRadius: 4,
-    },
-    btnSubmitText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: '#fff',
-    },
-    btnDisabled: {
-      opacity: 0.5,
-    },
+    container: { paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 80 },
+    headerContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+    backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+    headerTitle: { fontSize: 20, fontWeight: 'bold', color: isDarkMode ? '#fff' : '#000', flex: 1, textAlign: 'center' },
+    infoText: { fontSize: 14, color: isDarkMode ? '#aaa' : '#666', marginBottom: 20, textAlign: 'center' },
+    listContainer: { gap: 12 },
+    emptyState: { paddingVertical: 40, alignItems: 'center' },
+    emptyStateText: { fontSize: 16, fontWeight: '600', color: isDarkMode ? '#ccc' : '#333', marginBottom: 8 },
+    emptyStateSubtext: { fontSize: 13, color: isDarkMode ? '#888' : '#999', textAlign: 'center' },
+    denunciaCard: { padding: 12, borderRadius: 8, backgroundColor: isDarkMode ? '#1a1a1a' : '#f9f9f9', borderLeftWidth: 4, borderLeftColor: '#ff9800' },
+    denunciaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    denunciaMotivo: { fontSize: 14, fontWeight: '600', color: isDarkMode ? '#fff' : '#000', flex: 1 },
+    statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
+    status_aberta: { backgroundColor: '#ff9800' },
+    status_em_analise: { backgroundColor: '#2196f3' },
+    status_resolvida: { backgroundColor: '#4caf50' },
+    statusText: { fontSize: 11, fontWeight: '600', color: '#fff' },
+    denunciaDescricao: { fontSize: 12, color: isDarkMode ? '#bbb' : '#666', marginBottom: 8 },
+    denunciaData: { fontSize: 11, color: isDarkMode ? '#888' : '#999', marginBottom: 10 },
+    detalheButton: { paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#1976d2', borderRadius: 4 },
+    detalheButtonText: { fontSize: 12, fontWeight: '600', color: '#fff' },
+    dialogContent: { width: '100%', minWidth: 320, maxHeight: '75%', paddingBottom: 16 },
+    dialogScroll: { maxHeight: '72%', flexGrow: 0 },
+    dialogTitleDark: { color: '#fff' },
+    dialogDescriptionDark: { color: '#aaa' },
+    carimboBox: { marginBottom: 8, padding: 8, borderRadius: 8, backgroundColor: isDarkMode ? '#262626' : '#fff7ed', borderLeftWidth: 4, borderLeftColor: '#ff9800' },
+    carimboLabel: { fontSize: 12, fontWeight: '700', color: isDarkMode ? '#ddd' : '#9a3412', marginBottom: 4 },
+    carimboText: { fontSize: 13, color: isDarkMode ? '#f3f4f6' : '#1f2937', lineHeight: 18 },
+    dialogBody: { gap: 8 },
+    label: { fontSize: 14, fontWeight: '600', color: isDarkMode ? '#fff' : '#000' },
+    labelMarginTop: { marginTop: 6 },
+    descricaoText: { fontSize: 13, color: isDarkMode ? '#bbb' : '#666', padding: 6, backgroundColor: isDarkMode ? '#0a0a0a' : '#f0f0f0', borderRadius: 4 },
+    decisaoButtons: { flexDirection: 'row', gap: 8 },
+    decisaoBtn: { flex: 1, paddingVertical: 10, borderRadius: 4, backgroundColor: isDarkMode ? '#333' : '#eee', borderWidth: 2, borderColor: 'transparent' },
+    decisaoBtnAceita: { borderColor: '#4caf50', backgroundColor: '#4caf5022' },
+    decisaoBtnNegada: { borderColor: '#f44336', backgroundColor: '#f4433622' },
+    decisaoBtnText: { fontSize: 12, fontWeight: '600', color: isDarkMode ? '#fff' : '#000' },
+    justificativaInput: { height: 140, textAlignVertical: 'top', padding: 12, fontSize: 14, borderRadius: 6 },
+    anuncioPreview: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 6, padding: 8, backgroundColor: '#f9fafb' },
+    anuncioPreviewDark: { backgroundColor: '#1f2937', borderColor: '#374151' },
+    anuncioPreviewTitle: { fontSize: 14, fontWeight: '700', color: '#1e3a8a', marginBottom: 3 },
+    anuncioPreviewTitleDark: { color: '#93c5fd' },
+    anuncioPreviewMeta: { fontSize: 12, color: '#6b7280', marginBottom: 8 },
+    anuncioPreviewMetaDark: { color: '#9ca3af' },
+    anuncioPreviewDesc: { fontSize: 12, color: '#4b5563', lineHeight: 18 },
+    anuncioPreviewDescDark: { color: '#cbd5e1' },
+    previewButton: { marginTop: 8, paddingVertical: 10, borderRadius: 6, backgroundColor: '#1976d2', alignItems: 'center', justifyContent: 'center' },
+    previewButtonText: { fontSize: 12, fontWeight: '600', color: '#fff' },
+    previewLoadingText: { marginTop: 12, fontSize: 13, color: '#6b7280' },
+    previewLoadingTextDark: { color: '#d1d5db' },
+    previewMissingText: { marginTop: 12, fontSize: 13, color: '#b91c1c' },
+    previewMissingTextDark: { color: '#fca5a5' },
+    dialogActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+    btnCancel: { flex: 1, paddingVertical: 10, backgroundColor: isDarkMode ? '#333' : '#eee', borderRadius: 4 },
+    btnCancelText: { fontSize: 13, fontWeight: '600', color: isDarkMode ? '#fff' : '#000' },
+    btnSubmit: { flex: 1, paddingVertical: 10, backgroundColor: '#4caf50', borderRadius: 4 },
+    btnSubmitText: { fontSize: 13, fontWeight: '600', color: '#fff' },
+    btnDisabled: { opacity: 0.5 },
   });
 }
