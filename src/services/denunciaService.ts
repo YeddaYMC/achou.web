@@ -169,12 +169,14 @@ export async function getResumoModeracaoDenuncias(): Promise<ResumoModeracaoDenu
  * @param moderadorId - ID do moderador que resolveu
  * @param decisao - 'aceita' ou 'nao_aceita'
  * @param justificativa - Justificativa da decisão
+ * @param anuncioId - ID do anúncio vinculado
  */
 export async function resolverDenuncia(
   denunciaId: string,
   moderadorId: string,
   decisao: 'aceita' | 'nao_aceita',
-  justificativa: string
+  justificativa: string,
+  anuncioId?: string // recebo id do anuncio opcional
 ): Promise<void> {
   try {
     const denunciaRef = doc(db, 'denuncias', denunciaId);
@@ -187,6 +189,17 @@ export async function resolverDenuncia(
     });
 
     console.log('Denúncia resolvida:', denunciaId);
+
+    // se denuncia aceita e tem id do anuncio, mudo status para arquivado
+    if (decisao === 'aceita' && anuncioId) {
+      const anuncioRef = doc(db, 'anuncios', anuncioId);
+      await updateDoc(anuncioRef, {
+        status: 'arquivado',
+        moderadoPor: moderadorId,
+        moderadoEm: Timestamp.now()
+      });
+      console.log('Anúncio correspondente arquivado:', anuncioId);
+    }
   } catch (error) {
     console.error('Erro ao resolver denúncia:', error);
     throw error;
