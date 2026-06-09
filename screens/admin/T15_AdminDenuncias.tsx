@@ -226,11 +226,21 @@ export default function AdminDenuncias() {
       return;
     }
 
+    // pego o id do anuncio carregado ou do fallback
+    const idDoAnuncio = anuncioRelacionado?.id || selectedDenuncia.anuncioId;
+
+    if (!idDoAnuncio) {
+      alert('Erro: Não foi possível mapear o ID do anúncio.');
+      return;
+    }
+
     setLoading(true);
     try {
       // Resolver denúncia no Firestore
-        const moderadorId = getAuth(app).currentUser?.uid || '';
-        await resolverDenuncia(selectedDenuncia.id, moderadorId, decisao, justificativa);
+      const moderadorId = getAuth(app).currentUser?.uid || '';
+      
+      // passo idDoAnuncio como ultimo parametro para o service
+      await resolverDenuncia(selectedDenuncia.id, moderadorId, decisao, justificativa, idDoAnuncio);
 
       // Atualizar lista local removendo a denúncia resolvida
       setDenuncias(prev => prev.filter(d => d.id !== selectedDenuncia.id));
