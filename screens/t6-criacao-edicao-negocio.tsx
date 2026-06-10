@@ -408,6 +408,7 @@ export default function T6CriacaoEdicao() {
 
       const hasGeoInput = Boolean(
         onlyDigits(normalizedForm.cep).length === 8 ||
+        normalizedForm.location ||
         normalizedForm.street ||
         normalizedForm.neighborhood ||
         normalizedForm.city ||
@@ -418,6 +419,7 @@ export default function T6CriacaoEdicao() {
         try {
           const geo = await geocodeBusinessAddress({
             cep: normalizedForm.cep,
+            location: normalizedForm.location,
             street: normalizedForm.street,
             number: normalizedForm.number,
             neighborhood: normalizedForm.neighborhood,
