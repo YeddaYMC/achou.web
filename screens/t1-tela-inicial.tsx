@@ -414,7 +414,7 @@ export default function T1TelaInicial() {
     return () => {
       isActive = false;
     };
-  }, [selectedCategories, businesses, locationSettings, searchCenter]);
+  }, [selectedCategories, businesses, locationSettings, searchCenter, sortMode]);
 
   const toggleCategory = (category: string) => {
     setSelectedCategories(prev => 
@@ -446,7 +446,13 @@ export default function T1TelaInicial() {
               <Label style={[styles.sortLabel, isDarkMode && styles.sortLabelDark]}>Ordenar por</Label>
               <Select value={sortMode} onValueChange={(value) => setSortMode(value as 'proximity' | 'nameAsc' | 'nameDesc')}>
                 <SelectTrigger style={styles.selectTrigger}>
-                  <SelectValue placeholder="Mais próximos" />
+                  <Text style={[styles.sortValueText, isDarkMode && styles.sortValueTextDark]}>
+                    {sortMode === 'proximity'
+                      ? 'Mais próximos'
+                      : sortMode === 'nameAsc'
+                        ? 'Nome A → Z'
+                        : 'Nome Z → A'}
+                  </Text>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="proximity">Mais próximos</SelectItem>
@@ -881,6 +887,13 @@ const styles = StyleSheet.create({
   },
   sortLabelDark: {
     color: '#e2e8f0',
+  },
+  sortValueText: {
+    fontSize: 14,
+    color: '#111827',
+  },
+  sortValueTextDark: {
+    color: '#f8fafc',
   },
   selectTrigger: {
     marginTop: 8,
