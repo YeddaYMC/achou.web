@@ -70,6 +70,7 @@ const CATEGORIES = [
 export default function T1TelaInicial() {
   const { navigateTo, setSelectedBusiness, favorites, toggleFavorite, isDarkMode, businesses, locationSettings, userProfile } = useAppContext();
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]); // Categorias selecionadas (múltiplas)
+  const [sortMode, setSortMode] = useState<'proximity' | 'nameAsc' | 'nameDesc'>('proximity');
   const [filteredBusinesses, setFilteredBusinesses] = useState<any[]>([]); // Negócios filtrados
   const [isGeoSearching, setIsGeoSearching] = useState(false);
   const [searchCenter, setSearchCenter] = useState<null | { lat: number; lon: number }>(null);
@@ -384,15 +385,23 @@ export default function T1TelaInicial() {
         results = results.filter(b => b.distanceM != null && b.distanceM <= maxDistanceM);
       }
 
-      if (center) {
+      if (sortMode === 'proximity') {
         results.sort((a, b) => {
           const aDist = typeof a.distanceM === 'number' ? a.distanceM : Number.MAX_SAFE_INTEGER;
           const bDist = typeof b.distanceM === 'number' ? b.distanceM : Number.MAX_SAFE_INTEGER;
-          if (aDist !== bDist) return aDist - bDist;
+          if (aDist !== bDist) {
+            return aDist - bDist;
+          }
           return String(a?.name || '').localeCompare(String(b?.name || ''), 'pt-BR', { sensitivity: 'base' });
         });
+      } else if (sortMode === 'nameDesc') {
+        results.sort((a, b) =>
+          String(b?.name || '').localeCompare(String(a?.name || ''), 'pt-BR', { sensitivity: 'base' })
+        );
       } else {
-        results.sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || ''), 'pt-BR', { sensitivity: 'base' }));
+        results.sort((a, b) =>
+          String(a?.name || '').localeCompare(String(b?.name || ''), 'pt-BR', { sensitivity: 'base' })
+        );
       }
 
       if (isActive) {
@@ -433,6 +442,19 @@ export default function T1TelaInicial() {
         {/* Filtros de Busca */}
         <View style={[styles.filtersCard, isDarkMode && styles.filtersCardDark]}>
           <View style={styles.filterGroup}>
+            <View style={styles.sortRow}>
+              <Label style={[styles.sortLabel, isDarkMode && styles.sortLabelDark]}>Ordenar por</Label>
+              <Select value={sortMode} onValueChange={(value) => setSortMode(value as 'proximity' | 'nameAsc' | 'nameDesc')}>
+                <SelectTrigger style={styles.selectTrigger}>
+                  <SelectValue placeholder="Mais próximos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="proximity">Mais próximos</SelectItem>
+                  <SelectItem value="nameAsc">Nome A → Z</SelectItem>
+                  <SelectItem value="nameDesc">Nome Z → A</SelectItem>
+                </SelectContent>
+              </Select>
+            </View>
             {showCategoryChipRow ? (
               <View style={styles.categoryWebRow}>
                 <Label style={[styles.categoryLabelInline, isDarkMode && styles.categoryLabelInlineDark]}>
@@ -846,8 +868,23 @@ const styles = StyleSheet.create({
   categoryClearChipTextDisabled: {
     color: '#64748b',
   },
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
+    marginBottom: 12,
+  },
+  sortLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  sortLabelDark: {
+    color: '#e2e8f0',
+  },
   selectTrigger: {
     marginTop: 8,
+    minWidth: 190,
   },
   filterButtonRow: {
     marginTop: 12,
