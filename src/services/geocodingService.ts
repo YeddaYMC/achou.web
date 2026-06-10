@@ -2,6 +2,7 @@ type GeocodeSource = 'cep' | 'endereco';
 
 export interface GeocodeInput {
   cep?: string;
+  location?: string;
   street?: string;
   number?: string;
   neighborhood?: string;
@@ -43,12 +44,14 @@ const formatCep = (value: string) => {
 };
 
 function buildAddressParts(input: GeocodeInput): string[] {
+  const streetSource = input.street || input.location;
   return [
-    input.street,
+    streetSource,
     input.number,
     input.neighborhood,
     input.city,
     input.state,
+    input.cep,
     input.country || DEFAULT_COUNTRY,
   ]
     .map((p) => String(p || '').trim())
@@ -60,7 +63,8 @@ function buildQueryFromAddress(input: GeocodeInput): string {
 }
 
 function buildNominatimParams(input: GeocodeInput) {
-  const streetParts = [input.number, input.street]
+  const streetSource = input.street || input.location;
+  const streetParts = [input.number, streetSource]
     .map((p) => String(p || '').trim())
     .filter(Boolean);
 
@@ -79,7 +83,8 @@ function buildNominatimParams(input: GeocodeInput) {
 }
 
 function buildFuzzyAddressCandidates(input: GeocodeInput): string[] {
-  const streetParts = [input.number, input.street]
+  const streetSource = input.street || input.location;
+  const streetParts = [input.number, streetSource]
     .map((p) => String(p || '').trim())
     .filter(Boolean);
 
