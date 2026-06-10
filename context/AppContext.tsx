@@ -1,4 +1,5 @@
 import { getAuth } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
 import app from '../firebaseConfig';
@@ -153,6 +154,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [registrationDraft, setRegistrationDraft] = useState<RegistrationDraft>(emptyRegistrationDraft); // Rascunho cadastro
   const [isDarkMode, setIsDarkMode] = useState(false); // Modo escuro
   const colorScheme = useColorScheme(); // Esquema de cores do dispositivo
+
+  const LOCATION_SETTINGS_STORAGE_KEY = 'ACHOU_LOCATION_SETTINGS';
+
+  const saveLocationSettingsToStorage = async (settings: any | null) => {
+    try {
+      if (!settings) {
+        return; // Não removemos explicitamente o armazenamento ao redefinir o estado local.
+      }
+
+      const value = JSON.stringify(settings);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(LOCATION_SETTINGS_STORAGE_KEY, value);
+      } else {
+        await AsyncStorage.setItem(LOCATION_SETTINGS_STORAGE_KEY, value);
+      }
+    } catch (error) {
+      console.warn('Falha ao persistir configurações de localização:', error);
+    }
+  };
+
+  const loadLocationSettingsFromStorage = async () => {
+    try {
+      let rawValue: string | null = null;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        rawValue = window.localStorage.getItem(LOCATION_SETTINGS_STORAGE_KEY);
+      } else {
+        rawValue = await AsyncStorage.getItem(LOCATION_SETTINGS_STORAGE_KEY);
+      }
+
+      if (!rawValue) {
+        return null;
+      }
+
+      return JSON.parse(rawValue);
+    } catch (error) {
+      console.warn('Falha ao carregar configurações de localização persistidas:', error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    const restoreLocationSettings = async () => {
+      const persistedSettings = await loadLocationSettingsFromStorage();
+      if (persistedSettings) {
+        setLocationSettings(persistedSettings);
+      }
+    };
+
+    void restoreLocationSettings();
+  }, []);
+
+  useEffect(() => {
+    void saveLocationSettingsToStorage(locationSettings);
+  }, [locationSettings]);
 
   // Gera ID numérico estável a partir do doc.id do Firestore para manter favoritos consistentes.
   const stableNumericIdFromString = (value: string): number => {
