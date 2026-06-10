@@ -289,84 +289,86 @@ export default function AdminAprovacao() {
               </DialogDescription>
             </DialogHeader>
 
-                      {(selectedAnuncio as any)?.carimbo && (
-                        <View style={styles.carimboBox}>
-                          <Text style={styles.carimboLabel}>Carimbo da ação</Text>
-                          <Text style={styles.carimboText}>{(selectedAnuncio as any).carimbo}</Text>
-                        </View>
-                      )}
-
-            <View style={styles.dialogBody}>
-              <Text style={styles.label}>Descrição:</Text>
-              <Text style={styles.descricaoText}>{selectedAnuncio?.description || (selectedAnuncio as any)?.descricao}</Text>
-              {loadingAnuncioRelacionado ? (
-                <Text style={[styles.previewLoadingText, isDarkMode && styles.previewLoadingTextDark]}>
-                  Carregando anúncio relacionado...
-                </Text>
-              ) : anuncioRelacionado ? (
-                <>
-                  <Text style={[styles.label, styles.labelMarginTop]}>Anúncio:</Text>
-                  <View style={[styles.anuncioPreview, isDarkMode && styles.anuncioPreviewDark]}>
-                    <Text style={[styles.anuncioPreviewTitle, isDarkMode && styles.anuncioPreviewTitleDark]}>
-                      {anuncioRelacionado.nome || anuncioRelacionado.name || selectedAnuncio?.name || (selectedAnuncio as any)?.titulo}
-                    </Text>
-                    <Text style={[styles.anuncioPreviewMeta, isDarkMode && styles.anuncioPreviewMetaDark]}> 
-                      {anuncioRelacionado.categoria || anuncioRelacionado.category || ''}
-                    </Text>
-                    <Text style={[styles.anuncioPreviewDesc, isDarkMode && styles.anuncioPreviewDescDark]} numberOfLines={3}>
-                      {anuncioRelacionado.descricao || anuncioRelacionado.description || ''}
-                    </Text>
-                    <Button onPress={handleVerAnuncio} style={styles.previewButton} textStyle={styles.previewButtonText}>
-                      Ver Anúncio
-                    </Button>
-                  </View>
-                </>
-              ) : (
-                <Text style={[styles.previewMissingText, isDarkMode && styles.previewMissingTextDark]}>
-                  Não foi possível carregar o anúncio relacionado.
-                </Text>
+            <ScrollView style={styles.dialogScroll} contentContainerStyle={styles.dialogScrollContent} showsVerticalScrollIndicator={true}>
+              {(selectedAnuncio as any)?.carimbo && (
+                <View style={styles.carimboBox}>
+                  <Text style={styles.carimboLabel}>Carimbo da ação</Text>
+                  <Text style={styles.carimboText}>{(selectedAnuncio as any).carimbo}</Text>
+                </View>
               )}
 
-              <Text style={[styles.label, styles.labelMarginTop]}>Ação:</Text>
-              <View style={styles.acaoButtons}>
-                <Button onPress={() => setAcao('aprovar')} style={[styles.acaoBtn, acao === 'aprovar' && styles.acaoBtnAprovado]} textStyle={styles.acaoBtnText}>
-                  <Text style={styles.acaoBtnText}>✓ Aprovar</Text>
-                </Button>
-                <Button onPress={() => setAcao('reprovar')} style={[styles.acaoBtn, acao === 'reprovar' && styles.acaoBtnReprovado]} textStyle={styles.acaoBtnText}>
-                  <Text style={styles.acaoBtnText}>✗ Reprovar</Text>
-                </Button>
-                <Button onPress={() => setAcao('excluir')} style={[styles.acaoBtn, acao === 'excluir' && styles.acaoBtnExcluir]} textStyle={styles.acaoBtnText}>
-                  <Text style={styles.acaoBtnText}>🗑 Excluir</Text>
-                </Button>
-              </View>
+              <View style={styles.dialogBody}>
+                <Text style={styles.label}>Descrição:</Text>
+                <Text style={styles.descricaoText}>{selectedAnuncio?.description || (selectedAnuncio as any)?.descricao}</Text>
+                {loadingAnuncioRelacionado ? (
+                  <Text style={[styles.previewLoadingText, isDarkMode && styles.previewLoadingTextDark]}>
+                    Carregando anúncio relacionado...
+                  </Text>
+                ) : anuncioRelacionado ? (
+                  <>
+                    <Text style={[styles.label, styles.labelMarginTop]}>Anúncio:</Text>
+                    <View style={[styles.anuncioPreview, isDarkMode && styles.anuncioPreviewDark]}>
+                      <Text style={[styles.anuncioPreviewTitle, isDarkMode && styles.anuncioPreviewTitleDark]}>
+                        {anuncioRelacionado.nome || anuncioRelacionado.name || selectedAnuncio?.name || (selectedAnuncio as any)?.titulo}
+                      </Text>
+                      <Text style={[styles.anuncioPreviewMeta, isDarkMode && styles.anuncioPreviewMetaDark]}> 
+                        {anuncioRelacionado.categoria || anuncioRelacionado.category || ''}
+                      </Text>
+                      <Text style={[styles.anuncioPreviewDesc, isDarkMode && styles.anuncioPreviewDescDark]} numberOfLines={2}>
+                        {anuncioRelacionado.descricao || anuncioRelacionado.description || ''}
+                      </Text>
+                      <Button onPress={handleVerAnuncio} style={styles.previewButton} textStyle={styles.previewButtonText}>
+                        Ver Anúncio
+                      </Button>
+                    </View>
+                  </>
+                ) : (
+                  <Text style={[styles.previewMissingText, isDarkMode && styles.previewMissingTextDark]}>
+                    Não foi possível carregar o anúncio relacionado.
+                  </Text>
+                )}
 
-              {(acao === 'reprovar' || acao === 'excluir') && (
-                <>
-                  <Label style={[styles.label, styles.labelMarginTop] as any}>Motivo:</Label>
-                  <Input
-                    placeholder="Explique a decisão..."
-                    value={motivo}
-                    onChangeText={setMotivo}
-                    multiline
-                    style={styles.motivoInput}
-                    placeholderTextColor={isDarkMode ? '#666' : '#ccc'}
-                  />
-                </>
-              )}
+                <Text style={[styles.label, styles.labelMarginTop]}>Ação:</Text>
+                <View style={styles.acaoButtons}>
+                  <Button onPress={() => setAcao('aprovar')} style={[styles.acaoBtn, acao === 'aprovar' && styles.acaoBtnAprovado]} textStyle={styles.acaoBtnText}>
+                    <Text style={styles.acaoBtnText}>✓ Aprovar</Text>
+                  </Button>
+                  <Button onPress={() => setAcao('reprovar')} style={[styles.acaoBtn, acao === 'reprovar' && styles.acaoBtnReprovado]} textStyle={styles.acaoBtnText}>
+                    <Text style={styles.acaoBtnText}>✗ Reprovar</Text>
+                  </Button>
+                  <Button onPress={() => setAcao('excluir')} style={[styles.acaoBtn, acao === 'excluir' && styles.acaoBtnExcluir]} textStyle={styles.acaoBtnText}>
+                    <Text style={styles.acaoBtnText}>🗑 Excluir</Text>
+                  </Button>
+                </View>
 
-              <View style={styles.dialogActions}>
-                <Button onPress={() => setShowDetailDialog(false)} style={styles.btnCancel} textStyle={styles.btnCancelText}>
-                  <Text style={styles.btnCancelText}>Cancelar</Text>
-                </Button>
-                <Button
-                  onPress={handleTomarAcao}
-                  disabled={loading || !acao}
-                  style={[styles.btnSubmit, (loading || !acao) && styles.btnDisabled] as any}
-                  textStyle={styles.btnSubmitText}
-                >
-                  <Text style={styles.btnSubmitText}>{loading ? 'Processando...' : 'Confirmar'}</Text>
-                </Button>
+                {(acao === 'reprovar' || acao === 'excluir') && (
+                  <>
+                    <Label style={[styles.label, styles.labelMarginTop] as any}>Motivo:</Label>
+                    <Input
+                      placeholder="Explique a decisão..."
+                      value={motivo}
+                      onChangeText={setMotivo}
+                      multiline
+                      style={styles.motivoInput}
+                      placeholderTextColor={isDarkMode ? '#666' : '#ccc'}
+                    />
+                  </>
+                )}
               </View>
+            </ScrollView>
+
+            <View style={styles.dialogActions}>
+              <Button onPress={() => setShowDetailDialog(false)} style={styles.btnCancel} textStyle={styles.btnCancelText}>
+                <Text style={styles.btnCancelText}>Cancelar</Text>
+              </Button>
+              <Button
+                onPress={handleTomarAcao}
+                disabled={loading || !acao}
+                style={[styles.btnSubmit, (loading || !acao) && styles.btnDisabled] as any}
+                textStyle={styles.btnSubmitText}
+              >
+                <Text style={styles.btnSubmitText}>{loading ? 'Processando...' : 'Confirmar'}</Text>
+              </Button>
             </View>
           </DialogContent>
         </Dialog>
@@ -400,7 +402,9 @@ function getStyles(isDarkMode: boolean) {
     metaText: { fontSize: 11, color: isDarkMode ? '#888' : '#999' },
     detalheButton: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#2196f3', borderRadius: 6 },
     detalheButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-    dialogContent: { padding: 20, borderRadius: 12, backgroundColor: isDarkMode ? '#1a1a1a' : '#fff' },
+    dialogContent: { padding: 20, borderRadius: 12, backgroundColor: isDarkMode ? '#1a1a1a' : '#fff', maxHeight: '80%' },
+    dialogScroll: { maxHeight: 440 },
+    dialogScrollContent: { gap: 16, paddingBottom: 8 },
     dialogTitleDark: { color: '#fff' },
     dialogDescriptionDark: { color: '#aaa' },
     carimboBox: { marginTop: 12, marginBottom: 12, padding: 12, borderRadius: 8, backgroundColor: isDarkMode ? '#262626' : '#eef2ff', borderLeftWidth: 4, borderLeftColor: '#6d28d9' },
