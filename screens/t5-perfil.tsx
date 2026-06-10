@@ -28,6 +28,8 @@ export default function T5Perfil() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [minhasDenuncias, setMinhasDenuncias] = useState<Denuncia[]>([]);
+  const [showAdminResponsesDialog, setShowAdminResponsesDialog] = useState(false);
+  const [adminResponsesType, setAdminResponsesType] = useState<'denuncias' | 'publicacoes'>('denuncias');
   const [formData, setFormData] = useState({ 
     name: userProfile?.name || '', 
     nickname: userProfile?.nickname || '',
@@ -362,44 +364,43 @@ export default function T5Perfil() {
             </Text>
           </LinearGradient>
 
-          {minhasDenunciasResumo.total > 0 && (
-            <LinearGradient
-              colors={isDarkMode ? ['#1f2937', '#065f46', '#0f766e'] : ['#ecfeff', '#dcfce7', '#e0f2fe']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.notificationBanner}
-            >
-              <View style={styles.notificationHeader}>
-                <MessageSquare width={18} height={18} color={isDarkMode ? '#86efac' : '#0f766e'} />
-                <Text style={[styles.notificationTitle, isDarkMode && styles.notificationTitleDark]}>
-                  Retorno das suas denúncias
+          <View style={[styles.adminResponseCallout, isDarkMode && styles.adminResponseCalloutDark]}>
+            <Text style={[styles.adminResponseCalloutTitle, isDarkMode && styles.adminResponseCalloutTitleDark]}>
+              Devolutivas dos administradores
+            </Text>
+            <Text style={[styles.adminResponseCalloutText, isDarkMode && styles.adminResponseCalloutTextDark]}>
+              Veja a análise das denúncias ou publicações em modal para liberar espaço na sua tela de perfil.
+            </Text>
+            <View style={styles.adminResponseButtonsRow}>
+              <TouchableOpacity
+                onPress={() => {
+                  setAdminResponsesType('denuncias');
+                  setShowAdminResponsesDialog(true);
+                }}
+                style={[styles.adminResponseButton, isDarkMode && styles.adminResponseButtonDark]}
+              >
+                <Text style={[styles.adminResponseButtonText, isDarkMode && styles.adminResponseButtonTextDark]}>
+                  Análise de denúncias
                 </Text>
-              </View>
-
-              <Text style={[styles.notificationText, isDarkMode && styles.notificationTextDark]}>
-                {minhasDenunciasResumo.abertas > 0 && `${minhasDenunciasResumo.abertas} denúncia(s) em análise. `}
-                {minhasDenunciasResumo.procedentes > 0 && `${minhasDenunciasResumo.procedentes} procedente(s) por violação dos termos. `}
-                {minhasDenunciasResumo.naoProcedentes > 0 && `${minhasDenunciasResumo.naoProcedentes} não procedente(s).`}
-              </Text>
-
-              {minhasDenuncias.slice(0, 3).map((denuncia) => (
-                <View key={denuncia.id} style={[styles.denunciaFeedbackCard, isDarkMode && styles.denunciaFeedbackCardDark]}>
-                  <Text style={[styles.denunciaFeedbackStatus, isDarkMode && styles.denunciaFeedbackStatusDark]}>
-                    {denuncia.status === 'resolvida'
-                      ? denuncia.decisao === 'aceita'
-                        ? 'Procedente: viola termos de uso'
-                        : 'Não procedente: não viola termos de uso'
-                      : 'Em análise pela moderação'}
-                  </Text>
-                  {!!denuncia.justificativa && (
-                    <Text style={[styles.denunciaFeedbackJustificativa, isDarkMode && styles.denunciaFeedbackJustificativaDark]}>
-                      Justificativa: {denuncia.justificativa}
-                    </Text>
-                  )}
-                </View>
-              ))}
-            </LinearGradient>
-          )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setAdminResponsesType('publicacoes');
+                  setShowAdminResponsesDialog(true);
+                }}
+                style={[styles.adminResponseButton, styles.adminResponseButtonSecondary, isDarkMode && styles.adminResponseButtonDark]}
+              >
+                <Text style={[styles.adminResponseButtonText, isDarkMode && styles.adminResponseButtonTextDark]}>
+                  Análise de publicações
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.adminResponseHint, isDarkMode && styles.adminResponseHintDark]}>
+              {minhasDenunciasResumo.total > 0
+                ? `${minhasDenunciasResumo.total} denúncia(s) registradas · ${minhasDenunciasResumo.abertas} em análise · ${minhasDenunciasResumo.resolvidas} finalizadas`
+                : 'Nenhuma denúncia registrada ainda. Suas devolutivas aparecerão aqui.'}
+            </Text>
+          </View>
 
           <View style={styles.avatarContainer}>
             <View style={styles.avatarCircle}>
@@ -677,6 +678,57 @@ export default function T5Perfil() {
           </DialogContent>
         </Dialog>
 
+        <Dialog open={showAdminResponsesDialog} onOpenChange={setShowAdminResponsesDialog}>
+          <DialogContent style={{ ...styles.dialogContent, maxHeight: Math.min(680, Math.floor(height * 0.82)) }}>
+            <DialogHeader>
+              <DialogTitle style={titleStyle}>
+                {adminResponsesType === 'denuncias' ? 'Retorno de denúncias' : 'Retorno de publicações'}
+              </DialogTitle>
+              <DialogDescription>
+                {adminResponsesType === 'denuncias'
+                  ? 'Veja as respostas dos administradores para suas denúncias.'
+                  : 'Aqui ficam as devolutivas dos administradores sobre suas publicações quando estiverem disponíveis.'}
+              </DialogDescription>
+            </DialogHeader>
+            <ScrollView contentContainerStyle={styles.dialogScrollContent} showsVerticalScrollIndicator={false}>
+              {adminResponsesType === 'denuncias' ? (
+                minhasDenuncias.length === 0 ? (
+                  <Text style={[styles.dialogParagraph, isDarkMode && styles.dialogParagraphDark]}>
+                    Você não tem denúncias registradas ainda.
+                  </Text>
+                ) : (
+                  minhasDenuncias.map((denuncia) => (
+                    <View key={denuncia.id} style={[styles.adminResponseItem, isDarkMode && styles.adminResponseItemDark]}>
+                      <Text style={[styles.adminResponseItemTitle, isDarkMode && styles.adminResponseItemTitleDark]}>
+                        {denuncia.status === 'resolvida'
+                          ? denuncia.decisao === 'aceita'
+                            ? 'Denúncia procedente'
+                            : 'Denúncia não procedente'
+                          : 'Denúncia em análise'}
+                      </Text>
+                      <Text style={[styles.adminResponseItemText, isDarkMode && styles.adminResponseItemTextDark]}>
+                        {denuncia.justificativa || 'Nenhuma justificativa fornecida.'}
+                      </Text>
+                      <Text style={[styles.adminResponseItemMeta, isDarkMode && styles.adminResponseItemMetaDark]}>
+                        {formatDate(denuncia.createdAt || '')} · {denuncia.status.replace('_', ' ')}
+                      </Text>
+                    </View>
+                  ))
+                )
+              ) : (
+                <Text style={[styles.dialogParagraph, isDarkMode && styles.dialogParagraphDark]}>
+                  Nenhuma devolutiva de publicações disponível no momento.
+                </Text>
+              )}
+            </ScrollView>
+            <View style={styles.dialogActions}>
+              <Button variant="cancel" onPress={() => setShowAdminResponsesDialog(false)} style={styles.formButtonFlex}>
+                Fechar
+              </Button>
+            </View>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
           <DialogContent style={styles.dialogContent}>
             <DialogHeader>
@@ -875,6 +927,117 @@ const styles = StyleSheet.create({
   },
   denunciaFeedbackJustificativaDark: {
     color: '#ccfbf1',
+  },
+  adminResponseCallout: {
+    marginBottom: 16,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+  },
+  adminResponseCalloutDark: {
+    borderColor: '#0ea5e9',
+    backgroundColor: '#0f172a',
+  },
+  adminResponseCalloutTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 6,
+  },
+  adminResponseCalloutTitleDark: {
+    color: '#bfdbfe',
+  },
+  adminResponseCalloutText: {
+    fontSize: 13,
+    color: '#334155',
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  adminResponseCalloutTextDark: {
+    color: '#c7d2fe',
+  },
+  adminResponseButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  adminResponseButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+  },
+  adminResponseButtonSecondary: {
+    backgroundColor: '#10B981',
+  },
+  adminResponseButtonDark: {
+    backgroundColor: '#0f766e',
+  },
+  adminResponseButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  adminResponseButtonTextDark: {
+    color: '#E0F2FE',
+  },
+  adminResponseHint: {
+    marginTop: 10,
+    fontSize: 12,
+    color: '#475569',
+  },
+  adminResponseHintDark: {
+    color: '#94A3B8',
+  },
+  adminResponseItem: {
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#93C5FD',
+    backgroundColor: '#EFF6FF',
+  },
+  adminResponseItemDark: {
+    borderColor: '#0ea5e9',
+    backgroundColor: '#0F172A',
+  },
+  adminResponseItemTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 6,
+  },
+  adminResponseItemTitleDark: {
+    color: '#BFDBFE',
+  },
+  adminResponseItemText: {
+    fontSize: 13,
+    color: '#1e3a8a',
+    lineHeight: 18,
+    marginBottom: 6,
+  },
+  adminResponseItemTextDark: {
+    color: '#E2E8F0',
+  },
+  adminResponseItemMeta: {
+    fontSize: 12,
+    color: '#475569',
+  },
+  adminResponseItemMetaDark: {
+    color: '#94A3B8',
+  },
+  dialogParagraph: {
+    fontSize: 14,
+    color: '#111827',
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  dialogParagraphDark: {
+    color: '#dbeafe',
   },
   avatarContainer: {
     alignItems: 'center',
