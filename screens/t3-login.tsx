@@ -18,7 +18,7 @@ const REMEMBER_PASSWORD_KEY = 'achou_login_password';
 
 // Tela de login
 export default function Login() {
-  const { navigateTo, navigateBack, setIsLoggedIn, setUserProfile } = useAppContext();
+  const { navigateTo, navigateBack, setIsLoggedIn, setUserProfile, returnTo, setReturnTo } = useAppContext();
   const { colors, spacing, fontSize, borderRadius, isDark } = useTheme();
   const formTextColor = isDark ? '#FFFFFF' : colors.formLabel;
   const formLinkTextColor = isDark ? '#BFDBFE' : colors.formLink;
@@ -149,7 +149,10 @@ export default function Login() {
       setUserProfile(result.userData || null);
       setIsLoggedIn(true);
       Alert.alert('Sucesso', 'Login realizado com sucesso!');
-      navigateTo('T1');
+
+      const destination = returnTo && returnTo !== 'T3' ? returnTo : 'T1';
+      navigateTo(destination);
+      setReturnTo(null);
     } catch (error) {
       setLoading(false);
       console.error('Erro no login:', error);
@@ -310,9 +313,9 @@ export default function Login() {
               <View style={{ flex: 1, height: 1, backgroundColor: colors.formBorder }} />
             </View>
 
-            {/* troco o botao do google pelo de criar conta com o mesmo estilo e rota T2 */}
+            {/* Botão Google (desabilitado temporariamente) */}
             <Button
-              onPress={() => navigateTo('T2')}
+              onPress={() => setErrorMessage('Login com Google será implementado em breve')}
               disabled={loading}
               style={{
                 backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
@@ -327,9 +330,9 @@ export default function Login() {
                 gap: spacing.sm,
               }}
             >
-              <Text style={{ fontSize: 20 }}>📝</Text>
+              <Text style={{ fontSize: 20 }}>🔐</Text>
               <Text style={{ color: formTextColor, fontSize: fontSize.base, fontWeight: '600' }}>
-                Criar Conta Gratuitamente
+                Entrar com Google
               </Text>
             </Button>
 
