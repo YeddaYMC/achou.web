@@ -893,7 +893,7 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   sortValueTextDark: {
-    color: '#f8fafc',
+    color: '#082848',
   },
   selectTrigger: {
     marginTop: 8,
