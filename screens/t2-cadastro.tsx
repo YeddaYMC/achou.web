@@ -338,7 +338,7 @@ export default function T2Cadastro() {
               <Input
                 value={formData.phone}
                 onChangeText={(text) => setFormData({ ...formData, phone: text })}
-                placeholder="(11) 98765-4321"
+                placeholder="(..) informe seu telefone"
                 keyboardType="phone-pad"
                 editable={!loading}
                 style={fieldStyle}
@@ -377,7 +377,7 @@ export default function T2Cadastro() {
               <Input
                 value={formData.number}
                 onChangeText={(text) => setFormData({ ...formData, number: text })}
-                placeholder="123"
+                placeholder="Digite o seu número"
                 editable={!loading}
                 style={fieldStyle}
               />
@@ -399,7 +399,7 @@ export default function T2Cadastro() {
               <Input
                 value={formData.city}
                 onChangeText={(text) => setFormData({ ...formData, city: toUpperSafe(text) })}
-                placeholder="Curitiba"
+                placeholder="cidade"
                 editable={!loading}
                 style={fieldStyle}
               />
@@ -410,7 +410,7 @@ export default function T2Cadastro() {
               <Input
                 value={formData.state}
                 onChangeText={(text) => setFormData({ ...formData, state: toUpperSafe(text) })}
-                placeholder="PR"
+                placeholder="estado"
                 editable={!loading}
                 style={fieldStyle}
               />
