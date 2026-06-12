@@ -211,9 +211,26 @@ export default function Login() {
             },
           ]}
         >
-          <Text style={[styles.title, { color: colors.formTitle, fontSize: fontSize['2xl'], marginBottom: spacing.lg }]}>
+          <Text style={[styles.title, { color: colors.formTitle, fontSize: fontSize['2xl'], marginBottom: spacing.sm }]}>
             Entrar na Minha Conta
           </Text>
+
+          {/* Botão Criar Conta no Topo */}
+          <Button
+            onPress={() => navigateTo('T2')}
+            disabled={loading}
+            variant="outline"
+            style={{
+              height: 40,
+              borderColor: colors.formBorder,
+              borderRadius: borderRadius.md,
+              marginBottom: spacing.md,
+            }}
+          >
+            <Text style={{ color: formTextColor, fontSize: fontSize.sm, fontWeight: '600' }}>
+              Não tem conta? Criar conta agora
+            </Text>
+          </Button>
 
           {/* Mensagem de erro visível */}
           {errorMessage ? (
@@ -230,16 +247,6 @@ export default function Login() {
               <Text style={{ color: isDark ? '#fecaca' : '#DC2626', fontSize: fontSize.sm, textAlign: 'center' }}>
                 ⚠️ {errorMessage}
               </Text>
-              {errorMessage.includes('não encontrado') || errorMessage.includes('incorretos') ? (
-                <TouchableOpacity
-                  onPress={() => navigateTo('T2')}
-                  style={{ marginTop: spacing.sm, alignItems: 'center' }}
-                >
-                  <Text style={{ color: isDark ? '#fecaca' : '#DC2626', fontSize: fontSize.sm, fontWeight: '600', textDecorationLine: 'underline' }}>
-                    Criar conta agora →
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
             </View>
           ) : null}
 
@@ -278,10 +285,29 @@ export default function Login() {
               </View>
             </View>
 
-            {/* Lembrar de mim */}
-            <View style={styles.rememberRow}>
-              <Checkbox checked={rememberLogin} onCheckedChange={setRememberLogin} />
-              <Text style={{ color: formTextColor, fontSize: fontSize.sm }}>Lembrar de mim</Text>
+            {/* Linha: Lembrar de mim + Botão Esqueci minha senha */}
+            <View style={styles.optionsRow}>
+              <View style={styles.rememberRow}>
+                <Checkbox checked={rememberLogin} onCheckedChange={setRememberLogin} />
+                <Text style={{ color: formTextColor, fontSize: fontSize.sm }}>Lembrar de mim</Text>
+              </View>
+
+              {/* Botão real de esqueci a senha alinhado ao lado */}
+              <Button
+                onPress={openForgotPasswordDialog}
+                disabled={loading}
+                variant="outline"
+                style={{
+                  height: 36,
+                  paddingHorizontal: 12,
+                  borderColor: colors.formBorder,
+                  borderRadius: borderRadius.md,
+                }}
+              >
+                <Text style={{ color: formTextColor, fontSize: fontSize.xs, fontWeight: '600' }}>
+                  Esqueci a senha
+                </Text>
+              </Button>
             </View>
 
             {/* Botão ENTRAR Principal */}
@@ -304,41 +330,6 @@ export default function Login() {
                 <Text style={{ color: '#FFFFFF', fontSize: fontSize.base, fontWeight: '600' }}>ENTRAR</Text>
               )}
             </Button>
-
-            {/* Linha com os dois novos botões secundários */}
-            <View style={styles.footerButtonsRow}>
-              <Button
-                onPress={() => navigateTo('T2')}
-                disabled={loading}
-                variant="outline"
-                style={{
-                  flex: 1,
-                  height: 44,
-                  borderColor: colors.formBorder,
-                  borderRadius: borderRadius.md,
-                }}
-              >
-                <Text style={{ color: formTextColor, fontSize: fontSize.sm, fontWeight: '600' }}>
-                  Criar conta
-                </Text>
-              </Button>
-
-              <Button
-                onPress={openForgotPasswordDialog}
-                disabled={loading}
-                variant="outline"
-                style={{
-                  flex: 1,
-                  height: 44,
-                  borderColor: colors.formBorder,
-                  borderRadius: borderRadius.md,
-                }}
-              >
-                <Text style={{ color: formTextColor, fontSize: fontSize.sm, fontWeight: '600' }}>
-                  Esqueci a senha
-                </Text>
-              </Button>
-            </View>
           </View>
         </View>
       </View>
@@ -405,6 +396,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
+  optionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
   rememberRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -422,12 +419,5 @@ const styles = StyleSheet.create({
     height: 48,
     justifyContent: 'center',
     paddingHorizontal: 8,
-  },
-  footerButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 4,
   },
 });
