@@ -21,7 +21,6 @@ export default function Login() {
   const { navigateTo, navigateBack, setIsLoggedIn, setUserProfile, returnTo, setReturnTo } = useAppContext();
   const { colors, spacing, fontSize, borderRadius, isDark } = useTheme();
   const formTextColor = isDark ? '#FFFFFF' : colors.formLabel;
-  const formLinkTextColor = isDark ? '#BFDBFE' : colors.formLink;
   const fieldStyle = isDark
     ? { backgroundColor: '#374151', borderColor: '#60A5FA' }
     : { backgroundColor: colors.formInputBg, borderColor: colors.formBorder };
@@ -126,7 +125,6 @@ export default function Login() {
       console.log('Resultado do login:', result);
 
       if (!result.success) {
-        // Mostra erro visível na tela
         setErrorMessage(result.error || 'E-mail ou senha incorretos');
         return;
       }
@@ -273,19 +271,20 @@ export default function Login() {
                   style={{ ...styles.passwordInput, ...fieldStyle }}
                 />
                 <TouchableOpacity onPress={() => setShowPassword((prev) => !prev)} style={styles.passwordToggle} disabled={loading}>
-                  <Text style={{ color: formLinkTextColor, fontSize: fontSize.sm, fontWeight: '600' }}>
+                  <Text style={{ color: isDark ? '#BFDBFE' : colors.formLink, fontSize: fontSize.sm, fontWeight: '600' }}>
                     {showPassword ? 'Ocultar' : 'Ver senha'}
                   </Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* Botão login */}
+            {/* Lembrar de mim */}
             <View style={styles.rememberRow}>
               <Checkbox checked={rememberLogin} onCheckedChange={setRememberLogin} />
               <Text style={{ color: formTextColor, fontSize: fontSize.sm }}>Lembrar de mim</Text>
             </View>
 
+            {/* Botão ENTRAR Principal */}
             <Button
               onPress={handleSubmit}
               disabled={loading}
@@ -306,48 +305,39 @@ export default function Login() {
               )}
             </Button>
 
-            {/* Separador OU */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: colors.formBorder }} />
-              <Text style={{ color: formTextColor, fontSize: fontSize.sm }}>OU</Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: colors.formBorder }} />
-            </View>
-
-            {/* Botão Google (desabilitado temporariamente) */}
-            <Button
-              onPress={() => setErrorMessage('Login com Google será implementado em breve')}
-              disabled={loading}
-              style={{
-                backgroundColor: isDark ? '#1F2937' : '#FFFFFF',
-                borderWidth: 1,
-                borderColor: colors.formBorder,
-                height: 48,
-                borderRadius: borderRadius.md,
-                opacity: loading ? 0.6 : 1,
-                flexDirection: 'row',
-                justifyContent: 'center',
-                alignItems: 'center',
-                gap: spacing.sm,
-              }}
-            >
-              <Text style={{ fontSize: 20 }}>🔐</Text>
-              <Text style={{ color: formTextColor, fontSize: fontSize.base, fontWeight: '600' }}>
-                Entrar com Google
-              </Text>
-            </Button>
-
-            {/* Link cadastro */}
-            <View style={styles.footer}>
-              <TouchableOpacity onPress={openForgotPasswordDialog} disabled={loading}>
-                <Text style={{ color: formLinkTextColor, fontSize: fontSize.sm, textDecorationLine: 'underline' }}>
-                  Esqueci minha senha
+            {/* Linha com os dois novos botões secundários */}
+            <View style={styles.footerButtonsRow}>
+              <Button
+                onPress={() => navigateTo('T2')}
+                disabled={loading}
+                variant="outline"
+                style={{
+                  flex: 1,
+                  height: 44,
+                  borderColor: colors.formBorder,
+                  borderRadius: borderRadius.md,
+                }}
+              >
+                <Text style={{ color: formTextColor, fontSize: fontSize.sm, fontWeight: '600' }}>
+                  Criar conta
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigateTo('T2')} disabled={loading}>
-                <Text style={{ color: formLinkTextColor, fontSize: fontSize.sm, textDecorationLine: 'underline' }}>
-                  Não tenho conta. Criar agora
+              </Button>
+
+              <Button
+                onPress={openForgotPasswordDialog}
+                disabled={loading}
+                variant="outline"
+                style={{
+                  flex: 1,
+                  height: 44,
+                  borderColor: colors.formBorder,
+                  borderRadius: borderRadius.md,
+                }}
+              >
+                <Text style={{ color: formTextColor, fontSize: fontSize.sm, fontWeight: '600' }}>
+                  Esqueci a senha
                 </Text>
-              </TouchableOpacity>
+              </Button>
             </View>
           </View>
         </View>
@@ -397,28 +387,23 @@ export default function Login() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1, // Tela cheia
-    width: '100%', // Largura total
-    alignSelf: 'center', // Centraliza
+    flex: 1,
+    width: '100%',
+    alignSelf: 'center',
   },
   backButton: {
-    flexDirection: 'row', // Direção horizontal
-    alignItems: 'center', // Alinha centro
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   backButtonText: {
-    marginLeft: 4, // Espaço à esquerda
+    marginLeft: 4,
   },
   formCard: {
-    borderWidth: 2, // Borda
+    borderWidth: 2,
   },
   title: {
-    fontWeight: 'bold', // Negrito
-    textAlign: 'center', // Centralizado
-  },
-  footer: {
-    alignItems: 'center', // Centraliza
-    paddingTop: 12, // Espaço superior
-    gap: 10,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   rememberRow: {
     flexDirection: 'row',
@@ -437,5 +422,12 @@ const styles = StyleSheet.create({
     height: 48,
     justifyContent: 'center',
     paddingHorizontal: 8,
+  },
+  footerButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 4,
   },
 });
