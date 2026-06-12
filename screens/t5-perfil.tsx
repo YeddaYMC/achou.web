@@ -369,7 +369,7 @@ export default function T5Perfil() {
               Devolutivas dos administradores
             </Text>
             <Text style={[styles.adminResponseCalloutText, isDarkMode && styles.adminResponseCalloutTextDark]}>
-              Veja a análise das denúncias ou publicações em modal para liberar espaço na sua tela de perfil.
+              Acompanhe a análise das suas publicações ou denúncias.
             </Text>
             <View style={styles.adminResponseButtonsRow}>
               <TouchableOpacity
