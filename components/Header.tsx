@@ -514,7 +514,7 @@ export default function Header() {
               </Text>
               <View style={styles.verticalDivider} />
               <Text style={[styles.sloganText, isDarkMode && styles.sloganTextDark, { fontSize: nav.sloganText }]}>
-                O que você precisa, quando e onde você precisa.
+                O que você precisa, onde você precisa.
               </Text>
             </View>
           )}
