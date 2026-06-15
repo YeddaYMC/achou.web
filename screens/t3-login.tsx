@@ -215,7 +215,7 @@ export default function Login() {
             Entrar na Minha Conta
           </Text>
 
-          {/* Botão Criar Conta no Topo */}
+          {/* Botão Criar Conta  */}
           <Button
             onPress={() => navigateTo('T2')}
             disabled={loading}
@@ -228,7 +228,7 @@ export default function Login() {
             }}
           >
             <Text style={{ color: formTextColor, fontSize: fontSize.sm, fontWeight: '600' }}>
-              Não tem conta? Criar conta agora
+               Criar conta 😊
             </Text>
           </Button>
 
